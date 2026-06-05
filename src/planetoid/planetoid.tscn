@@ -1,0 +1,273 @@
+[gd_scene load_steps=64 format=3 uid="uid://bky7btjtomh0p"]
+
+[ext_resource type="Texture2D" uid="uid://pgl3kp526l1t" path="res://assets/orbitals/moon/1.png" id="1_ej235"]
+[ext_resource type="Script" path="res://src/planetoid/planetoid.gd" id="1_xt3ta"]
+[ext_resource type="Texture2D" uid="uid://jkol3sug0j31" path="res://assets/orbitals/moon/2.png" id="2_io41c"]
+[ext_resource type="Texture2D" uid="uid://db1awwydycdsj" path="res://assets/orbitals/moon/3.png" id="3_kslmt"]
+[ext_resource type="Texture2D" uid="uid://cnj0g8phamnbj" path="res://assets/orbitals/moon/4.png" id="4_87skq"]
+[ext_resource type="Texture2D" uid="uid://brcgniem0umo7" path="res://assets/orbitals/moon/5.png" id="5_eyoyo"]
+[ext_resource type="Texture2D" uid="uid://b55iby2h3simy" path="res://assets/orbitals/moon/6.png" id="6_habde"]
+[ext_resource type="Texture2D" uid="uid://dxjt4n24lwg0b" path="res://assets/orbitals/moon/7.png" id="7_ryfbc"]
+[ext_resource type="Texture2D" uid="uid://cdbw21qxjc67i" path="res://assets/orbitals/moon/8.png" id="8_eltsl"]
+[ext_resource type="Texture2D" uid="uid://dtvwkjlk8q1al" path="res://assets/orbitals/moon/9.png" id="9_ekfyk"]
+[ext_resource type="Texture2D" uid="uid://bkyisxylpwd3p" path="res://assets/orbitals/moon/10.png" id="10_5klgu"]
+[ext_resource type="Texture2D" uid="uid://bykeyxsng5lmw" path="res://assets/orbitals/moon/11.png" id="11_qtote"]
+[ext_resource type="Texture2D" uid="uid://clnjvg1q4cj7a" path="res://assets/orbitals/moon/12.png" id="12_yqteh"]
+[ext_resource type="Texture2D" uid="uid://bcimaqrulc7lt" path="res://assets/orbitals/moon/13.png" id="13_rf7ra"]
+[ext_resource type="Texture2D" uid="uid://dbwaowfbrrdy8" path="res://assets/orbitals/moon/14.png" id="14_5gffx"]
+[ext_resource type="Texture2D" uid="uid://ctyoy1fhy52tl" path="res://assets/orbitals/moon/15.png" id="15_baf3h"]
+[ext_resource type="Texture2D" uid="uid://cf0p3dafh0k25" path="res://assets/orbitals/moon/16.png" id="16_lbss8"]
+[ext_resource type="Texture2D" uid="uid://cibfxphvtv3mj" path="res://assets/orbitals/moon/17.png" id="17_initp"]
+[ext_resource type="Texture2D" uid="uid://c5mejp4vp8i5n" path="res://assets/orbitals/moon/18.png" id="18_crpb2"]
+[ext_resource type="Texture2D" uid="uid://voa87j0462ob" path="res://assets/orbitals/moon/19.png" id="19_6nj1y"]
+[ext_resource type="Texture2D" uid="uid://c5y5nbsx7k0rl" path="res://assets/orbitals/moon/20.png" id="20_rtup4"]
+[ext_resource type="Texture2D" uid="uid://cky4vwglwemkn" path="res://assets/orbitals/moon/21.png" id="21_a3kpy"]
+[ext_resource type="Texture2D" uid="uid://bsufxtnmwlx65" path="res://assets/orbitals/moon/22.png" id="22_rtoyd"]
+[ext_resource type="Texture2D" uid="uid://cqt0ha5cwok2m" path="res://assets/orbitals/moon/23.png" id="23_tkhsm"]
+[ext_resource type="Texture2D" uid="uid://c8kh3ugcqgvng" path="res://assets/orbitals/moon/24.png" id="24_fmsye"]
+[ext_resource type="Texture2D" uid="uid://vtnpy6skm8gr" path="res://assets/orbitals/moon/25.png" id="25_uengf"]
+[ext_resource type="Texture2D" uid="uid://0cofcgptmggj" path="res://assets/orbitals/moon/26.png" id="26_iml4f"]
+[ext_resource type="Texture2D" uid="uid://ucl42a8pr3dl" path="res://assets/orbitals/moon/27.png" id="27_jmbfc"]
+[ext_resource type="Texture2D" uid="uid://c7o6tfyaoo86y" path="res://assets/orbitals/moon/28.png" id="28_mke17"]
+[ext_resource type="Texture2D" uid="uid://ytruogvky1s3" path="res://assets/orbitals/moon/29.png" id="29_45hgu"]
+[ext_resource type="Texture2D" uid="uid://b2gve4qenpyct" path="res://assets/orbitals/moon/30.png" id="30_eltd5"]
+[ext_resource type="Texture2D" uid="uid://baq2eim6mbkps" path="res://assets/orbitals/moon/31.png" id="31_n1stp"]
+[ext_resource type="Texture2D" uid="uid://botkp747nevqx" path="res://assets/orbitals/moon/32.png" id="32_ibyac"]
+[ext_resource type="Texture2D" uid="uid://deyii1q11mipq" path="res://assets/orbitals/moon/33.png" id="33_jrsfk"]
+[ext_resource type="Texture2D" uid="uid://bewsyshp86465" path="res://assets/orbitals/moon/34.png" id="34_skaur"]
+[ext_resource type="Texture2D" uid="uid://bbai22x20h7lh" path="res://assets/orbitals/moon/35.png" id="35_4tmw1"]
+[ext_resource type="Texture2D" uid="uid://crnuk5jb6vj7i" path="res://assets/orbitals/moon/36.png" id="36_mdfdp"]
+[ext_resource type="Texture2D" uid="uid://5gfbkcnirq6h" path="res://assets/orbitals/moon/37.png" id="37_xk5ru"]
+[ext_resource type="Texture2D" uid="uid://d1vf1n18becwr" path="res://assets/orbitals/moon/38.png" id="38_yn8q5"]
+[ext_resource type="Texture2D" uid="uid://c2x3cl4bbu5tl" path="res://assets/orbitals/moon/39.png" id="39_y77n5"]
+[ext_resource type="Texture2D" uid="uid://dw7c1j4msektg" path="res://assets/orbitals/moon/40.png" id="40_pq2rw"]
+[ext_resource type="Texture2D" uid="uid://doyhcy26inwu6" path="res://assets/orbitals/moon/41.png" id="41_cbq0o"]
+[ext_resource type="Texture2D" uid="uid://cp7he4e2tem1v" path="res://assets/orbitals/moon/42.png" id="42_78de0"]
+[ext_resource type="Texture2D" uid="uid://ckfh2nsff641i" path="res://assets/orbitals/moon/43.png" id="43_q68qo"]
+[ext_resource type="Texture2D" uid="uid://51yp7iux1a7x" path="res://assets/orbitals/moon/44.png" id="44_bbmvo"]
+[ext_resource type="Texture2D" uid="uid://bun1e6cspc5e4" path="res://assets/orbitals/moon/45.png" id="45_cqmo5"]
+[ext_resource type="Texture2D" uid="uid://b8uny2lu6501g" path="res://assets/orbitals/moon/46.png" id="46_ydxs5"]
+[ext_resource type="Texture2D" uid="uid://bmudrin7xv386" path="res://assets/orbitals/moon/47.png" id="47_6c3pd"]
+[ext_resource type="Texture2D" uid="uid://koxfottpb8ue" path="res://assets/orbitals/moon/48.png" id="48_37d78"]
+[ext_resource type="Texture2D" uid="uid://dcsch8d34ja4e" path="res://assets/orbitals/moon/49.png" id="49_5aruu"]
+[ext_resource type="Texture2D" uid="uid://dgca4pn2m24pb" path="res://assets/orbitals/moon/50.png" id="50_o3gmx"]
+[ext_resource type="Texture2D" uid="uid://bvjnnq1xwgfwh" path="res://assets/orbitals/moon/51.png" id="51_ecs2w"]
+[ext_resource type="Texture2D" uid="uid://3cwgr5b2tk5" path="res://assets/orbitals/moon/52.png" id="52_r8fxb"]
+[ext_resource type="Texture2D" uid="uid://cywfmjil34r6j" path="res://assets/orbitals/moon/53.png" id="53_pmq4q"]
+[ext_resource type="Texture2D" uid="uid://cmrp1v05t8o0b" path="res://assets/orbitals/moon/54.png" id="54_y02bo"]
+[ext_resource type="Texture2D" uid="uid://d1ndm8niwklll" path="res://assets/orbitals/moon/55.png" id="55_khp6q"]
+[ext_resource type="Texture2D" uid="uid://bfntq0g1uy1u0" path="res://assets/orbitals/moon/56.png" id="56_qcods"]
+[ext_resource type="Texture2D" uid="uid://tpwx1p2mocsv" path="res://assets/orbitals/moon/57.png" id="57_v1550"]
+[ext_resource type="Texture2D" uid="uid://dw641s8tyr6py" path="res://assets/orbitals/moon/58.png" id="58_5n2t6"]
+[ext_resource type="Texture2D" uid="uid://wv6ulcfivl4y" path="res://assets/orbitals/moon/59.png" id="59_puw0q"]
+[ext_resource type="Texture2D" uid="uid://becqqt81fuvgs" path="res://assets/orbitals/moon/60.png" id="60_48xqr"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_1h6fk"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_ej235")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_io41c")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_kslmt")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_87skq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_eyoyo")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_habde")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_ryfbc")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_eltsl")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_ekfyk")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_5klgu")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_qtote")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_yqteh")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_rf7ra")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_5gffx")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_baf3h")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_lbss8")
+}, {
+"duration": 1.0,
+"texture": ExtResource("17_initp")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18_crpb2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("19_6nj1y")
+}, {
+"duration": 1.0,
+"texture": ExtResource("20_rtup4")
+}, {
+"duration": 1.0,
+"texture": ExtResource("21_a3kpy")
+}, {
+"duration": 1.0,
+"texture": ExtResource("22_rtoyd")
+}, {
+"duration": 1.0,
+"texture": ExtResource("23_tkhsm")
+}, {
+"duration": 1.0,
+"texture": ExtResource("24_fmsye")
+}, {
+"duration": 1.0,
+"texture": ExtResource("25_uengf")
+}, {
+"duration": 1.0,
+"texture": ExtResource("26_iml4f")
+}, {
+"duration": 1.0,
+"texture": ExtResource("27_jmbfc")
+}, {
+"duration": 1.0,
+"texture": ExtResource("28_mke17")
+}, {
+"duration": 1.0,
+"texture": ExtResource("29_45hgu")
+}, {
+"duration": 1.0,
+"texture": ExtResource("30_eltd5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("31_n1stp")
+}, {
+"duration": 1.0,
+"texture": ExtResource("32_ibyac")
+}, {
+"duration": 1.0,
+"texture": ExtResource("33_jrsfk")
+}, {
+"duration": 1.0,
+"texture": ExtResource("34_skaur")
+}, {
+"duration": 1.0,
+"texture": ExtResource("35_4tmw1")
+}, {
+"duration": 1.0,
+"texture": ExtResource("36_mdfdp")
+}, {
+"duration": 1.0,
+"texture": ExtResource("37_xk5ru")
+}, {
+"duration": 1.0,
+"texture": ExtResource("38_yn8q5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("39_y77n5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("40_pq2rw")
+}, {
+"duration": 1.0,
+"texture": ExtResource("41_cbq0o")
+}, {
+"duration": 1.0,
+"texture": ExtResource("42_78de0")
+}, {
+"duration": 1.0,
+"texture": ExtResource("43_q68qo")
+}, {
+"duration": 1.0,
+"texture": ExtResource("44_bbmvo")
+}, {
+"duration": 1.0,
+"texture": ExtResource("45_cqmo5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("46_ydxs5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("47_6c3pd")
+}, {
+"duration": 1.0,
+"texture": ExtResource("48_37d78")
+}, {
+"duration": 1.0,
+"texture": ExtResource("49_5aruu")
+}, {
+"duration": 1.0,
+"texture": ExtResource("50_o3gmx")
+}, {
+"duration": 1.0,
+"texture": ExtResource("51_ecs2w")
+}, {
+"duration": 1.0,
+"texture": ExtResource("52_r8fxb")
+}, {
+"duration": 1.0,
+"texture": ExtResource("53_pmq4q")
+}, {
+"duration": 1.0,
+"texture": ExtResource("54_y02bo")
+}, {
+"duration": 1.0,
+"texture": ExtResource("55_khp6q")
+}, {
+"duration": 1.0,
+"texture": ExtResource("56_qcods")
+}, {
+"duration": 1.0,
+"texture": ExtResource("57_v1550")
+}, {
+"duration": 1.0,
+"texture": ExtResource("58_5n2t6")
+}, {
+"duration": 1.0,
+"texture": ExtResource("59_puw0q")
+}, {
+"duration": 1.0,
+"texture": ExtResource("60_48xqr")
+}],
+"loop": true,
+"name": &"default",
+"speed": 12.0
+}]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_4l1sj"]
+radius = 120.004166
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_txxyr"]
+friction = 0.06
+bounce = 0.9
+
+[node name="Planetoid" type="RigidBody2D" unique_id=957792792 groups=["desktop_moons"]]
+mass = 1.15
+physics_material_override = SubResource("PhysicsMaterial_txxyr")
+gravity_scale = 0.0
+linear_damp = 0.34
+angular_damp = 0.82
+script = ExtResource("1_xt3ta")
+
+[node name="MoonSprite" type="Sprite2D" parent="." unique_id=696764942]
+scale = Vector2(5, 5)
+texture = ExtResource("1_ej235")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=839428687]
+shape = SubResource("CircleShape2D_4l1sj")

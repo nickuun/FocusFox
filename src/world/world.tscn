@@ -1,0 +1,90 @@
+[gd_scene load_steps=2 format=3 uid="uid://m3p4ccdoqm0x"]
+
+[ext_resource type="Script" path="res://src/world/world.gd" id="1_78suh"]
+
+[node name="World" type="Node2D" unique_id=43647833]
+script = ExtResource("1_78suh")
+
+[node name="MenuLayer" type="CanvasLayer" parent="." unique_id=161516459]
+
+[node name="MainMenu" type="Control" parent="MenuLayer" unique_id=304852977]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="ColorRect" parent="MenuLayer/MainMenu" unique_id=210409991]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.015686275, 0.01764706, 0.03137255, 1)
+
+[node name="Panel" type="Panel" parent="MenuLayer/MainMenu" unique_id=142160574]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -170.0
+offset_top = -100.0
+offset_right = 170.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="MenuLayer/MainMenu/Panel" unique_id=380322016]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 22.0
+offset_right = 316.0
+offset_bottom = 54.0
+theme_override_colors/font_color = Color(0.87, 0.91, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "Desktop Moons"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="MenuLayer/MainMenu/Panel" unique_id=490849324]
+layout_mode = 0
+offset_left = 30.0
+offset_top = 58.0
+offset_right = 310.0
+offset_bottom = 84.0
+theme_override_colors/font_color = Color(0.56, 0.62, 0.78, 1)
+theme_override_font_sizes/font_size = 13
+text = "A tiny moon for your desktop."
+horizontal_alignment = 1
+
+[node name="Actions" type="VBoxContainer" parent="MenuLayer/MainMenu/Panel" unique_id=116036819]
+layout_mode = 0
+offset_left = 88.0
+offset_top = 102.0
+offset_right = 252.0
+offset_bottom = 168.0
+theme_override_constants/separation = 10
+
+[node name="SpawnMoonButton" type="Button" parent="MenuLayer/MainMenu/Panel/Actions" unique_id=777334415]
+layout_mode = 2
+focus_mode = 0
+text = "Spawn Moon"
+
+[node name="QuitButton" type="Button" parent="MenuLayer/MainMenu/Panel/Actions" unique_id=218259575]
+layout_mode = 2
+focus_mode = 0
+text = "Quit"
+
+[node name="StatusLabel" type="Label" parent="MenuLayer/MainMenu/Panel" unique_id=837845224]
+layout_mode = 0
+offset_left = 30.0
+offset_top = 174.0
+offset_right = 310.0
+offset_bottom = 194.0
+theme_override_colors/font_color = Color(0.42, 0.46, 0.6, 1)
+theme_override_font_sizes/font_size = 11
+text = "No moon spawned"
+horizontal_alignment = 1
