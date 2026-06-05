@@ -1,7 +1,8 @@
-[gd_scene load_steps=64 format=3 uid="uid://bky7btjtomh0p"]
+[gd_scene load_steps=65 format=3 uid="uid://bky7btjtomh0p"]
 
 [ext_resource type="Texture2D" uid="uid://pgl3kp526l1t" path="res://assets/orbitals/moon/1.png" id="1_ej235"]
 [ext_resource type="Script" path="res://src/planetoid/planetoid.gd" id="1_xt3ta"]
+[ext_resource type="Texture2D" uid="uid://jsb7pnpsohky" path="res://assets/faces/mockup/1.png" id="2_7nm12"]
 [ext_resource type="Texture2D" uid="uid://jkol3sug0j31" path="res://assets/orbitals/moon/2.png" id="2_io41c"]
 [ext_resource type="Texture2D" uid="uid://db1awwydycdsj" path="res://assets/orbitals/moon/3.png" id="3_kslmt"]
 [ext_resource type="Texture2D" uid="uid://cnj0g8phamnbj" path="res://assets/orbitals/moon/4.png" id="4_87skq"]
@@ -269,6 +270,11 @@ script = ExtResource("1_xt3ta")
 scale = Vector2(5, 5)
 sprite_frames = SubResource("SpriteFrames_1h6fk")
 autoplay = "default"
+
+[node name="FaceSprite" type="Sprite2D" parent="." unique_id=223992832]
+z_index = 1
+scale = Vector2(5, 5)
+texture = ExtResource("2_7nm12")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=839428687]
 shape = SubResource("CircleShape2D_4l1sj")

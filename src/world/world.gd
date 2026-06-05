@@ -59,6 +59,7 @@ func _physics_process(delta: float) -> void:
 		_update_hover(mouse_screen_position)
 
 	_apply_screen_bounds()
+	_update_moon_face(mouse_screen_position)
 	_sync_overlay_window()
 
 
@@ -171,9 +172,14 @@ func _apply_drift(delta: float) -> void:
 
 func _apply_screen_bounds() -> void:
 	var screen_rect := _get_target_screen_rect()
+	var window_half_size := Vector2(moon_window_size) * 0.5
 	var radius := _get_moon_radius() + moon_edge_padding
-	var min_position := Vector2(screen_rect.position) + Vector2(radius, radius)
-	var max_position := Vector2(screen_rect.end) - Vector2(radius, radius)
+	var bounds_padding := Vector2(
+		maxf(window_half_size.x, radius),
+		maxf(window_half_size.y, radius)
+	)
+	var min_position := Vector2(screen_rect.position) + bounds_padding
+	var max_position := Vector2(screen_rect.end) - bounds_padding
 
 	if _moon_screen_position.x < min_position.x:
 		_moon_screen_position.x = min_position.x
@@ -212,6 +218,11 @@ func _local_position_hits_moon(local_position: Vector2) -> bool:
 func _set_moon_highlight(highlighted: bool) -> void:
 	if is_instance_valid(_moon) and _moon.has_method("set_highlight"):
 		_moon.call("set_highlight", highlighted, hover_modulate)
+
+
+func _update_moon_face(mouse_screen_position: Vector2) -> void:
+	if is_instance_valid(_moon) and _moon.has_method("look_at_screen_position"):
+		_moon.call("look_at_screen_position", mouse_screen_position, _moon_screen_position)
 
 
 func _get_moon_radius() -> float:
