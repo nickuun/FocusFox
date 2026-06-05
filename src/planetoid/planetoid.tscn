@@ -265,9 +265,10 @@ linear_damp = 0.34
 angular_damp = 0.82
 script = ExtResource("1_xt3ta")
 
-[node name="MoonSprite" type="Sprite2D" parent="." unique_id=696764942]
+[node name="MoonSprite" type="AnimatedSprite2D" parent="." unique_id=696764942]
 scale = Vector2(5, 5)
-texture = ExtResource("1_ej235")
+sprite_frames = SubResource("SpriteFrames_1h6fk")
+autoplay = "default"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=839428687]
 shape = SubResource("CircleShape2D_4l1sj")

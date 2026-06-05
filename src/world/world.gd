@@ -153,6 +153,8 @@ func _start_drag(mouse_screen_position: Vector2) -> void:
 	_drag_screen_offset = _moon_screen_position - mouse_screen_position
 	_moon_velocity = Vector2.ZERO
 	_set_moon_highlight(true)
+	if is_instance_valid(_moon) and _moon.has_method("pulse_click"):
+		_moon.call("pulse_click")
 
 
 func _release_drag() -> void:
