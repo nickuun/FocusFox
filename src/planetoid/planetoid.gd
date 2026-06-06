@@ -1,5 +1,37 @@
 extends RigidBody2D
 
+const FACE_DEFAULT: Texture2D = preload("res://assets/faces/mockup/1.png")
+const FACE_CONTENT: Texture2D = preload("res://assets/faces/mockup/content.png")
+const FACE_EXCITED: Texture2D = preload("res://assets/faces/mockup/excited.png")
+const FACE_SURPRISED: Texture2D = preload("res://assets/faces/mockup/surprised.png")
+const FACE_WINK: Texture2D = preload("res://assets/faces/mockup/wink.png")
+const SMALL_METEOR: Texture2D = preload("res://assets/meteor/small_meteor.png")
+const MEDIUM_METEOR: Texture2D = preload("res://assets/meteor/medium_meteor.png")
+
+const BODY_FRAME_DIRS := {
+	"moon": "res://assets/orbitals/moon",
+	"earth": "res://assets/orbitals/earth",
+}
+const ORBIT_PRESETS := {
+	"none": [],
+	"pebbles": [
+		{"texture": SMALL_METEOR, "radius": Vector2(148.0, 44.0), "speed": 0.82, "scale": 1.8, "phase": 0.3},
+		{"texture": SMALL_METEOR, "radius": Vector2(184.0, 58.0), "speed": -0.54, "scale": 1.45, "phase": 2.9},
+	],
+	"meteors": [
+		{"texture": MEDIUM_METEOR, "radius": Vector2(128.0, 34.0), "speed": 0.58, "scale": 1.8, "phase": 0.7},
+		{"texture": SMALL_METEOR, "radius": Vector2(168.0, 48.0), "speed": -0.42, "scale": 1.45, "phase": 3.8},
+	],
+	"halo": [
+		{"texture": SMALL_METEOR, "radius": Vector2(142.0, 42.0), "speed": 0.96, "scale": 1.35, "phase": 0.0},
+		{"texture": SMALL_METEOR, "radius": Vector2(158.0, 48.0), "speed": 0.82, "scale": 1.15, "phase": 1.0},
+		{"texture": MEDIUM_METEOR, "radius": Vector2(176.0, 54.0), "speed": 0.68, "scale": 1.35, "phase": 2.1},
+		{"texture": SMALL_METEOR, "radius": Vector2(192.0, 62.0), "speed": -0.46, "scale": 1.05, "phase": 3.1},
+		{"texture": SMALL_METEOR, "radius": Vector2(210.0, 68.0), "speed": -0.38, "scale": 0.95, "phase": 4.2},
+		{"texture": MEDIUM_METEOR, "radius": Vector2(226.0, 72.0), "speed": 0.32, "scale": 1.05, "phase": 5.2},
+	],
+}
+
 @export_group("Feel")
 @export var weight := 1.15
 
@@ -20,9 +52,17 @@ extends RigidBody2D
 @export var face_follow_smoothing := 14.0
 @export var eye_follow_enabled := true
 
+@export_group("Face Reactions")
+@export var idle_face_min_seconds := 4.0
+@export var idle_face_max_seconds := 8.0
+@export var bump_surprise_seconds := 0.42
+@export var click_surprise_seconds := 0.14
+@export var click_followup_seconds := 0.55
+
 @onready var _visual: Node2D = $MoonSprite
 @onready var _face: Sprite2D = $FaceSprite
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
+@onready var _orbitals_root: Node2D = $Orbitals
 
 var _base_visual_position := Vector2.ZERO
 var _base_visual_scale := Vector2.ONE
@@ -33,6 +73,13 @@ var _bob_offset := Vector2.ZERO
 var _bob_time := 0.0
 var _base_modulate := Color.WHITE
 var _pulse_tween: Tween
+var _face_tween: Tween
+var _idle_face_seconds := 0.0
+var _idle_face_target := 5.0
+var _idle_face_uses_content := false
+var _body_theme := "moon"
+var _orbit_preset := "none"
+var _orbiters: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -52,10 +99,15 @@ func _ready() -> void:
 	can_sleep = false
 	if _visual is AnimatedSprite2D:
 		(_visual as AnimatedSprite2D).play("default")
+	if _face != null:
+		_face.texture = FACE_DEFAULT
+	_queue_next_idle_face()
 
 
 func _physics_process(delta: float) -> void:
 	_update_bob(delta)
+	_update_idle_face(delta)
+	_update_orbiters(delta)
 
 
 func set_highlight(highlighted: bool, highlight_modulate: Color) -> void:
@@ -75,6 +127,30 @@ func pulse_click() -> void:
 	_pulse_tween.tween_property(_visual, "scale", _base_visual_scale * pulse_squash, pulse_seconds * 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_pulse_tween.tween_property(_visual, "scale", _base_visual_scale * pulse_pop, pulse_seconds * 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_pulse_tween.tween_property(_visual, "scale", _base_visual_scale, pulse_seconds * 0.46).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func react_clicked() -> void:
+	if _face == null:
+		return
+	_start_face_reaction()
+	_set_face_texture(FACE_SURPRISED)
+	_face_tween = create_tween()
+	_face_tween.tween_interval(click_surprise_seconds)
+	_face_tween.tween_callback(func() -> void:
+		_set_face_texture(FACE_WINK if randf() < 0.5 else FACE_EXCITED)
+	)
+	_face_tween.tween_interval(click_followup_seconds)
+	_face_tween.tween_callback(_return_to_idle_face)
+
+
+func react_bumped() -> void:
+	if _face == null:
+		return
+	_start_face_reaction()
+	_set_face_texture(FACE_SURPRISED)
+	_face_tween = create_tween()
+	_face_tween.tween_interval(bump_surprise_seconds)
+	_face_tween.tween_callback(_return_to_idle_face)
 
 
 func look_at_screen_position(mouse_screen_position: Vector2, moon_screen_position: Vector2) -> void:
@@ -103,6 +179,45 @@ func set_eye_follow_enabled(enabled: bool) -> void:
 	eye_follow_enabled = enabled
 	if not eye_follow_enabled:
 		_face_target_offset = Vector2.ZERO
+
+
+func set_body_theme(theme: String) -> void:
+	if not BODY_FRAME_DIRS.has(theme) or not (_visual is AnimatedSprite2D):
+		return
+	_body_theme = theme
+	var frames := _build_sprite_frames(str(BODY_FRAME_DIRS[theme]))
+	if frames == null:
+		return
+	var sprite := _visual as AnimatedSprite2D
+	sprite.sprite_frames = frames
+	sprite.play("default")
+
+
+func set_orbit_preset(preset: String) -> void:
+	if not ORBIT_PRESETS.has(preset) or _orbitals_root == null:
+		return
+	_orbit_preset = preset
+	for child in _orbitals_root.get_children():
+		child.queue_free()
+	_orbiters.clear()
+
+	var preset_data: Array = ORBIT_PRESETS[preset]
+	for data: Dictionary in preset_data:
+		var sprite := Sprite2D.new()
+		sprite.texture = data["texture"]
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sprite.centered = true
+		sprite.scale = Vector2.ONE * float(data["scale"])
+		sprite.z_index = -1
+		_orbitals_root.add_child(sprite)
+		_orbiters.append({
+			"sprite": sprite,
+			"radius": data["radius"],
+			"speed": float(data["speed"]),
+			"phase": float(data["phase"]),
+			"time": randf() * TAU,
+		})
+	_update_orbiters(0.0)
 
 
 func get_pick_radius() -> float:
@@ -138,3 +253,88 @@ func _update_bob(delta: float) -> void:
 	_face_look_offset = _face_look_offset.lerp(_face_target_offset, smoothing)
 	_visual.position = _base_visual_position + _bob_offset
 	_face.position = _base_face_position + _bob_offset + _face_look_offset
+	if _orbitals_root != null:
+		_orbitals_root.position = _bob_offset
+
+
+func _update_orbiters(delta: float) -> void:
+	for orbiter in _orbiters:
+		var sprite := orbiter["sprite"] as Sprite2D
+		if sprite == null:
+			continue
+		orbiter["time"] = float(orbiter["time"]) + delta
+		var angle := float(orbiter["phase"]) + float(orbiter["time"]) * TAU * float(orbiter["speed"]) * 0.14
+		var radius: Vector2 = orbiter["radius"]
+		var y := sin(angle) * radius.y
+		sprite.position = Vector2(cos(angle) * radius.x, y)
+		sprite.z_index = -1 if y < -radius.y * 0.18 else 2
+		sprite.modulate.a = 0.72 + maxf(0.0, y / maxf(1.0, radius.y)) * 0.28
+
+
+func _update_idle_face(delta: float) -> void:
+	if _face == null or (_face_tween != null and _face_tween.is_valid()):
+		return
+	_idle_face_seconds += delta
+	if _idle_face_seconds < _idle_face_target:
+		return
+	_idle_face_uses_content = not _idle_face_uses_content
+	_set_face_texture(FACE_CONTENT if _idle_face_uses_content else FACE_DEFAULT)
+	_queue_next_idle_face()
+
+
+func _start_face_reaction() -> void:
+	if _face_tween != null and _face_tween.is_valid():
+		_face_tween.kill()
+	_face_tween = null
+	_idle_face_seconds = 0.0
+
+
+func _return_to_idle_face() -> void:
+	_face_tween = null
+	_idle_face_uses_content = randf() < 0.5
+	_set_face_texture(FACE_CONTENT if _idle_face_uses_content else FACE_DEFAULT)
+	_queue_next_idle_face()
+
+
+func _queue_next_idle_face() -> void:
+	_idle_face_seconds = 0.0
+	_idle_face_target = randf_range(idle_face_min_seconds, idle_face_max_seconds)
+
+
+func _set_face_texture(texture: Texture2D) -> void:
+	if _face != null and texture != null:
+		_face.texture = texture
+
+
+func _build_sprite_frames(directory: String) -> SpriteFrames:
+	var files := DirAccess.get_files_at(directory)
+	var image_files: Array[String] = []
+	for file in files:
+		if file.get_extension().to_lower() == "png":
+			image_files.append(file)
+	image_files.sort_custom(func(a: String, b: String) -> bool:
+		return _file_number(a) < _file_number(b)
+	)
+	if image_files.is_empty():
+		return null
+
+	var frames := SpriteFrames.new()
+	if not frames.has_animation("default"):
+		frames.add_animation("default")
+	frames.clear("default")
+	frames.set_animation_loop("default", true)
+	frames.set_animation_speed("default", 8.0 if _body_theme == "moon" else 12.0)
+	for file in image_files:
+		var texture := load(directory.path_join(file)) as Texture2D
+		if texture != null:
+			frames.add_frame("default", texture)
+	return frames
+
+
+func _file_number(file_name: String) -> int:
+	var digits := ""
+	for index in range(file_name.length()):
+		var character := file_name.substr(index, 1)
+		if character >= "0" and character <= "9":
+			digits += character
+	return int(digits) if not digits.is_empty() else 0

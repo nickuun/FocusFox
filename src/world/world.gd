@@ -25,6 +25,7 @@ const SHOOTING_STAR: Texture2D = preload("res://assets/main_menu/stars/shooting/
 @onready var _clouds_root: Node2D = $MenuLayer/MainMenu/Clouds
 @onready var _stars_root: Node2D = $MenuLayer/MainMenu/Stars
 @onready var _start_button: TextureButton = $MenuLayer/MainMenu/Buttons/StartButton
+@onready var _customize_button: TextureButton = $MenuLayer/MainMenu/Buttons/CustomizeButton
 @onready var _settings_button: TextureButton = $MenuLayer/MainMenu/Buttons/SettingsButton
 @onready var _about_button: TextureButton = $MenuLayer/MainMenu/Buttons/AboutButton
 @onready var _quit_button: TextureButton = $MenuLayer/MainMenu/Buttons/QuitButton
@@ -39,6 +40,14 @@ const SHOOTING_STAR: Texture2D = preload("res://assets/main_menu/stars/shooting/
 @onready var _volume_slider: HSlider = $MenuLayer/MainMenu/SettingsPanel/VolumeSlider
 @onready var _mute_toggle: CheckButton = $MenuLayer/MainMenu/SettingsPanel/MuteToggle
 @onready var _reset_position_button: Button = $MenuLayer/MainMenu/SettingsPanel/ResetPositionButton
+@onready var _customize_panel: Panel = $MenuLayer/MainMenu/CustomizePanel
+@onready var _customize_close_button: Button = $MenuLayer/MainMenu/CustomizePanel/CloseButton
+@onready var _moon_body_button: Button = $MenuLayer/MainMenu/CustomizePanel/MoonBodyButton
+@onready var _earth_body_button: Button = $MenuLayer/MainMenu/CustomizePanel/EarthBodyButton
+@onready var _no_orbits_button: Button = $MenuLayer/MainMenu/CustomizePanel/NoOrbitsButton
+@onready var _pebbles_orbit_button: Button = $MenuLayer/MainMenu/CustomizePanel/PebblesOrbitButton
+@onready var _meteors_orbit_button: Button = $MenuLayer/MainMenu/CustomizePanel/MeteorsOrbitButton
+@onready var _halo_orbit_button: Button = $MenuLayer/MainMenu/CustomizePanel/HaloOrbitButton
 
 var _overlay_window: Window
 var _overlay_root: Node2D
@@ -60,6 +69,8 @@ var _eye_follow_enabled := true
 var _hover_fade_enabled := false
 var _muted := false
 var _volume := 0.8
+var _body_theme := "moon"
+var _orbit_preset := "none"
 
 
 func _ready() -> void:
@@ -126,10 +137,18 @@ func _setup_launcher_window() -> void:
 
 func _setup_menu_nodes() -> void:
 	_start_button.pressed.connect(_on_start_pressed)
+	_customize_button.pressed.connect(_on_customize_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
 	_about_button.pressed.connect(_on_about_pressed)
 	_quit_button.pressed.connect(get_tree().quit)
 	_settings_close_button.pressed.connect(_hide_settings_panel)
+	_customize_close_button.pressed.connect(_hide_customize_panel)
+	_moon_body_button.pressed.connect(_set_body_theme.bind("moon"))
+	_earth_body_button.pressed.connect(_set_body_theme.bind("earth"))
+	_no_orbits_button.pressed.connect(_set_orbit_preset.bind("none"))
+	_pebbles_orbit_button.pressed.connect(_set_orbit_preset.bind("pebbles"))
+	_meteors_orbit_button.pressed.connect(_set_orbit_preset.bind("meteors"))
+	_halo_orbit_button.pressed.connect(_set_orbit_preset.bind("halo"))
 	_click_through_toggle.toggled.connect(_on_click_through_toggled)
 	_eye_follow_toggle.toggled.connect(_on_eye_follow_toggled)
 	_hover_fade_toggle.toggled.connect(_on_hover_fade_toggled)
@@ -143,6 +162,7 @@ func _setup_menu_nodes() -> void:
 	if _menu_moon.has_method("set_highlight"):
 		_menu_moon.call("set_highlight", false, hover_modulate)
 	_apply_moon_settings(_menu_moon)
+	_apply_moon_cosmetics(_menu_moon)
 
 	for child in _clouds_root.get_children():
 		var cloud := child as Sprite2D
@@ -257,8 +277,15 @@ func _on_start_pressed() -> void:
 
 
 func _on_settings_pressed() -> void:
+	_customize_panel.visible = false
 	_settings_panel.visible = true
 	_status_label.text = "Tune your moon."
+
+
+func _on_customize_pressed() -> void:
+	_settings_panel.visible = false
+	_customize_panel.visible = true
+	_status_label.text = "Moon wardrobe soon."
 
 
 func _on_about_pressed() -> void:
@@ -270,8 +297,15 @@ func _hide_settings_panel() -> void:
 	_status_label.text = "Click the moon to boop it!"
 
 
+func _hide_customize_panel() -> void:
+	_customize_panel.visible = false
+	_status_label.text = "Click the moon to boop it!"
+
+
 func _on_click_through_toggled(enabled: bool) -> void:
 	_click_through_enabled = enabled
+	if enabled and _dragging:
+		_release_drag()
 	_apply_click_through_mode()
 	_status_label.text = "Click-through on" if enabled else "Click-through off"
 
@@ -286,7 +320,7 @@ func _on_eye_follow_toggled(enabled: bool) -> void:
 func _on_hover_fade_toggled(enabled: bool) -> void:
 	_hover_fade_enabled = enabled
 	_apply_moon_visual_state()
-	_status_label.text = "Hover fade on" if enabled else "Hover fade off"
+	_status_label.text = "Opacity applies on hover" if enabled else "Opacity always applies"
 
 
 func _on_scale_changed(value: float) -> void:
@@ -330,10 +364,19 @@ func _apply_moon_settings(moon: RigidBody2D) -> void:
 	_apply_moon_visual_state()
 
 
+func _apply_moon_cosmetics(moon: RigidBody2D) -> void:
+	if not is_instance_valid(moon):
+		return
+	if moon.has_method("set_body_theme"):
+		moon.call("set_body_theme", _body_theme)
+	if moon.has_method("set_orbit_preset"):
+		moon.call("set_orbit_preset", _orbit_preset)
+
+
 func _apply_moon_visual_state() -> void:
 	var target_alpha := _moon_opacity
-	if _hover_fade_enabled and (_hovering or _dragging):
-		target_alpha *= 0.58
+	if _hover_fade_enabled:
+		target_alpha = _moon_opacity if (_hovering or _dragging) else 1.0
 	if is_instance_valid(_moon):
 		_moon.modulate.a = target_alpha
 	if is_instance_valid(_menu_moon):
@@ -344,9 +387,13 @@ func _apply_click_through_mode() -> void:
 	if not is_instance_valid(_overlay_window):
 		return
 	if _click_through_enabled:
-		DisplayServer.window_set_mouse_passthrough(PackedVector2Array(), _overlay_window.get_window_id())
+		var passthrough_polygon := _get_offscreen_mouse_polygon()
+		_overlay_window.mouse_passthrough_polygon = passthrough_polygon
+		DisplayServer.window_set_mouse_passthrough(passthrough_polygon, _overlay_window.get_window_id())
 	else:
-		DisplayServer.window_set_mouse_passthrough(_get_full_window_polygon(), _overlay_window.get_window_id())
+		var full_polygon := _get_full_window_polygon()
+		_overlay_window.mouse_passthrough_polygon = full_polygon
+		DisplayServer.window_set_mouse_passthrough(full_polygon, _overlay_window.get_window_id())
 
 
 func _get_full_window_polygon() -> PackedVector2Array:
@@ -356,6 +403,15 @@ func _get_full_window_polygon() -> PackedVector2Array:
 		Vector2(size.x, 0.0),
 		size,
 		Vector2(0.0, size.y),
+	])
+
+
+func _get_offscreen_mouse_polygon() -> PackedVector2Array:
+	return PackedVector2Array([
+		Vector2(-4.0, -4.0),
+		Vector2(-3.0, -4.0),
+		Vector2(-3.0, -3.0),
+		Vector2(-4.0, -3.0),
 	])
 
 
@@ -397,10 +453,35 @@ func _spawn_moon() -> void:
 	if _moon.has_method("set_highlight"):
 		_moon.call("set_highlight", false, hover_modulate)
 	_apply_moon_settings(_moon)
+	_apply_moon_cosmetics(_moon)
 	_apply_click_through_mode()
 
 
+func _set_body_theme(theme: String) -> void:
+	_body_theme = theme
+	_apply_moon_cosmetics(_menu_moon)
+	_apply_moon_cosmetics(_moon)
+	_status_label.text = "Earth mode" if theme == "earth" else "Moon mode"
+
+
+func _set_orbit_preset(preset: String) -> void:
+	_orbit_preset = preset
+	_apply_moon_cosmetics(_menu_moon)
+	_apply_moon_cosmetics(_moon)
+	match preset:
+		"pebbles":
+			_status_label.text = "Tiny orbitals equipped"
+		"meteors":
+			_status_label.text = "Meteor companions equipped"
+		"halo":
+			_status_label.text = "Busy little orbit equipped"
+		_:
+			_status_label.text = "Orbitals hidden"
+
+
 func _on_overlay_window_input(event: InputEvent) -> void:
+	if _click_through_enabled:
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		var mouse_screen_position := Vector2(DisplayServer.mouse_get_position())
 		if event.pressed:
@@ -420,6 +501,8 @@ func _start_drag(mouse_screen_position: Vector2) -> void:
 	_apply_moon_visual_state()
 	if is_instance_valid(_moon) and _moon.has_method("pulse_click"):
 		_moon.call("pulse_click")
+	if is_instance_valid(_moon) and _moon.has_method("react_clicked"):
+		_moon.call("react_clicked")
 
 
 func _release_drag() -> void:
@@ -442,20 +525,28 @@ func _apply_screen_bounds() -> void:
 	var bounds_padding := Vector2(maxf(window_half_size.x, radius), maxf(window_half_size.y, radius))
 	var min_position := Vector2(screen_rect.position) + bounds_padding
 	var max_position := Vector2(screen_rect.end) - bounds_padding
+	var bounced := false
 
 	if _moon_screen_position.x < min_position.x:
 		_moon_screen_position.x = min_position.x
 		_moon_velocity.x = absf(_moon_velocity.x) * edge_bounce
+		bounced = true
 	elif _moon_screen_position.x > max_position.x:
 		_moon_screen_position.x = max_position.x
 		_moon_velocity.x = -absf(_moon_velocity.x) * edge_bounce
+		bounced = true
 
 	if _moon_screen_position.y < min_position.y:
 		_moon_screen_position.y = min_position.y
 		_moon_velocity.y = absf(_moon_velocity.y) * edge_bounce
+		bounced = true
 	elif _moon_screen_position.y > max_position.y:
 		_moon_screen_position.y = max_position.y
 		_moon_velocity.y = -absf(_moon_velocity.y) * edge_bounce
+		bounced = true
+
+	if bounced and is_instance_valid(_moon) and _moon.has_method("react_bumped"):
+		_moon.call("react_bumped")
 
 
 func _sync_overlay_window() -> void:

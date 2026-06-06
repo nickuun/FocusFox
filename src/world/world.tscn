@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://qg0u0d0qlitw" path="res://assets/main_menu/icons/settings.png" id="7_settings"]
 [ext_resource type="Texture2D" uid="uid://bfvf0tc31devq" path="res://assets/main_menu/icons/about.png" id="8_about"]
 [ext_resource type="Texture2D" uid="uid://c32vx0sugl1an" path="res://assets/main_menu/icons/quit.png" id="9_quit"]
+[ext_resource type="Texture2D" path="res://assets/main_menu/icons/customize.png" id="10_customize"]
 [ext_resource type="Texture2D" uid="uid://co2owvnjwbwhp" path="res://assets/main_menu/clouds/large_clouds.png" id="10_cloud_l"]
 [ext_resource type="Texture2D" uid="uid://vv442u6orvg7" path="res://assets/main_menu/clouds/medium_clouds.png" id="11_cloud_m"]
 [ext_resource type="Texture2D" uid="uid://c5ojvd7ej6y2w" path="res://assets/main_menu/clouds/small_clouds.png" id="12_cloud_s"]
@@ -98,7 +99,7 @@ texture = ExtResource("15_star_g_s")
 
 [node name="Title" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1551208764]
 z_index = 20
-position = Vector2(265, 110)
+position = Vector2(273, 110)
 scale = Vector2(0.9, 0.9)
 texture = ExtResource("3_title")
 
@@ -111,9 +112,9 @@ z_index = 40
 
 [node name="StartButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=718603523]
 offset_left = 171.0
-offset_top = 228.0
+offset_top = 214.0
 offset_right = 395.0
-offset_bottom = 294.0
+offset_bottom = 274.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
 texture_pressed = ExtResource("5_button_hover")
@@ -140,11 +141,42 @@ theme_override_font_sizes/font_size = 30
 text = "Start"
 vertical_alignment = 1
 
+[node name="CustomizeButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons"]
+offset_left = 171.0
+offset_top = 274.0
+offset_right = 395.0
+offset_bottom = 334.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("5_button_hover")
+texture_hover = ExtResource("5_button_hover")
+
+[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/CustomizeButton"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 2.0
+offset_right = 63.0
+offset_bottom = 48.0
+mouse_filter = 2
+texture = ExtResource("10_customize")
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/CustomizeButton"]
+layout_mode = 0
+offset_left = 70.0
+offset_top = 4.0
+offset_right = 210.0
+offset_bottom = 44.0
+theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.95)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 28
+text = "Customize"
+vertical_alignment = 1
+
 [node name="SettingsButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=1695562225]
 offset_left = 171.0
-offset_top = 303.0
+offset_top = 334.0
 offset_right = 395.0
-offset_bottom = 369.0
+offset_bottom = 394.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
 texture_pressed = ExtResource("5_button_hover")
@@ -173,9 +205,9 @@ vertical_alignment = 1
 
 [node name="AboutButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=256389395]
 offset_left = 171.0
-offset_top = 378.0
+offset_top = 394.0
 offset_right = 395.0
-offset_bottom = 444.0
+offset_bottom = 454.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
 texture_pressed = ExtResource("5_button_hover")
@@ -204,9 +236,9 @@ vertical_alignment = 1
 
 [node name="QuitButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=207529761]
 offset_left = 171.0
-offset_top = 453.0
+offset_top = 454.0
 offset_right = 395.0
-offset_bottom = 519.0
+offset_bottom = 514.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
 texture_pressed = ExtResource("5_button_hover")
@@ -272,9 +304,9 @@ horizontal_alignment = 2
 [node name="SettingsPanel" type="Panel" parent="MenuLayer/MainMenu" unique_id=81079027]
 visible = false
 z_index = 90
-offset_left = 505.0
+offset_left = 95.0
 offset_top = 60.0
-offset_right = 895.0
+offset_right = 485.0
 offset_bottom = 500.0
 
 [node name="TitleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=678345779]
@@ -339,9 +371,9 @@ text = "Transparent on hover"
 [node name="ScaleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=154355366]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 190.0
+offset_top = 230.0
 offset_right = 150.0
-offset_bottom = 216.0
+offset_bottom = 256.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
@@ -350,9 +382,9 @@ text = "Scale"
 [node name="ScaleSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=462479219]
 layout_mode = 0
 offset_left = 145.0
-offset_top = 190.0
+offset_top = 230.0
 offset_right = 358.0
-offset_bottom = 216.0
+offset_bottom = 256.0
 focus_mode = 0
 min_value = 0.7
 max_value = 1.35
@@ -362,9 +394,9 @@ value = 1.0
 [node name="OpacityLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=2012606448]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 230.0
+offset_top = 190.0
 offset_right = 150.0
-offset_bottom = 256.0
+offset_bottom = 216.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
@@ -373,9 +405,9 @@ text = "Opacity"
 [node name="OpacitySlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=2033893597]
 layout_mode = 0
 offset_left = 145.0
-offset_top = 230.0
+offset_top = 190.0
 offset_right = 358.0
-offset_bottom = 256.0
+offset_bottom = 216.0
 focus_mode = 0
 min_value = 0.35
 max_value = 1.0
@@ -437,4 +469,134 @@ theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.78)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 16
 text = "Click-through lets the moon vibe without blocking work."
+autowrap_mode = 2
+
+[node name="CustomizePanel" type="Panel" parent="MenuLayer/MainMenu"]
+visible = false
+z_index = 91
+offset_left = 95.0
+offset_top = 60.0
+offset_right = 485.0
+offset_bottom = 500.0
+
+[node name="TitleLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 16.0
+offset_right = 320.0
+offset_bottom = 52.0
+theme_override_colors/font_color = Color(1, 0.84, 0.64, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 30
+text = "Customize"
+
+[node name="CloseButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 332.0
+offset_top = 18.0
+offset_right = 370.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 22
+text = "X"
+
+[node name="WardrobeLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 82.0
+offset_right = 360.0
+offset_bottom = 130.0
+theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 22
+text = "Body"
+
+[node name="MoonBodyButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 124.0
+offset_right = 184.0
+offset_bottom = 166.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+text = "Moon"
+
+[node name="EarthBodyButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 204.0
+offset_top = 124.0
+offset_right = 364.0
+offset_bottom = 166.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+text = "Earth"
+
+[node name="OrbitLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 202.0
+offset_right = 360.0
+offset_bottom = 238.0
+theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 22
+text = "Orbitals"
+
+[node name="NoOrbitsButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 244.0
+offset_right = 184.0
+offset_bottom = 284.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+text = "None"
+
+[node name="PebblesOrbitButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 204.0
+offset_top = 244.0
+offset_right = 364.0
+offset_bottom = 284.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+text = "Pebbles"
+
+[node name="MeteorsOrbitButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 302.0
+offset_right = 184.0
+offset_bottom = 342.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+text = "Meteors"
+
+[node name="HaloOrbitButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 204.0
+offset_top = 302.0
+offset_right = 364.0
+offset_bottom = 342.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+text = "Halo"
+
+[node name="CustomizeHintLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 376.0
+offset_right = 364.0
+offset_bottom = 424.0
+theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.78)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 16
+text = "Try Earth with a meteor halo for a tiny desk planetarium."
 autowrap_mode = 2

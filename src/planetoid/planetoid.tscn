@@ -277,5 +277,7 @@ z_index = 1
 scale = Vector2(5, 5)
 texture = ExtResource("2_7nm12")
 
+[node name="Orbitals" type="Node2D" parent="."]
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=839428687]
 shape = SubResource("CircleShape2D_4l1sj")
