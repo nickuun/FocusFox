@@ -1,7 +1,7 @@
-[gd_scene load_steps=65 format=3 uid="uid://bky7btjtomh0p"]
+[gd_scene format=3 uid="uid://bky7btjtomh0p"]
 
 [ext_resource type="Texture2D" uid="uid://pgl3kp526l1t" path="res://assets/orbitals/moon/1.png" id="1_ej235"]
-[ext_resource type="Script" path="res://src/planetoid/planetoid.gd" id="1_xt3ta"]
+[ext_resource type="Script" uid="uid://b5u3ry1hxm4h" path="res://src/planetoid/planetoid.gd" id="1_xt3ta"]
 [ext_resource type="Texture2D" uid="uid://jsb7pnpsohky" path="res://assets/faces/mockup/1.png" id="2_7nm12"]
 [ext_resource type="Texture2D" uid="uid://jkol3sug0j31" path="res://assets/orbitals/moon/2.png" id="2_io41c"]
 [ext_resource type="Texture2D" uid="uid://db1awwydycdsj" path="res://assets/orbitals/moon/3.png" id="3_kslmt"]
@@ -62,6 +62,10 @@
 [ext_resource type="Texture2D" uid="uid://dw641s8tyr6py" path="res://assets/orbitals/moon/58.png" id="58_5n2t6"]
 [ext_resource type="Texture2D" uid="uid://wv6ulcfivl4y" path="res://assets/orbitals/moon/59.png" id="59_puw0q"]
 [ext_resource type="Texture2D" uid="uid://becqqt81fuvgs" path="res://assets/orbitals/moon/60.png" id="60_48xqr"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_txxyr"]
+friction = 0.06
+bounce = 0.9
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_1h6fk"]
 animations = [{
@@ -248,15 +252,11 @@ animations = [{
 }],
 "loop": true,
 "name": &"default",
-"speed": 12.0
+"speed": 8.0
 }]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_4l1sj"]
 radius = 120.004166
-
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_txxyr"]
-friction = 0.06
-bounce = 0.9
 
 [node name="Planetoid" type="RigidBody2D" unique_id=957792792 groups=["desktop_moons"]]
 mass = 1.15
@@ -270,6 +270,7 @@ script = ExtResource("1_xt3ta")
 scale = Vector2(5, 5)
 sprite_frames = SubResource("SpriteFrames_1h6fk")
 autoplay = "default"
+frame_progress = 0.4779354
 
 [node name="FaceSprite" type="Sprite2D" parent="." unique_id=223992832]
 z_index = 1

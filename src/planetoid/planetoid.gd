@@ -18,6 +18,7 @@ extends RigidBody2D
 @export var face_follow_deadzone := 4.0
 @export var face_follow_max_distance := 180.0
 @export var face_follow_smoothing := 14.0
+@export var eye_follow_enabled := true
 
 @onready var _visual: Node2D = $MoonSprite
 @onready var _face: Sprite2D = $FaceSprite
@@ -79,6 +80,9 @@ func pulse_click() -> void:
 func look_at_screen_position(mouse_screen_position: Vector2, moon_screen_position: Vector2) -> void:
 	if _face == null:
 		return
+	if not eye_follow_enabled:
+		_face_target_offset = Vector2.ZERO
+		return
 
 	var delta := mouse_screen_position - moon_screen_position
 	var distance := delta.length()
@@ -93,6 +97,12 @@ func look_at_screen_position(mouse_screen_position: Vector2, moon_screen_positio
 
 	var source_pixel_offset := direction * face_follow_pixels * follow_amount
 	_face_target_offset = source_pixel_offset * _base_visual_scale
+
+
+func set_eye_follow_enabled(enabled: bool) -> void:
+	eye_follow_enabled = enabled
+	if not eye_follow_enabled:
+		_face_target_offset = Vector2.ZERO
 
 
 func get_pick_radius() -> float:

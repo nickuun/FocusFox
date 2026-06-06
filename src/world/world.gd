@@ -29,6 +29,16 @@ const SHOOTING_STAR: Texture2D = preload("res://assets/main_menu/stars/shooting/
 @onready var _about_button: TextureButton = $MenuLayer/MainMenu/Buttons/AboutButton
 @onready var _quit_button: TextureButton = $MenuLayer/MainMenu/Buttons/QuitButton
 @onready var _status_label: Label = $MenuLayer/MainMenu/StatusLabel
+@onready var _settings_panel: Panel = $MenuLayer/MainMenu/SettingsPanel
+@onready var _settings_close_button: Button = $MenuLayer/MainMenu/SettingsPanel/CloseButton
+@onready var _click_through_toggle: CheckButton = $MenuLayer/MainMenu/SettingsPanel/ClickThroughToggle
+@onready var _eye_follow_toggle: CheckButton = $MenuLayer/MainMenu/SettingsPanel/EyeFollowToggle
+@onready var _hover_fade_toggle: CheckButton = $MenuLayer/MainMenu/SettingsPanel/HoverFadeToggle
+@onready var _scale_slider: HSlider = $MenuLayer/MainMenu/SettingsPanel/ScaleSlider
+@onready var _opacity_slider: HSlider = $MenuLayer/MainMenu/SettingsPanel/OpacitySlider
+@onready var _volume_slider: HSlider = $MenuLayer/MainMenu/SettingsPanel/VolumeSlider
+@onready var _mute_toggle: CheckButton = $MenuLayer/MainMenu/SettingsPanel/MuteToggle
+@onready var _reset_position_button: Button = $MenuLayer/MainMenu/SettingsPanel/ResetPositionButton
 
 var _overlay_window: Window
 var _overlay_root: Node2D
@@ -43,6 +53,13 @@ var _dragging := false
 var _drag_screen_offset := Vector2.ZERO
 var _hovering := false
 var _is_starting := false
+var _moon_scale := 1.0
+var _moon_opacity := 1.0
+var _click_through_enabled := false
+var _eye_follow_enabled := true
+var _hover_fade_enabled := false
+var _muted := false
+var _volume := 0.8
 
 
 func _ready() -> void:
@@ -112,10 +129,20 @@ func _setup_menu_nodes() -> void:
 	_settings_button.pressed.connect(_on_settings_pressed)
 	_about_button.pressed.connect(_on_about_pressed)
 	_quit_button.pressed.connect(get_tree().quit)
+	_settings_close_button.pressed.connect(_hide_settings_panel)
+	_click_through_toggle.toggled.connect(_on_click_through_toggled)
+	_eye_follow_toggle.toggled.connect(_on_eye_follow_toggled)
+	_hover_fade_toggle.toggled.connect(_on_hover_fade_toggled)
+	_scale_slider.value_changed.connect(_on_scale_changed)
+	_opacity_slider.value_changed.connect(_on_opacity_changed)
+	_volume_slider.value_changed.connect(_on_volume_changed)
+	_mute_toggle.toggled.connect(_on_mute_toggled)
+	_reset_position_button.pressed.connect(_reset_moon_position)
 
 	_menu_moon.freeze = true
 	if _menu_moon.has_method("set_highlight"):
 		_menu_moon.call("set_highlight", false, hover_modulate)
+	_apply_moon_settings(_menu_moon)
 
 	for child in _clouds_root.get_children():
 		var cloud := child as Sprite2D
@@ -217,6 +244,7 @@ func _on_start_pressed() -> void:
 	_overlay_window.show()
 	await get_tree().process_frame
 	await get_tree().process_frame
+	_apply_click_through_mode()
 
 	_moon_screen_position = spawn_position
 	_sync_overlay_window()
@@ -229,11 +257,106 @@ func _on_start_pressed() -> void:
 
 
 func _on_settings_pressed() -> void:
-	_status_label.text = "Settings soon"
+	_settings_panel.visible = true
+	_status_label.text = "Tune your moon."
 
 
 func _on_about_pressed() -> void:
 	_status_label.text = "A tiny moon that keeps you company."
+
+
+func _hide_settings_panel() -> void:
+	_settings_panel.visible = false
+	_status_label.text = "Click the moon to boop it!"
+
+
+func _on_click_through_toggled(enabled: bool) -> void:
+	_click_through_enabled = enabled
+	_apply_click_through_mode()
+	_status_label.text = "Click-through on" if enabled else "Click-through off"
+
+
+func _on_eye_follow_toggled(enabled: bool) -> void:
+	_eye_follow_enabled = enabled
+	_apply_moon_settings(_menu_moon)
+	_apply_moon_settings(_moon)
+	_status_label.text = "Eye follow on" if enabled else "Eye follow off"
+
+
+func _on_hover_fade_toggled(enabled: bool) -> void:
+	_hover_fade_enabled = enabled
+	_apply_moon_visual_state()
+	_status_label.text = "Hover fade on" if enabled else "Hover fade off"
+
+
+func _on_scale_changed(value: float) -> void:
+	_moon_scale = value
+	_apply_moon_settings(_menu_moon)
+	_apply_moon_settings(_moon)
+	_status_label.text = "Scale %.2fx" % value
+
+
+func _on_opacity_changed(value: float) -> void:
+	_moon_opacity = value
+	_apply_moon_visual_state()
+	_status_label.text = "Opacity %d%%" % roundi(value * 100.0)
+
+
+func _on_volume_changed(value: float) -> void:
+	_volume = value
+	_status_label.text = "Volume %d%%" % roundi(value * 100.0)
+
+
+func _on_mute_toggled(enabled: bool) -> void:
+	_muted = enabled
+	_status_label.text = "Muted" if enabled else "Sound on"
+
+
+func _reset_moon_position() -> void:
+	var screen_rect := _get_target_screen_rect()
+	_moon_screen_position = Vector2(screen_rect.get_center())
+	_moon_velocity = Vector2.ZERO
+	_dragging = false
+	_sync_overlay_window()
+	_status_label.text = "Moon position reset"
+
+
+func _apply_moon_settings(moon: RigidBody2D) -> void:
+	if not is_instance_valid(moon):
+		return
+	moon.scale = Vector2.ONE * _moon_scale
+	if moon.has_method("set_eye_follow_enabled"):
+		moon.call("set_eye_follow_enabled", _eye_follow_enabled)
+	_apply_moon_visual_state()
+
+
+func _apply_moon_visual_state() -> void:
+	var target_alpha := _moon_opacity
+	if _hover_fade_enabled and (_hovering or _dragging):
+		target_alpha *= 0.58
+	if is_instance_valid(_moon):
+		_moon.modulate.a = target_alpha
+	if is_instance_valid(_menu_moon):
+		_menu_moon.modulate.a = _moon_opacity
+
+
+func _apply_click_through_mode() -> void:
+	if not is_instance_valid(_overlay_window):
+		return
+	if _click_through_enabled:
+		DisplayServer.window_set_mouse_passthrough(PackedVector2Array(), _overlay_window.get_window_id())
+	else:
+		DisplayServer.window_set_mouse_passthrough(_get_full_window_polygon(), _overlay_window.get_window_id())
+
+
+func _get_full_window_polygon() -> PackedVector2Array:
+	var size := Vector2(moon_window_size)
+	return PackedVector2Array([
+		Vector2.ZERO,
+		Vector2(size.x, 0.0),
+		size,
+		Vector2(0.0, size.y),
+	])
 
 
 func _create_overlay_window() -> void:
@@ -273,6 +396,8 @@ func _spawn_moon() -> void:
 	_moon.angular_velocity = 0.0
 	if _moon.has_method("set_highlight"):
 		_moon.call("set_highlight", false, hover_modulate)
+	_apply_moon_settings(_moon)
+	_apply_click_through_mode()
 
 
 func _on_overlay_window_input(event: InputEvent) -> void:
@@ -292,6 +417,7 @@ func _start_drag(mouse_screen_position: Vector2) -> void:
 	_drag_screen_offset = _moon_screen_position - mouse_screen_position
 	_moon_velocity = Vector2.ZERO
 	_set_moon_highlight(true)
+	_apply_moon_visual_state()
 	if is_instance_valid(_moon) and _moon.has_method("pulse_click"):
 		_moon.call("pulse_click")
 
@@ -300,6 +426,7 @@ func _release_drag() -> void:
 	_dragging = false
 	_moon_velocity = (_mouse_velocity * throw_boost).limit_length(max_throw_speed)
 	_set_moon_highlight(false)
+	_apply_moon_visual_state()
 
 
 func _apply_drift(delta: float) -> void:
@@ -343,6 +470,7 @@ func _update_hover(mouse_screen_position: Vector2) -> void:
 		return
 	_hovering = hovering
 	_set_moon_highlight(_hovering)
+	_apply_moon_visual_state()
 
 
 func _local_position_hits_moon(local_position: Vector2) -> bool:

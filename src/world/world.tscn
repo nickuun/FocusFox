@@ -1,22 +1,22 @@
-[gd_scene load_steps=19 format=3 uid="uid://m3p4ccdoqm0x"]
+[gd_scene format=3 uid="uid://m3p4ccdoqm0x"]
 
-[ext_resource type="Script" uid="uid://b2jtr4bxd1efk" path="res://src/world/world.gd" id="1_world"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/background.png" id="2_bg"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/title.png" id="3_title"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/default_button.png" id="4_button"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/hovered_button.png" id="5_button_hover"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/icons/start.png" id="6_start"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/icons/settings.png" id="7_settings"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/icons/about.png" id="8_about"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/icons/quit.png" id="9_quit"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/clouds/large_clouds.png" id="10_cloud_l"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/clouds/medium_clouds.png" id="11_cloud_m"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/clouds/small_clouds.png" id="12_cloud_s"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/clouds/small_clouds_2.png" id="13_cloud_s2"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/stars/gold/large_star.png" id="14_star_g_l"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/stars/gold/small_star.png" id="15_star_g_s"]
-[ext_resource type="Texture2D" path="res://assets/main_menu/stars/purple/small_star.png" id="16_star_p_s"]
-[ext_resource type="FontFile" path="res://assets/not_sprites/pixel_operator/PixelOperator.ttf" id="17_font"]
+[ext_resource type="Script" uid="uid://brcpg0nxctq1j" path="res://src/world/world.gd" id="1_world"]
+[ext_resource type="Texture2D" uid="uid://cu02xc6hfribl" path="res://assets/main_menu/background.png" id="2_bg"]
+[ext_resource type="Texture2D" uid="uid://b5xmpxyx216km" path="res://assets/main_menu/title.png" id="3_title"]
+[ext_resource type="Texture2D" uid="uid://c28fhgopjjtk5" path="res://assets/main_menu/default_button.png" id="4_button"]
+[ext_resource type="Texture2D" uid="uid://c4j3blhw85o1n" path="res://assets/main_menu/hovered_button.png" id="5_button_hover"]
+[ext_resource type="Texture2D" uid="uid://c7vq7yqfmc7bb" path="res://assets/main_menu/icons/start.png" id="6_start"]
+[ext_resource type="Texture2D" uid="uid://qg0u0d0qlitw" path="res://assets/main_menu/icons/settings.png" id="7_settings"]
+[ext_resource type="Texture2D" uid="uid://bfvf0tc31devq" path="res://assets/main_menu/icons/about.png" id="8_about"]
+[ext_resource type="Texture2D" uid="uid://c32vx0sugl1an" path="res://assets/main_menu/icons/quit.png" id="9_quit"]
+[ext_resource type="Texture2D" uid="uid://co2owvnjwbwhp" path="res://assets/main_menu/clouds/large_clouds.png" id="10_cloud_l"]
+[ext_resource type="Texture2D" uid="uid://vv442u6orvg7" path="res://assets/main_menu/clouds/medium_clouds.png" id="11_cloud_m"]
+[ext_resource type="Texture2D" uid="uid://c5ojvd7ej6y2w" path="res://assets/main_menu/clouds/small_clouds.png" id="12_cloud_s"]
+[ext_resource type="Texture2D" uid="uid://b3f3r5expnqwt" path="res://assets/main_menu/clouds/small_clouds_2.png" id="13_cloud_s2"]
+[ext_resource type="Texture2D" uid="uid://cnhf5res6cb08" path="res://assets/main_menu/stars/gold/large_star.png" id="14_star_g_l"]
+[ext_resource type="Texture2D" uid="uid://b4o4rwer7ay8y" path="res://assets/main_menu/stars/gold/small_star.png" id="15_star_g_s"]
+[ext_resource type="Texture2D" uid="uid://brbhtpech3eyv" path="res://assets/main_menu/stars/purple/small_star.png" id="16_star_p_s"]
+[ext_resource type="FontFile" uid="uid://w0p6smylyk1x" path="res://assets/not_sprites/pixel_operator/PixelOperator.ttf" id="17_font"]
 [ext_resource type="PackedScene" uid="uid://bky7btjtomh0p" path="res://src/planetoid/planetoid.tscn" id="18_moon"]
 
 [node name="World" type="Node2D" unique_id=43647833]
@@ -26,218 +26,214 @@ script = ExtResource("1_world")
 
 [node name="MainMenu" type="Node2D" parent="MenuLayer" unique_id=304852977]
 
-[node name="Background" type="Sprite2D" parent="MenuLayer/MainMenu"]
+[node name="Background" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1489674489]
 position = Vector2(480, 270)
 texture = ExtResource("2_bg")
 
-[node name="Clouds" type="Node2D" parent="MenuLayer/MainMenu"]
+[node name="Clouds" type="Node2D" parent="MenuLayer/MainMenu" unique_id=461056765]
 
-[node name="LargeCloud" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds"]
+[node name="LargeCloud" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds" unique_id=2033044985]
 position = Vector2(54, 326)
 scale = Vector2(0.95, 0.95)
 texture = ExtResource("10_cloud_l")
 metadata/speed = 8.0
 
-[node name="MediumCloud" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds"]
+[node name="MediumCloud" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds" unique_id=1203467805]
 z_index = 2
 position = Vector2(728, 266)
 scale = Vector2(0.75, 0.75)
 texture = ExtResource("11_cloud_m")
 metadata/speed = -5.0
 
-[node name="SmallCloud" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds"]
+[node name="SmallCloud" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds" unique_id=1481385225]
 z_index = 2
 position = Vector2(780, 180)
 scale = Vector2(0.72, 0.72)
 texture = ExtResource("12_cloud_s")
 metadata/speed = 4.0
 
-[node name="SmallCloud2" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds"]
+[node name="SmallCloud2" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds" unique_id=415018314]
 position = Vector2(146, 365)
 scale = Vector2(0.65, 0.65)
 texture = ExtResource("13_cloud_s2")
 metadata/speed = -3.0
 
-[node name="Stars" type="Node2D" parent="MenuLayer/MainMenu"]
+[node name="Stars" type="Node2D" parent="MenuLayer/MainMenu" unique_id=1217545064]
 z_index = 12
 
-[node name="GoldStarA" type="Sprite2D" parent="MenuLayer/MainMenu/Stars"]
+[node name="GoldStarA" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=643725008]
 position = Vector2(103, 86)
 scale = Vector2(0.55, 0.55)
 texture = ExtResource("14_star_g_l")
 
-[node name="GoldStarB" type="Sprite2D" parent="MenuLayer/MainMenu/Stars"]
+[node name="GoldStarB" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=1298792280]
 position = Vector2(144, 252)
 scale = Vector2(0.42, 0.42)
 texture = ExtResource("15_star_g_s")
 
-[node name="GoldStarC" type="Sprite2D" parent="MenuLayer/MainMenu/Stars"]
+[node name="GoldStarC" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=908953157]
 position = Vector2(526, 69)
 scale = Vector2(0.54, 0.54)
 texture = ExtResource("14_star_g_l")
 
-[node name="PurpleStarA" type="Sprite2D" parent="MenuLayer/MainMenu/Stars"]
+[node name="PurpleStarA" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=1907127301]
 position = Vector2(681, 72)
 scale = Vector2(0.55, 0.55)
 texture = ExtResource("16_star_p_s")
 
-[node name="PurpleStarB" type="Sprite2D" parent="MenuLayer/MainMenu/Stars"]
+[node name="PurpleStarB" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=1097614399]
 position = Vector2(774, 291)
 scale = Vector2(0.55, 0.55)
 texture = ExtResource("16_star_p_s")
 
-[node name="TinyStarA" type="Sprite2D" parent="MenuLayer/MainMenu/Stars"]
+[node name="TinyStarA" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=1970847137]
 position = Vector2(306, 41)
 scale = Vector2(0.28, 0.28)
 texture = ExtResource("16_star_p_s")
 
-[node name="TinyStarB" type="Sprite2D" parent="MenuLayer/MainMenu/Stars"]
+[node name="TinyStarB" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=1032538292]
 position = Vector2(836, 123)
 scale = Vector2(0.25, 0.25)
 texture = ExtResource("15_star_g_s")
 
-[node name="Title" type="Sprite2D" parent="MenuLayer/MainMenu"]
+[node name="Title" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1551208764]
 z_index = 20
-position = Vector2(265, 155)
+position = Vector2(265, 110)
 scale = Vector2(0.9, 0.9)
 texture = ExtResource("3_title")
 
-[node name="MenuMoon" parent="MenuLayer/MainMenu" instance=ExtResource("18_moon")]
+[node name="MenuMoon" parent="MenuLayer/MainMenu" unique_id=600092329 instance=ExtResource("18_moon")]
 z_index = 28
 position = Vector2(632, 245)
 
-[node name="Buttons" type="Node2D" parent="MenuLayer/MainMenu"]
+[node name="Buttons" type="Node2D" parent="MenuLayer/MainMenu" unique_id=2066033205]
 z_index = 40
 
-[node name="StartButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons"]
-offset_left = 195.0
-offset_top = 245.0
-offset_right = 419.0
-offset_bottom = 311.0
+[node name="StartButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=718603523]
+offset_left = 171.0
+offset_top = 228.0
+offset_right = 395.0
+offset_bottom = 294.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
 texture_pressed = ExtResource("5_button_hover")
 texture_hover = ExtResource("5_button_hover")
 
-[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/StartButton"]
+[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/StartButton" unique_id=2040851293]
 layout_mode = 0
 offset_left = 20.0
-offset_top = 10.0
+offset_top = 2.0
 offset_right = 63.0
-offset_bottom = 56.0
+offset_bottom = 48.0
 mouse_filter = 2
 texture = ExtResource("6_start")
 
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/StartButton"]
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/StartButton" unique_id=72671059]
 layout_mode = 0
 offset_left = 70.0
-offset_top = 12.0
+offset_top = 4.0
 offset_right = 200.0
-offset_bottom = 52.0
-mouse_filter = 2
+offset_bottom = 44.0
 theme_override_colors/font_color = Color(1, 0.84, 0.64, 1)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 30
 text = "Start"
 vertical_alignment = 1
 
-[node name="SettingsButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons"]
-offset_left = 195.0
-offset_top = 320.0
-offset_right = 419.0
-offset_bottom = 386.0
+[node name="SettingsButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=1695562225]
+offset_left = 171.0
+offset_top = 303.0
+offset_right = 395.0
+offset_bottom = 369.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
 texture_pressed = ExtResource("5_button_hover")
 texture_hover = ExtResource("5_button_hover")
 
-[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/SettingsButton"]
+[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/SettingsButton" unique_id=1344775032]
 layout_mode = 0
 offset_left = 20.0
-offset_top = 10.0
+offset_top = 2.0
 offset_right = 63.0
-offset_bottom = 56.0
+offset_bottom = 48.0
 mouse_filter = 2
 texture = ExtResource("7_settings")
 
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/SettingsButton"]
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/SettingsButton" unique_id=1632299570]
 layout_mode = 0
 offset_left = 70.0
-offset_top = 12.0
+offset_top = 4.0
 offset_right = 200.0
-offset_bottom = 52.0
-mouse_filter = 2
+offset_bottom = 44.0
 theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.95)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 30
 text = "Settings"
 vertical_alignment = 1
 
-[node name="AboutButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons"]
-offset_left = 195.0
-offset_top = 395.0
-offset_right = 419.0
-offset_bottom = 461.0
+[node name="AboutButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=256389395]
+offset_left = 171.0
+offset_top = 378.0
+offset_right = 395.0
+offset_bottom = 444.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
 texture_pressed = ExtResource("5_button_hover")
 texture_hover = ExtResource("5_button_hover")
 
-[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/AboutButton"]
+[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/AboutButton" unique_id=1095321694]
 layout_mode = 0
 offset_left = 20.0
-offset_top = 10.0
+offset_top = 2.0
 offset_right = 63.0
-offset_bottom = 56.0
+offset_bottom = 48.0
 mouse_filter = 2
 texture = ExtResource("8_about")
 
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/AboutButton"]
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/AboutButton" unique_id=1247552540]
 layout_mode = 0
 offset_left = 70.0
-offset_top = 12.0
+offset_top = 4.0
 offset_right = 200.0
-offset_bottom = 52.0
-mouse_filter = 2
+offset_bottom = 44.0
 theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.95)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 30
 text = "About"
 vertical_alignment = 1
 
-[node name="QuitButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons"]
-offset_left = 195.0
-offset_top = 470.0
-offset_right = 419.0
-offset_bottom = 536.0
+[node name="QuitButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=207529761]
+offset_left = 171.0
+offset_top = 453.0
+offset_right = 395.0
+offset_bottom = 519.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
 texture_pressed = ExtResource("5_button_hover")
 texture_hover = ExtResource("5_button_hover")
 
-[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/QuitButton"]
+[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/QuitButton" unique_id=676234579]
 layout_mode = 0
 offset_left = 20.0
-offset_top = 10.0
+offset_top = 2.0
 offset_right = 63.0
-offset_bottom = 56.0
+offset_bottom = 48.0
 mouse_filter = 2
 texture = ExtResource("9_quit")
 
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/QuitButton"]
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/QuitButton" unique_id=1642692753]
 layout_mode = 0
 offset_left = 70.0
-offset_top = 12.0
+offset_top = 4.0
 offset_right = 200.0
-offset_bottom = 52.0
-mouse_filter = 2
+offset_bottom = 44.0
 theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.95)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 30
 text = "Quit"
 vertical_alignment = 1
 
-[node name="StatusLabel" type="Label" parent="MenuLayer/MainMenu"]
+[node name="StatusLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=1779651163]
 z_index = 35
 offset_left = 594.0
 offset_top = 392.0
@@ -249,3 +245,196 @@ theme_override_font_sizes/font_size = 22
 text = "Click the moon to boop it!"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="CreatorLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=161264436]
+z_index = 60
+offset_left = 20.0
+offset_top = 504.0
+offset_right = 280.0
+offset_bottom = 532.0
+theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.78)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Created by Nicholas Kuün"
+
+[node name="VersionLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=1372439118]
+z_index = 60
+offset_left = 800.0
+offset_top = 504.0
+offset_right = 940.0
+offset_bottom = 532.0
+theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.78)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "v. 0.0.1"
+horizontal_alignment = 2
+
+[node name="SettingsPanel" type="Panel" parent="MenuLayer/MainMenu" unique_id=81079027]
+visible = false
+z_index = 90
+offset_left = 505.0
+offset_top = 60.0
+offset_right = 895.0
+offset_bottom = 500.0
+
+[node name="TitleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=678345779]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 16.0
+offset_right = 320.0
+offset_bottom = 52.0
+theme_override_colors/font_color = Color(1, 0.84, 0.64, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 30
+text = "Settings"
+
+[node name="CloseButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1693602082]
+layout_mode = 0
+offset_left = 332.0
+offset_top = 18.0
+offset_right = 370.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 22
+text = "X"
+
+[node name="ClickThroughToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=423483557]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 66.0
+offset_right = 360.0
+offset_bottom = 100.0
+focus_mode = 0
+theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+text = "Click-through mode"
+
+[node name="EyeFollowToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1499382226]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 104.0
+offset_right = 360.0
+offset_bottom = 138.0
+focus_mode = 0
+theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+button_pressed = true
+text = "Eye follow"
+
+[node name="HoverFadeToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=351889639]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 142.0
+offset_right = 360.0
+offset_bottom = 176.0
+focus_mode = 0
+theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+text = "Transparent on hover"
+
+[node name="ScaleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=154355366]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 190.0
+offset_right = 150.0
+offset_bottom = 216.0
+theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Scale"
+
+[node name="ScaleSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=462479219]
+layout_mode = 0
+offset_left = 145.0
+offset_top = 190.0
+offset_right = 358.0
+offset_bottom = 216.0
+focus_mode = 0
+min_value = 0.7
+max_value = 1.35
+step = 0.01
+value = 1.0
+
+[node name="OpacityLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=2012606448]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 230.0
+offset_right = 150.0
+offset_bottom = 256.0
+theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Opacity"
+
+[node name="OpacitySlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=2033893597]
+layout_mode = 0
+offset_left = 145.0
+offset_top = 230.0
+offset_right = 358.0
+offset_bottom = 256.0
+focus_mode = 0
+min_value = 0.35
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="VolumeLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1310294370]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 270.0
+offset_right = 150.0
+offset_bottom = 296.0
+theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Volume"
+
+[node name="VolumeSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=697902396]
+layout_mode = 0
+offset_left = 145.0
+offset_top = 270.0
+offset_right = 290.0
+offset_bottom = 296.0
+focus_mode = 0
+max_value = 1.0
+step = 0.01
+value = 0.8
+
+[node name="MuteToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1159519832]
+layout_mode = 0
+offset_left = 298.0
+offset_top = 266.0
+offset_right = 370.0
+offset_bottom = 300.0
+focus_mode = 0
+theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Mute"
+
+[node name="ResetPositionButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=480148780]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 322.0
+offset_right = 186.0
+offset_bottom = 360.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+text = "Reset position"
+
+[node name="HintLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=316501194]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 376.0
+offset_right = 364.0
+offset_bottom = 424.0
+theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.78)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 16
+text = "Click-through lets the moon vibe without blocking work."
+autowrap_mode = 2
