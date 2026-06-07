@@ -368,12 +368,25 @@ theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 20
 text = "Transparent on hover"
 
+[node name="MoonCollisionToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 174.0
+offset_right = 360.0
+offset_bottom = 208.0
+focus_mode = 0
+theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+button_pressed = true
+text = "Bump other planets"
+
 [node name="ScaleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=154355366]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 230.0
+offset_top = 246.0
 offset_right = 150.0
-offset_bottom = 256.0
+offset_bottom = 272.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
@@ -382,9 +395,9 @@ text = "Scale"
 [node name="ScaleSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=462479219]
 layout_mode = 0
 offset_left = 145.0
-offset_top = 230.0
+offset_top = 246.0
 offset_right = 358.0
-offset_bottom = 256.0
+offset_bottom = 272.0
 focus_mode = 0
 min_value = 0.7
 max_value = 1.35
@@ -394,9 +407,9 @@ value = 1.0
 [node name="OpacityLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=2012606448]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 190.0
+offset_top = 214.0
 offset_right = 150.0
-offset_bottom = 216.0
+offset_bottom = 240.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
@@ -405,9 +418,9 @@ text = "Opacity"
 [node name="OpacitySlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=2033893597]
 layout_mode = 0
 offset_left = 145.0
-offset_top = 190.0
+offset_top = 214.0
 offset_right = 358.0
-offset_bottom = 216.0
+offset_bottom = 240.0
 focus_mode = 0
 min_value = 0.35
 max_value = 1.0
@@ -417,9 +430,9 @@ value = 1.0
 [node name="VolumeLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1310294370]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 270.0
+offset_top = 278.0
 offset_right = 150.0
-offset_bottom = 296.0
+offset_bottom = 304.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
@@ -428,9 +441,9 @@ text = "Volume"
 [node name="VolumeSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=697902396]
 layout_mode = 0
 offset_left = 145.0
-offset_top = 270.0
+offset_top = 278.0
 offset_right = 290.0
-offset_bottom = 296.0
+offset_bottom = 304.0
 focus_mode = 0
 max_value = 1.0
 step = 0.01
@@ -439,9 +452,9 @@ value = 0.8
 [node name="MuteToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1159519832]
 layout_mode = 0
 offset_left = 298.0
-offset_top = 266.0
+offset_top = 274.0
 offset_right = 370.0
-offset_bottom = 300.0
+offset_bottom = 308.0
 focus_mode = 0
 theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
 theme_override_fonts/font = ExtResource("17_font")
@@ -451,9 +464,9 @@ text = "Mute"
 [node name="ResetPositionButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=480148780]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 318.0
+offset_top = 322.0
 offset_right = 186.0
-offset_bottom = 354.0
+offset_bottom = 356.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 20
@@ -462,9 +475,9 @@ text = "Reset position"
 [node name="SelectedMoonLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel"]
 layout_mode = 0
 offset_left = 204.0
-offset_top = 322.0
+offset_top = 324.0
 offset_right = 364.0
-offset_bottom = 350.0
+offset_bottom = 352.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17

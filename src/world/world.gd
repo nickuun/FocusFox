@@ -18,6 +18,7 @@ const SHOOTING_STAR: Texture2D = preload("res://assets/main_menu/stars/shooting/
 @export var max_throw_speed := 1850.0
 @export var damping_at_weight_one := 1.08
 @export var edge_bounce := 0.78
+@export var moon_collision_bounce := 0.94
 @export var hover_modulate := Color(1.18, 1.14, 1.28, 1.0)
 
 @onready var _menu_root: Node2D = $MenuLayer/MainMenu
@@ -35,6 +36,7 @@ const SHOOTING_STAR: Texture2D = preload("res://assets/main_menu/stars/shooting/
 @onready var _click_through_toggle: CheckButton = $MenuLayer/MainMenu/SettingsPanel/ClickThroughToggle
 @onready var _eye_follow_toggle: CheckButton = $MenuLayer/MainMenu/SettingsPanel/EyeFollowToggle
 @onready var _hover_fade_toggle: CheckButton = $MenuLayer/MainMenu/SettingsPanel/HoverFadeToggle
+@onready var _moon_collision_toggle: CheckButton = $MenuLayer/MainMenu/SettingsPanel/MoonCollisionToggle
 @onready var _scale_slider: HSlider = $MenuLayer/MainMenu/SettingsPanel/ScaleSlider
 @onready var _opacity_slider: HSlider = $MenuLayer/MainMenu/SettingsPanel/OpacitySlider
 @onready var _volume_slider: HSlider = $MenuLayer/MainMenu/SettingsPanel/VolumeSlider
@@ -86,6 +88,7 @@ var _body_speed_multiplier := 1.0
 var _orbit_preset := "none"
 var _star_preset := "none"
 var _cloud_preset := "none"
+var _moon_collisions_enabled := true
 var _moon_entries: Array[Dictionary] = []
 var _selected_moon_index := -1
 var _syncing_selected_ui := false
@@ -131,6 +134,8 @@ func _physics_process(delta: float) -> void:
 		_update_moon_face(mouse_screen_position)
 		_sync_overlay_window()
 		_store_entry_state(entry)
+
+	_apply_moon_collisions()
 
 	if _selected_moon_index >= 0 and _selected_moon_index < _moon_entries.size():
 		_load_entry_state(_moon_entries[_selected_moon_index])
@@ -186,6 +191,7 @@ func _setup_menu_nodes() -> void:
 	_click_through_toggle.toggled.connect(_on_click_through_toggled)
 	_eye_follow_toggle.toggled.connect(_on_eye_follow_toggled)
 	_hover_fade_toggle.toggled.connect(_on_hover_fade_toggled)
+	_moon_collision_toggle.toggled.connect(_on_moon_collision_toggled)
 	_scale_slider.value_changed.connect(_on_scale_changed)
 	_opacity_slider.value_changed.connect(_on_opacity_changed)
 	_volume_slider.value_changed.connect(_on_volume_changed)
@@ -362,6 +368,14 @@ func _on_hover_fade_toggled(enabled: bool) -> void:
 	_status_label.text = "Opacity applies on hover" if enabled else "Opacity always applies"
 
 
+func _on_moon_collision_toggled(enabled: bool) -> void:
+	if _syncing_selected_ui:
+		return
+	_moon_collisions_enabled = enabled
+	_store_selected_moon_state()
+	_status_label.text = "Planet bumps on" if enabled else "Planet bumps off"
+
+
 func _on_scale_changed(value: float) -> void:
 	if _syncing_selected_ui:
 		return
@@ -445,6 +459,7 @@ func _create_moon_entry(spawn_position: Vector2) -> Dictionary:
 		"orbit_preset": _orbit_preset,
 		"star_preset": _star_preset,
 		"cloud_preset": _cloud_preset,
+		"collides": _moon_collisions_enabled,
 	}
 	_create_overlay_window(entry)
 	_spawn_moon(entry)
@@ -476,6 +491,7 @@ func _load_entry_state(entry: Dictionary) -> void:
 	_orbit_preset = str(entry["orbit_preset"])
 	_star_preset = str(entry["star_preset"])
 	_cloud_preset = str(entry["cloud_preset"])
+	_moon_collisions_enabled = bool(entry.get("collides", true))
 
 
 func _store_entry_state(entry: Dictionary) -> void:
@@ -491,6 +507,7 @@ func _store_entry_state(entry: Dictionary) -> void:
 	entry["orbit_preset"] = _orbit_preset
 	entry["star_preset"] = _star_preset
 	entry["cloud_preset"] = _cloud_preset
+	entry["collides"] = _moon_collisions_enabled
 
 
 func _apply_moon_visual_state() -> void:
@@ -734,6 +751,7 @@ func _refresh_selected_moon_ui() -> void:
 	_scale_slider.value = _moon_scale
 	_opacity_slider.value = _moon_opacity
 	_body_speed_slider.value = _body_speed_multiplier
+	_moon_collision_toggle.button_pressed = _moon_collisions_enabled
 	_syncing_selected_ui = false
 
 
@@ -744,6 +762,100 @@ func _apply_visual_state_to_all_moons() -> void:
 			_apply_moon_visual_state()
 			_store_entry_state(entry)
 	_load_selected_moon_state()
+
+
+func _apply_moon_collisions() -> void:
+	if _moon_entries.size() < 2:
+		return
+
+	for a_index in range(_moon_entries.size() - 1):
+		var a := _moon_entries[a_index]
+		if not _entry_can_collide(a):
+			continue
+		for b_index in range(a_index + 1, _moon_entries.size()):
+			var b := _moon_entries[b_index]
+			if not _entry_can_collide(b):
+				continue
+			_resolve_moon_collision(a, b)
+
+
+func _entry_can_collide(entry: Dictionary) -> bool:
+	return _entry_is_valid(entry) and bool(entry.get("collides", true))
+
+
+func _resolve_moon_collision(a: Dictionary, b: Dictionary) -> void:
+	var position_a: Vector2 = a["position"]
+	var position_b: Vector2 = b["position"]
+	var delta := position_b - position_a
+	var distance := delta.length()
+	var radius_a := _get_entry_pick_radius(a)
+	var radius_b := _get_entry_pick_radius(b)
+	var minimum_distance := radius_a + radius_b
+	if distance >= minimum_distance:
+		return
+
+	var normal := Vector2.RIGHT if distance <= 0.001 else delta / distance
+	var penetration := minimum_distance - distance
+	var a_dragging := bool(a["dragging"])
+	var b_dragging := bool(b["dragging"])
+
+	if a_dragging and not b_dragging:
+		position_b += normal * penetration
+	elif b_dragging and not a_dragging:
+		position_a -= normal * penetration
+	else:
+		position_a -= normal * (penetration * 0.5)
+		position_b += normal * (penetration * 0.5)
+
+	var velocity_a: Vector2 = a["velocity"]
+	var velocity_b: Vector2 = b["velocity"]
+	var normal_speed := (velocity_a - velocity_b).dot(normal)
+	var impact_speed := absf(normal_speed)
+	if normal_speed > 0.0:
+		var impulse := normal * normal_speed * moon_collision_bounce
+		if a_dragging and not b_dragging:
+			velocity_b += impulse
+		elif b_dragging and not a_dragging:
+			velocity_a -= impulse
+		else:
+			velocity_a -= impulse
+			velocity_b += impulse
+
+	a["position"] = position_a
+	b["position"] = position_b
+	a["velocity"] = velocity_a.limit_length(max_throw_speed)
+	b["velocity"] = velocity_b.limit_length(max_throw_speed)
+	_sync_entry_window(a)
+	_sync_entry_window(b)
+	if impact_speed > 80.0:
+		_react_to_entry_collision(a)
+		_react_to_entry_collision(b)
+
+
+func _get_entry_pick_radius(entry: Dictionary) -> float:
+	var moon := entry.get("moon") as RigidBody2D
+	if is_instance_valid(moon) and moon.has_method("get_pick_radius"):
+		var radius: Variant = moon.call("get_pick_radius")
+		if typeof(radius) == TYPE_FLOAT or typeof(radius) == TYPE_INT:
+			return float(radius) + moon_edge_padding
+	return 120.0 + moon_edge_padding
+
+
+func _sync_entry_window(entry: Dictionary) -> void:
+	var window := entry.get("window") as Window
+	if is_instance_valid(window):
+		var position: Vector2 = entry["position"]
+		window.position = Vector2i((position - Vector2(moon_window_size) * 0.5).round())
+
+
+func _react_to_entry_collision(entry: Dictionary) -> void:
+	var moon := entry.get("moon") as RigidBody2D
+	if not is_instance_valid(moon):
+		return
+	if moon.has_method("react_bumped"):
+		moon.call("react_bumped")
+	if moon.has_method("pulse_click"):
+		moon.call("pulse_click")
 
 
 func _on_overlay_window_input(event: InputEvent, entry: Dictionary) -> void:
