@@ -7,6 +7,10 @@ const FACE_SURPRISED: Texture2D = preload("res://assets/faces/mockup/surprised.p
 const FACE_WINK: Texture2D = preload("res://assets/faces/mockup/wink.png")
 const SMALL_METEOR: Texture2D = preload("res://assets/meteor/small_meteor.png")
 const MEDIUM_METEOR: Texture2D = preload("res://assets/meteor/medium_meteor.png")
+const GOLD_STAR: Texture2D = preload("res://assets/main_menu/stars/gold/small_star.png")
+const PURPLE_STAR: Texture2D = preload("res://assets/main_menu/stars/purple/small_star.png")
+const CLOUD_SMALL: Texture2D = preload("res://assets/main_menu/clouds/small_clouds.png")
+const CLOUD_SMALL_2: Texture2D = preload("res://assets/main_menu/clouds/small_clouds_2.png")
 
 const BODY_FRAME_DIRS := {
 	"moon": "res://assets/orbitals/moon",
@@ -29,6 +33,30 @@ const ORBIT_PRESETS := {
 		{"texture": SMALL_METEOR, "radius": Vector2(192.0, 62.0), "speed": -0.46, "scale": 1.05, "phase": 3.1},
 		{"texture": SMALL_METEOR, "radius": Vector2(210.0, 68.0), "speed": -0.38, "scale": 0.95, "phase": 4.2},
 		{"texture": MEDIUM_METEOR, "radius": Vector2(226.0, 72.0), "speed": 0.32, "scale": 1.05, "phase": 5.2},
+	],
+}
+const STAR_PRESETS := {
+	"none": [],
+	"gold": [
+		{"texture": GOLD_STAR, "position": Vector2(-190.0, -120.0), "scale": 1.4, "phase": 0.1},
+		{"texture": GOLD_STAR, "position": Vector2(178.0, -98.0), "scale": 1.1, "phase": 1.4},
+		{"texture": GOLD_STAR, "position": Vector2(-150.0, 126.0), "scale": 0.95, "phase": 2.2},
+		{"texture": GOLD_STAR, "position": Vector2(214.0, 110.0), "scale": 1.25, "phase": 3.1},
+		{"texture": GOLD_STAR, "position": Vector2(32.0, -176.0), "scale": 0.8, "phase": 4.0},
+	],
+	"purple": [
+		{"texture": PURPLE_STAR, "position": Vector2(-196.0, -96.0), "scale": 1.45, "phase": 0.6},
+		{"texture": PURPLE_STAR, "position": Vector2(190.0, -132.0), "scale": 1.0, "phase": 1.8},
+		{"texture": PURPLE_STAR, "position": Vector2(-216.0, 98.0), "scale": 0.9, "phase": 2.8},
+		{"texture": PURPLE_STAR, "position": Vector2(146.0, 142.0), "scale": 1.3, "phase": 3.7},
+		{"texture": PURPLE_STAR, "position": Vector2(18.0, -202.0), "scale": 0.75, "phase": 4.6},
+	],
+}
+const CLOUD_PRESETS := {
+	"none": [],
+	"wisps": [
+		{"texture": CLOUD_SMALL, "position": Vector2(-198.0, -32.0), "scale": 0.34, "phase": 0.2, "speed": 7.0},
+		{"texture": CLOUD_SMALL_2, "position": Vector2(164.0, 74.0), "scale": 0.32, "phase": 2.4, "speed": -5.0},
 	],
 }
 
@@ -63,6 +91,7 @@ const ORBIT_PRESETS := {
 @onready var _face: Sprite2D = $FaceSprite
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
 @onready var _orbitals_root: Node2D = $Orbitals
+@onready var _ambient_root: Node2D = $AmbientParticles
 
 var _base_visual_position := Vector2.ZERO
 var _base_visual_scale := Vector2.ONE
@@ -78,8 +107,13 @@ var _idle_face_seconds := 0.0
 var _idle_face_target := 5.0
 var _idle_face_uses_content := false
 var _body_theme := "moon"
+var _body_speed_multiplier := 1.0
 var _orbit_preset := "none"
 var _orbiters: Array[Dictionary] = []
+var _star_preset := "none"
+var _cloud_preset := "none"
+var _star_particles: Array[Dictionary] = []
+var _cloud_particles: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -108,6 +142,7 @@ func _physics_process(delta: float) -> void:
 	_update_bob(delta)
 	_update_idle_face(delta)
 	_update_orbiters(delta)
+	_update_ambient_particles(delta)
 
 
 func set_highlight(highlighted: bool, highlight_modulate: Color) -> void:
@@ -193,8 +228,18 @@ func set_body_theme(theme: String) -> void:
 	sprite.play("default")
 
 
+func set_body_rotation_speed(multiplier: float) -> void:
+	_body_speed_multiplier = clampf(multiplier, 0.15, 3.0)
+	if _visual is AnimatedSprite2D:
+		var sprite := _visual as AnimatedSprite2D
+		if sprite.sprite_frames != null and sprite.sprite_frames.has_animation("default"):
+			sprite.sprite_frames.set_animation_speed("default", _get_body_base_speed() * _body_speed_multiplier)
+
+
 func set_orbit_preset(preset: String) -> void:
 	if not ORBIT_PRESETS.has(preset) or _orbitals_root == null:
+		return
+	if _orbit_preset == preset and (preset == "none" or not _orbiters.is_empty()):
 		return
 	_orbit_preset = preset
 	for child in _orbitals_root.get_children():
@@ -209,15 +254,45 @@ func set_orbit_preset(preset: String) -> void:
 		sprite.centered = true
 		sprite.scale = Vector2.ONE * float(data["scale"])
 		sprite.z_index = -1
+		var color: Color = data.get("color", Color.WHITE)
+		sprite.modulate = color
 		_orbitals_root.add_child(sprite)
 		_orbiters.append({
 			"sprite": sprite,
 			"radius": data["radius"],
 			"speed": float(data["speed"]),
 			"phase": float(data["phase"]),
+			"color": color,
+			"twinkle": float(data.get("twinkle", 0.0)),
 			"time": randf() * TAU,
 		})
 	_update_orbiters(0.0)
+
+
+func set_star_preset(preset: String) -> void:
+	if not STAR_PRESETS.has(preset) or _ambient_root == null:
+		return
+	if _star_preset == preset and (preset == "none" or not _star_particles.is_empty()):
+		return
+	_star_preset = preset
+	_clear_particles(_star_particles)
+	var preset_data: Array = STAR_PRESETS[preset]
+	for data: Dictionary in preset_data:
+		_star_particles.append(_create_ambient_particle(data, 24, false))
+	_update_ambient_particles(0.0)
+
+
+func set_cloud_preset(preset: String) -> void:
+	if not CLOUD_PRESETS.has(preset) or _ambient_root == null:
+		return
+	if _cloud_preset == preset and (preset == "none" or not _cloud_particles.is_empty()):
+		return
+	_cloud_preset = preset
+	_clear_particles(_cloud_particles)
+	var preset_data: Array = CLOUD_PRESETS[preset]
+	for data: Dictionary in preset_data:
+		_cloud_particles.append(_create_ambient_particle(data, 3, true))
+	_update_ambient_particles(0.0)
 
 
 func get_pick_radius() -> float:
@@ -268,7 +343,63 @@ func _update_orbiters(delta: float) -> void:
 		var y := sin(angle) * radius.y
 		sprite.position = Vector2(cos(angle) * radius.x, y)
 		sprite.z_index = -1 if y < -radius.y * 0.18 else 2
-		sprite.modulate.a = 0.72 + maxf(0.0, y / maxf(1.0, radius.y)) * 0.28
+		var color: Color = orbiter["color"]
+		var twinkle := sin(float(orbiter["time"]) * TAU * 0.7 + float(orbiter["phase"])) * float(orbiter["twinkle"])
+		color.a = clampf(0.72 + maxf(0.0, y / maxf(1.0, radius.y)) * 0.28 + twinkle, 0.38, 1.0)
+		sprite.modulate = color
+
+
+func _update_ambient_particles(delta: float) -> void:
+	_update_particle_group(_star_particles, delta)
+	_update_particle_group(_cloud_particles, delta)
+
+
+func _update_particle_group(particles: Array[Dictionary], delta: float) -> void:
+	for particle in particles:
+		var sprite := particle["sprite"] as Sprite2D
+		if sprite == null:
+			continue
+		particle["time"] = float(particle["time"]) + delta
+		var time := float(particle["time"])
+		var phase := float(particle["phase"])
+		var base_position: Vector2 = particle["position"]
+		var drift := float(particle["drift"])
+		var float_y := sin(time * 0.55 + phase) * float(particle["float"])
+		sprite.position = base_position + Vector2(sin(time * 0.18 + phase) * drift, float_y)
+		var fade := (sin(time * float(particle["fade_speed"]) + phase) + 1.0) * 0.5
+		var color: Color = particle["color"]
+		color.a = lerpf(float(particle["min_alpha"]), float(particle["max_alpha"]), smoothstep(0.0, 1.0, fade))
+		sprite.modulate = color
+
+
+func _create_ambient_particle(data: Dictionary, z_index: int, is_cloud: bool) -> Dictionary:
+	var sprite := Sprite2D.new()
+	sprite.texture = data["texture"]
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.centered = true
+	sprite.scale = Vector2.ONE * float(data["scale"])
+	sprite.z_index = z_index
+	_ambient_root.add_child(sprite)
+	return {
+		"sprite": sprite,
+		"position": data["position"],
+		"phase": float(data["phase"]),
+		"time": randf() * TAU,
+		"drift": float(data.get("speed", 2.0)) if is_cloud else 2.0,
+		"float": 5.0 if is_cloud else 2.5,
+		"fade_speed": 0.65 if is_cloud else 1.15,
+		"min_alpha": 0.08 if is_cloud else 0.0,
+		"max_alpha": 0.42 if is_cloud else 1.0,
+		"color": Color.WHITE,
+	}
+
+
+func _clear_particles(particles: Array[Dictionary]) -> void:
+	for particle in particles:
+		var sprite := particle["sprite"] as Sprite2D
+		if sprite != null:
+			sprite.queue_free()
+	particles.clear()
 
 
 func _update_idle_face(delta: float) -> void:
@@ -323,7 +454,7 @@ func _build_sprite_frames(directory: String) -> SpriteFrames:
 		frames.add_animation("default")
 	frames.clear("default")
 	frames.set_animation_loop("default", true)
-	frames.set_animation_speed("default", 8.0 if _body_theme == "moon" else 12.0)
+	frames.set_animation_speed("default", _get_body_base_speed() * _body_speed_multiplier)
 	for file in image_files:
 		var texture := load(directory.path_join(file)) as Texture2D
 		if texture != null:
@@ -338,3 +469,7 @@ func _file_number(file_name: String) -> int:
 		if character >= "0" and character <= "9":
 			digits += character
 	return int(digits) if not digits.is_empty() else 0
+
+
+func _get_body_base_speed() -> float:
+	return 8.0 if _body_theme == "moon" else 12.0

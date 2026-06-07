@@ -8,7 +8,7 @@ const SHOOTING_STAR: Texture2D = preload("res://assets/main_menu/stars/shooting/
 @export var minimize_launcher_after_spawn := true
 
 @export_group("Moon Window")
-@export var moon_window_size := Vector2i(420, 420)
+@export var moon_window_size := Vector2i(560, 560)
 @export var use_usable_screen_area := true
 @export var moon_edge_padding := 18.0
 
@@ -40,14 +40,26 @@ const SHOOTING_STAR: Texture2D = preload("res://assets/main_menu/stars/shooting/
 @onready var _volume_slider: HSlider = $MenuLayer/MainMenu/SettingsPanel/VolumeSlider
 @onready var _mute_toggle: CheckButton = $MenuLayer/MainMenu/SettingsPanel/MuteToggle
 @onready var _reset_position_button: Button = $MenuLayer/MainMenu/SettingsPanel/ResetPositionButton
+@onready var _add_moon_button: Button = $MenuLayer/MainMenu/SettingsPanel/AddMoonButton
+@onready var _previous_moon_button: Button = $MenuLayer/MainMenu/SettingsPanel/PreviousMoonButton
+@onready var _next_moon_button: Button = $MenuLayer/MainMenu/SettingsPanel/NextMoonButton
+@onready var _remove_moon_button: Button = $MenuLayer/MainMenu/SettingsPanel/RemoveMoonButton
+@onready var _clear_moons_button: Button = $MenuLayer/MainMenu/SettingsPanel/ClearMoonsButton
+@onready var _selected_moon_label: Label = $MenuLayer/MainMenu/SettingsPanel/SelectedMoonLabel
 @onready var _customize_panel: Panel = $MenuLayer/MainMenu/CustomizePanel
 @onready var _customize_close_button: Button = $MenuLayer/MainMenu/CustomizePanel/CloseButton
 @onready var _moon_body_button: Button = $MenuLayer/MainMenu/CustomizePanel/MoonBodyButton
 @onready var _earth_body_button: Button = $MenuLayer/MainMenu/CustomizePanel/EarthBodyButton
+@onready var _body_speed_slider: HSlider = $MenuLayer/MainMenu/CustomizePanel/BodySpeedSlider
 @onready var _no_orbits_button: Button = $MenuLayer/MainMenu/CustomizePanel/NoOrbitsButton
 @onready var _pebbles_orbit_button: Button = $MenuLayer/MainMenu/CustomizePanel/PebblesOrbitButton
 @onready var _meteors_orbit_button: Button = $MenuLayer/MainMenu/CustomizePanel/MeteorsOrbitButton
 @onready var _halo_orbit_button: Button = $MenuLayer/MainMenu/CustomizePanel/HaloOrbitButton
+@onready var _gold_stars_button: Button = $MenuLayer/MainMenu/CustomizePanel/GoldStarsButton
+@onready var _purple_stars_button: Button = $MenuLayer/MainMenu/CustomizePanel/PurpleStarsButton
+@onready var _no_stars_button: Button = $MenuLayer/MainMenu/CustomizePanel/NoStarsButton
+@onready var _clouds_button: Button = $MenuLayer/MainMenu/CustomizePanel/CloudsButton
+@onready var _no_clouds_button: Button = $MenuLayer/MainMenu/CustomizePanel/NoCloudsButton
 
 var _overlay_window: Window
 var _overlay_root: Node2D
@@ -70,7 +82,13 @@ var _hover_fade_enabled := false
 var _muted := false
 var _volume := 0.8
 var _body_theme := "moon"
+var _body_speed_multiplier := 1.0
 var _orbit_preset := "none"
+var _star_preset := "none"
+var _cloud_preset := "none"
+var _moon_entries: Array[Dictionary] = []
+var _selected_moon_index := -1
+var _syncing_selected_ui := false
 
 
 func _ready() -> void:
@@ -89,23 +107,33 @@ func _process(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not is_instance_valid(_overlay_window) or not is_instance_valid(_moon):
+	if _moon_entries.is_empty():
 		return
 
 	var mouse_screen_position := Vector2(DisplayServer.mouse_get_position())
 	_mouse_velocity = (mouse_screen_position - _last_mouse_screen_position) / maxf(delta, 0.001)
 	_last_mouse_screen_position = mouse_screen_position
 
-	if _dragging:
-		_moon_screen_position = (mouse_screen_position + _drag_screen_offset).round()
-		_moon_velocity = _mouse_velocity
-	else:
-		_apply_drift(delta)
-		_update_hover(mouse_screen_position)
+	for index in range(_moon_entries.size()):
+		var entry := _moon_entries[index]
+		if not _entry_is_valid(entry):
+			continue
+		_load_entry_state(entry)
 
-	_apply_screen_bounds()
-	_update_moon_face(mouse_screen_position)
-	_sync_overlay_window()
+		if _dragging:
+			_moon_screen_position = (mouse_screen_position + _drag_screen_offset).round()
+			_moon_velocity = _mouse_velocity
+		else:
+			_apply_drift(delta)
+			_update_hover(mouse_screen_position)
+
+		_apply_screen_bounds()
+		_update_moon_face(mouse_screen_position)
+		_sync_overlay_window()
+		_store_entry_state(entry)
+
+	if _selected_moon_index >= 0 and _selected_moon_index < _moon_entries.size():
+		_load_entry_state(_moon_entries[_selected_moon_index])
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -145,10 +173,16 @@ func _setup_menu_nodes() -> void:
 	_customize_close_button.pressed.connect(_hide_customize_panel)
 	_moon_body_button.pressed.connect(_set_body_theme.bind("moon"))
 	_earth_body_button.pressed.connect(_set_body_theme.bind("earth"))
+	_body_speed_slider.value_changed.connect(_on_body_speed_changed)
 	_no_orbits_button.pressed.connect(_set_orbit_preset.bind("none"))
 	_pebbles_orbit_button.pressed.connect(_set_orbit_preset.bind("pebbles"))
 	_meteors_orbit_button.pressed.connect(_set_orbit_preset.bind("meteors"))
 	_halo_orbit_button.pressed.connect(_set_orbit_preset.bind("halo"))
+	_no_stars_button.pressed.connect(_set_star_preset.bind("none"))
+	_gold_stars_button.pressed.connect(_set_star_preset.bind("gold"))
+	_purple_stars_button.pressed.connect(_set_star_preset.bind("purple"))
+	_no_clouds_button.pressed.connect(_set_cloud_preset.bind("none"))
+	_clouds_button.pressed.connect(_set_cloud_preset.bind("wisps"))
 	_click_through_toggle.toggled.connect(_on_click_through_toggled)
 	_eye_follow_toggle.toggled.connect(_on_eye_follow_toggled)
 	_hover_fade_toggle.toggled.connect(_on_hover_fade_toggled)
@@ -157,6 +191,11 @@ func _setup_menu_nodes() -> void:
 	_volume_slider.value_changed.connect(_on_volume_changed)
 	_mute_toggle.toggled.connect(_on_mute_toggled)
 	_reset_position_button.pressed.connect(_reset_moon_position)
+	_add_moon_button.pressed.connect(_add_moon_from_settings)
+	_previous_moon_button.pressed.connect(_select_previous_moon)
+	_next_moon_button.pressed.connect(_select_next_moon)
+	_remove_moon_button.pressed.connect(_remove_selected_moon)
+	_clear_moons_button.pressed.connect(_clear_all_moons)
 
 	_menu_moon.freeze = true
 	if _menu_moon.has_method("set_highlight"):
@@ -253,21 +292,16 @@ func _on_start_pressed() -> void:
 	await get_tree().create_timer(0.14).timeout
 	var spawn_position := _get_menu_moon_screen_position()
 
-	if not is_instance_valid(_overlay_window):
-		_create_overlay_window()
-
-	_overlay_window.position = _get_offscreen_overlay_position()
-
-	if not is_instance_valid(_moon):
-		_spawn_moon()
-
+	var entry := _create_moon_entry(spawn_position)
+	_set_selected_moon_index(_moon_entries.find(entry))
 	_overlay_window.show()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	_apply_click_through_mode()
+	_apply_click_through_mode_to_entry(entry)
 
-	_moon_screen_position = spawn_position
+	_load_entry_state(entry)
 	_sync_overlay_window()
+	_store_entry_state(entry)
 	_menu_moon.visible = false
 	if _moon.has_method("pulse_click"):
 		_moon.call("pulse_click")
@@ -313,26 +347,38 @@ func _on_click_through_toggled(enabled: bool) -> void:
 func _on_eye_follow_toggled(enabled: bool) -> void:
 	_eye_follow_enabled = enabled
 	_apply_moon_settings(_menu_moon)
-	_apply_moon_settings(_moon)
+	for entry in _moon_entries:
+		if _entry_is_valid(entry):
+			_load_entry_state(entry)
+			_apply_moon_settings(_moon)
+			_store_entry_state(entry)
+	_load_selected_moon_state()
 	_status_label.text = "Eye follow on" if enabled else "Eye follow off"
 
 
 func _on_hover_fade_toggled(enabled: bool) -> void:
 	_hover_fade_enabled = enabled
-	_apply_moon_visual_state()
+	_apply_visual_state_to_all_moons()
 	_status_label.text = "Opacity applies on hover" if enabled else "Opacity always applies"
 
 
 func _on_scale_changed(value: float) -> void:
+	if _syncing_selected_ui:
+		return
 	_moon_scale = value
-	_apply_moon_settings(_menu_moon)
+	if _moon_entries.is_empty():
+		_apply_moon_settings(_menu_moon)
 	_apply_moon_settings(_moon)
+	_store_selected_moon_state()
 	_status_label.text = "Scale %.2fx" % value
 
 
 func _on_opacity_changed(value: float) -> void:
+	if _syncing_selected_ui:
+		return
 	_moon_opacity = value
 	_apply_moon_visual_state()
+	_store_selected_moon_state()
 	_status_label.text = "Opacity %d%%" % roundi(value * 100.0)
 
 
@@ -347,11 +393,14 @@ func _on_mute_toggled(enabled: bool) -> void:
 
 
 func _reset_moon_position() -> void:
+	if not is_instance_valid(_moon):
+		return
 	var screen_rect := _get_target_screen_rect()
 	_moon_screen_position = Vector2(screen_rect.get_center())
 	_moon_velocity = Vector2.ZERO
 	_dragging = false
 	_sync_overlay_window()
+	_store_selected_moon_state()
 	_status_label.text = "Moon position reset"
 
 
@@ -369,8 +418,79 @@ func _apply_moon_cosmetics(moon: RigidBody2D) -> void:
 		return
 	if moon.has_method("set_body_theme"):
 		moon.call("set_body_theme", _body_theme)
+	if moon.has_method("set_body_rotation_speed"):
+		moon.call("set_body_rotation_speed", _body_speed_multiplier)
 	if moon.has_method("set_orbit_preset"):
 		moon.call("set_orbit_preset", _orbit_preset)
+	if moon.has_method("set_star_preset"):
+		moon.call("set_star_preset", _star_preset)
+	if moon.has_method("set_cloud_preset"):
+		moon.call("set_cloud_preset", _cloud_preset)
+
+
+func _create_moon_entry(spawn_position: Vector2) -> Dictionary:
+	var entry := {
+		"window": null,
+		"root": null,
+		"moon": null,
+		"position": spawn_position,
+		"velocity": Vector2.ZERO,
+		"dragging": false,
+		"drag_offset": Vector2.ZERO,
+		"hovering": false,
+		"scale": _moon_scale,
+		"opacity": _moon_opacity,
+		"body_theme": _body_theme,
+		"body_speed": _body_speed_multiplier,
+		"orbit_preset": _orbit_preset,
+		"star_preset": _star_preset,
+		"cloud_preset": _cloud_preset,
+	}
+	_create_overlay_window(entry)
+	_spawn_moon(entry)
+	_moon_entries.append(entry)
+	_load_entry_state(entry)
+	_sync_overlay_window()
+	_store_entry_state(entry)
+	_apply_click_through_mode_to_entry(entry)
+	return entry
+
+
+func _entry_is_valid(entry: Dictionary) -> bool:
+	return is_instance_valid(entry.get("window")) and is_instance_valid(entry.get("moon"))
+
+
+func _load_entry_state(entry: Dictionary) -> void:
+	_overlay_window = entry["window"] as Window
+	_overlay_root = entry["root"] as Node2D
+	_moon = entry["moon"] as RigidBody2D
+	_moon_screen_position = entry["position"]
+	_moon_velocity = entry["velocity"]
+	_dragging = bool(entry["dragging"])
+	_drag_screen_offset = entry["drag_offset"]
+	_hovering = bool(entry["hovering"])
+	_moon_scale = float(entry["scale"])
+	_moon_opacity = float(entry["opacity"])
+	_body_theme = str(entry["body_theme"])
+	_body_speed_multiplier = float(entry["body_speed"])
+	_orbit_preset = str(entry["orbit_preset"])
+	_star_preset = str(entry["star_preset"])
+	_cloud_preset = str(entry["cloud_preset"])
+
+
+func _store_entry_state(entry: Dictionary) -> void:
+	entry["position"] = _moon_screen_position
+	entry["velocity"] = _moon_velocity
+	entry["dragging"] = _dragging
+	entry["drag_offset"] = _drag_screen_offset
+	entry["hovering"] = _hovering
+	entry["scale"] = _moon_scale
+	entry["opacity"] = _moon_opacity
+	entry["body_theme"] = _body_theme
+	entry["body_speed"] = _body_speed_multiplier
+	entry["orbit_preset"] = _orbit_preset
+	entry["star_preset"] = _star_preset
+	entry["cloud_preset"] = _cloud_preset
 
 
 func _apply_moon_visual_state() -> void:
@@ -384,16 +504,22 @@ func _apply_moon_visual_state() -> void:
 
 
 func _apply_click_through_mode() -> void:
-	if not is_instance_valid(_overlay_window):
+	for entry in _moon_entries:
+		_apply_click_through_mode_to_entry(entry)
+
+
+func _apply_click_through_mode_to_entry(entry: Dictionary) -> void:
+	var window := entry.get("window") as Window
+	if not is_instance_valid(window):
 		return
 	if _click_through_enabled:
 		var passthrough_polygon := _get_offscreen_mouse_polygon()
-		_overlay_window.mouse_passthrough_polygon = passthrough_polygon
-		DisplayServer.window_set_mouse_passthrough(passthrough_polygon, _overlay_window.get_window_id())
+		window.mouse_passthrough_polygon = passthrough_polygon
+		DisplayServer.window_set_mouse_passthrough(passthrough_polygon, window.get_window_id())
 	else:
 		var full_polygon := _get_full_window_polygon()
-		_overlay_window.mouse_passthrough_polygon = full_polygon
-		DisplayServer.window_set_mouse_passthrough(full_polygon, _overlay_window.get_window_id())
+		window.mouse_passthrough_polygon = full_polygon
+		DisplayServer.window_set_mouse_passthrough(full_polygon, window.get_window_id())
 
 
 func _get_full_window_polygon() -> PackedVector2Array:
@@ -415,26 +541,28 @@ func _get_offscreen_mouse_polygon() -> PackedVector2Array:
 	])
 
 
-func _create_overlay_window() -> void:
-	_overlay_window = Window.new()
-	_overlay_window.name = "DesktopMoonOverlay"
-	_overlay_window.size = moon_window_size
-	_overlay_window.borderless = true
-	_overlay_window.always_on_top = true
-	_overlay_window.transparent = true
-	_overlay_window.transparent_bg = true
-	_overlay_window.unresizable = true
-	_overlay_window.gui_embed_subwindows = false
-	_overlay_window.position = _get_offscreen_overlay_position()
-	_overlay_window.visible = false
-	_overlay_window.close_requested.connect(get_tree().quit)
-	_overlay_window.window_input.connect(_on_overlay_window_input)
-	add_child(_overlay_window)
+func _create_overlay_window(entry: Dictionary) -> void:
+	var window := Window.new()
+	window.name = "DesktopMoonOverlay%d" % (_moon_entries.size() + 1)
+	window.size = moon_window_size
+	window.borderless = true
+	window.always_on_top = true
+	window.transparent = true
+	window.transparent_bg = true
+	window.unresizable = true
+	window.gui_embed_subwindows = false
+	window.position = _get_offscreen_overlay_position()
+	window.visible = false
+	window.close_requested.connect(_remove_entry.bind(entry))
+	window.window_input.connect(_on_overlay_window_input.bind(entry))
+	add_child(window)
 
-	_overlay_root = Node2D.new()
-	_overlay_root.name = "OverlayWorld"
-	_overlay_root.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_overlay_window.add_child(_overlay_root)
+	var root := Node2D.new()
+	root.name = "OverlayWorld"
+	root.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	window.add_child(root)
+	entry["window"] = window
+	entry["root"] = root
 
 
 func _get_offscreen_overlay_position() -> Vector2i:
@@ -442,32 +570,50 @@ func _get_offscreen_overlay_position() -> Vector2i:
 	return screen_rect.end + moon_window_size + Vector2i(96, 96)
 
 
-func _spawn_moon() -> void:
-	_moon = PLANETOID_SCENE.instantiate() as RigidBody2D
-	_overlay_root.add_child(_moon)
-	_moon.position = Vector2(moon_window_size) * 0.5
-	_moon.mass = moon_weight
-	_moon.freeze = true
-	_moon.linear_velocity = Vector2.ZERO
-	_moon.angular_velocity = 0.0
-	if _moon.has_method("set_highlight"):
-		_moon.call("set_highlight", false, hover_modulate)
-	_apply_moon_settings(_moon)
-	_apply_moon_cosmetics(_moon)
-	_apply_click_through_mode()
+func _spawn_moon(entry: Dictionary) -> void:
+	var moon := PLANETOID_SCENE.instantiate() as RigidBody2D
+	var root := entry["root"] as Node2D
+	root.add_child(moon)
+	moon.position = Vector2(moon_window_size) * 0.5
+	moon.mass = moon_weight
+	moon.freeze = true
+	moon.linear_velocity = Vector2.ZERO
+	moon.angular_velocity = 0.0
+	entry["moon"] = moon
+	_load_entry_state(entry)
+	if moon.has_method("set_highlight"):
+		moon.call("set_highlight", false, hover_modulate)
+	_apply_moon_settings(moon)
+	_apply_moon_cosmetics(moon)
+	_store_entry_state(entry)
 
 
 func _set_body_theme(theme: String) -> void:
 	_body_theme = theme
-	_apply_moon_cosmetics(_menu_moon)
+	if _moon_entries.is_empty():
+		_apply_moon_cosmetics(_menu_moon)
 	_apply_moon_cosmetics(_moon)
+	_store_selected_moon_state()
 	_status_label.text = "Earth mode" if theme == "earth" else "Moon mode"
+
+
+func _on_body_speed_changed(value: float) -> void:
+	if _syncing_selected_ui:
+		return
+	_body_speed_multiplier = value
+	if _moon_entries.is_empty():
+		_apply_moon_cosmetics(_menu_moon)
+	_apply_moon_cosmetics(_moon)
+	_store_selected_moon_state()
+	_status_label.text = "Rotation %.1fx" % value
 
 
 func _set_orbit_preset(preset: String) -> void:
 	_orbit_preset = preset
-	_apply_moon_cosmetics(_menu_moon)
+	if _moon_entries.is_empty():
+		_apply_moon_cosmetics(_menu_moon)
 	_apply_moon_cosmetics(_moon)
+	_store_selected_moon_state()
 	match preset:
 		"pebbles":
 			_status_label.text = "Tiny orbitals equipped"
@@ -479,17 +625,143 @@ func _set_orbit_preset(preset: String) -> void:
 			_status_label.text = "Orbitals hidden"
 
 
-func _on_overlay_window_input(event: InputEvent) -> void:
+func _set_star_preset(preset: String) -> void:
+	_star_preset = preset
+	if _moon_entries.is_empty():
+		_apply_moon_cosmetics(_menu_moon)
+	_apply_moon_cosmetics(_moon)
+	_store_selected_moon_state()
+	match preset:
+		"gold":
+			_status_label.text = "Gold star field equipped"
+		"purple":
+			_status_label.text = "Purple star field equipped"
+		_:
+			_status_label.text = "Stars hidden"
+
+
+func _set_cloud_preset(preset: String) -> void:
+	_cloud_preset = preset
+	if _moon_entries.is_empty():
+		_apply_moon_cosmetics(_menu_moon)
+	_apply_moon_cosmetics(_moon)
+	_store_selected_moon_state()
+	_status_label.text = "Cloud wisps equipped" if preset == "wisps" else "Clouds hidden"
+
+
+func _add_moon_from_settings() -> void:
+	var screen_rect := _get_target_screen_rect()
+	var offset := Vector2(42.0, -34.0) * float(_moon_entries.size() % 5)
+	var entry := _create_moon_entry(Vector2(screen_rect.get_center()) + offset)
+	var index := _moon_entries.find(entry)
+	_set_selected_moon_index(index)
+	_menu_moon.visible = false
+	_start_button.disabled = true
+	var window := entry["window"] as Window
+	if is_instance_valid(window):
+		window.show()
+	_status_label.text = "Added moon %d" % (index + 1)
+
+
+func _select_previous_moon() -> void:
+	if _moon_entries.is_empty():
+		return
+	_set_selected_moon_index(posmod(_selected_moon_index - 1, _moon_entries.size()))
+
+
+func _select_next_moon() -> void:
+	if _moon_entries.is_empty():
+		return
+	_set_selected_moon_index(posmod(_selected_moon_index + 1, _moon_entries.size()))
+
+
+func _remove_selected_moon() -> void:
+	if _selected_moon_index < 0 or _selected_moon_index >= _moon_entries.size():
+		return
+	_remove_entry(_moon_entries[_selected_moon_index])
+
+
+func _clear_all_moons() -> void:
+	for entry in _moon_entries.duplicate():
+		_remove_entry(entry)
+	_status_label.text = "All moons cleared"
+
+
+func _remove_entry(entry: Dictionary) -> void:
+	var index := _moon_entries.find(entry)
+	if index == -1:
+		return
+	var window := entry.get("window") as Window
+	if is_instance_valid(window):
+		window.queue_free()
+	_moon_entries.remove_at(index)
+	if _moon_entries.is_empty():
+		_selected_moon_index = -1
+		_overlay_window = null
+		_overlay_root = null
+		_moon = null
+		_menu_moon.visible = true
+		_start_button.disabled = false
+		_refresh_selected_moon_ui()
+		return
+	_set_selected_moon_index(clampi(index, 0, _moon_entries.size() - 1))
+
+
+func _set_selected_moon_index(index: int) -> void:
+	if _moon_entries.is_empty():
+		_selected_moon_index = -1
+		_refresh_selected_moon_ui()
+		return
+	_selected_moon_index = clampi(index, 0, _moon_entries.size() - 1)
+	_load_entry_state(_moon_entries[_selected_moon_index])
+	_refresh_selected_moon_ui()
+	_status_label.text = "Selected moon %d of %d" % [_selected_moon_index + 1, _moon_entries.size()]
+
+
+func _load_selected_moon_state() -> void:
+	if _selected_moon_index >= 0 and _selected_moon_index < _moon_entries.size():
+		_load_entry_state(_moon_entries[_selected_moon_index])
+
+
+func _store_selected_moon_state() -> void:
+	if _selected_moon_index >= 0 and _selected_moon_index < _moon_entries.size():
+		_store_entry_state(_moon_entries[_selected_moon_index])
+
+
+func _refresh_selected_moon_ui() -> void:
+	_syncing_selected_ui = true
+	_selected_moon_label.text = "Selected: none" if _moon_entries.is_empty() else "Selected: %d / %d" % [_selected_moon_index + 1, _moon_entries.size()]
+	_scale_slider.value = _moon_scale
+	_opacity_slider.value = _moon_opacity
+	_body_speed_slider.value = _body_speed_multiplier
+	_syncing_selected_ui = false
+
+
+func _apply_visual_state_to_all_moons() -> void:
+	for entry in _moon_entries:
+		if _entry_is_valid(entry):
+			_load_entry_state(entry)
+			_apply_moon_visual_state()
+			_store_entry_state(entry)
+	_load_selected_moon_state()
+
+
+func _on_overlay_window_input(event: InputEvent, entry: Dictionary) -> void:
 	if _click_through_enabled:
 		return
+	var index := _moon_entries.find(entry)
+	if index != -1 and index != _selected_moon_index:
+		_set_selected_moon_index(index)
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		var mouse_screen_position := Vector2(DisplayServer.mouse_get_position())
 		if event.pressed:
 			if _local_position_hits_moon(event.position):
 				_start_drag(mouse_screen_position)
+				_store_entry_state(entry)
 				get_viewport().set_input_as_handled()
 		elif _dragging:
 			_release_drag()
+			_store_entry_state(entry)
 			get_viewport().set_input_as_handled()
 
 
@@ -547,6 +819,8 @@ func _apply_screen_bounds() -> void:
 
 	if bounced and is_instance_valid(_moon) and _moon.has_method("react_bumped"):
 		_moon.call("react_bumped")
+	if bounced and is_instance_valid(_moon) and _moon.has_method("pulse_click"):
+		_moon.call("pulse_click")
 
 
 func _sync_overlay_window() -> void:
