@@ -9,16 +9,9 @@
 [ext_resource type="Texture2D" uid="uid://qg0u0d0qlitw" path="res://assets/main_menu/icons/settings.png" id="7_settings"]
 [ext_resource type="Texture2D" uid="uid://bfvf0tc31devq" path="res://assets/main_menu/icons/about.png" id="8_about"]
 [ext_resource type="Texture2D" uid="uid://c32vx0sugl1an" path="res://assets/main_menu/icons/quit.png" id="9_quit"]
-[ext_resource type="Texture2D" uid="uid://co2owvnjwbwhp" path="res://assets/main_menu/clouds/large_clouds.png" id="10_cloud_l"]
 [ext_resource type="Texture2D" uid="uid://34yxiva4ln8v" path="res://assets/main_menu/icons/customize.png" id="10_customize"]
-[ext_resource type="Texture2D" uid="uid://vv442u6orvg7" path="res://assets/main_menu/clouds/medium_clouds.png" id="11_cloud_m"]
-[ext_resource type="Texture2D" uid="uid://c5ojvd7ej6y2w" path="res://assets/main_menu/clouds/small_clouds.png" id="12_cloud_s"]
-[ext_resource type="Texture2D" uid="uid://b3f3r5expnqwt" path="res://assets/main_menu/clouds/small_clouds_2.png" id="13_cloud_s2"]
-[ext_resource type="Texture2D" uid="uid://cnhf5res6cb08" path="res://assets/main_menu/stars/gold/large_star.png" id="14_star_g_l"]
-[ext_resource type="Texture2D" uid="uid://b4o4rwer7ay8y" path="res://assets/main_menu/stars/gold/small_star.png" id="15_star_g_s"]
-[ext_resource type="Texture2D" uid="uid://brbhtpech3eyv" path="res://assets/main_menu/stars/purple/small_star.png" id="16_star_p_s"]
 [ext_resource type="FontFile" uid="uid://w0p6smylyk1x" path="res://assets/not_sprites/pixel_operator/PixelOperator.ttf" id="17_font"]
-[ext_resource type="PackedScene" uid="uid://bky7btjtomh0p" path="res://src/planetoid/planetoid.tscn" id="18_moon"]
+[ext_resource type="PackedScene" uid="uid://bky7btjtomh0p" path="res://src/planetoid/planetoid.tscn" id="18_fox"]
 
 [node name="World" type="Node2D" unique_id=43647833]
 script = ExtResource("1_world")
@@ -31,79 +24,13 @@ script = ExtResource("1_world")
 position = Vector2(480, 270)
 texture = ExtResource("2_bg")
 
-[node name="Clouds" type="Node2D" parent="MenuLayer/MainMenu" unique_id=461056765]
-
-[node name="LargeCloud" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds" unique_id=2033044985]
-position = Vector2(54, 326)
-scale = Vector2(0.95, 0.95)
-texture = ExtResource("10_cloud_l")
-metadata/speed = 8.0
-
-[node name="MediumCloud" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds" unique_id=1203467805]
-z_index = 2
-position = Vector2(728, 266)
-scale = Vector2(0.75, 0.75)
-texture = ExtResource("11_cloud_m")
-metadata/speed = -5.0
-
-[node name="SmallCloud" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds" unique_id=1481385225]
-z_index = 2
-position = Vector2(780, 180)
-scale = Vector2(0.72, 0.72)
-texture = ExtResource("12_cloud_s")
-metadata/speed = 4.0
-
-[node name="SmallCloud2" type="Sprite2D" parent="MenuLayer/MainMenu/Clouds" unique_id=415018314]
-position = Vector2(146, 365)
-scale = Vector2(0.65, 0.65)
-texture = ExtResource("13_cloud_s2")
-metadata/speed = -3.0
-
-[node name="Stars" type="Node2D" parent="MenuLayer/MainMenu" unique_id=1217545064]
-z_index = 12
-
-[node name="GoldStarA" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=643725008]
-position = Vector2(103, 86)
-scale = Vector2(0.55, 0.55)
-texture = ExtResource("14_star_g_l")
-
-[node name="GoldStarB" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=1298792280]
-position = Vector2(144, 252)
-scale = Vector2(0.42, 0.42)
-texture = ExtResource("15_star_g_s")
-
-[node name="GoldStarC" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=908953157]
-position = Vector2(526, 69)
-scale = Vector2(0.54, 0.54)
-texture = ExtResource("14_star_g_l")
-
-[node name="PurpleStarA" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=1907127301]
-position = Vector2(681, 72)
-scale = Vector2(0.55, 0.55)
-texture = ExtResource("16_star_p_s")
-
-[node name="PurpleStarB" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=1097614399]
-position = Vector2(774, 291)
-scale = Vector2(0.55, 0.55)
-texture = ExtResource("16_star_p_s")
-
-[node name="TinyStarA" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=1970847137]
-position = Vector2(306, 41)
-scale = Vector2(0.28, 0.28)
-texture = ExtResource("16_star_p_s")
-
-[node name="TinyStarB" type="Sprite2D" parent="MenuLayer/MainMenu/Stars" unique_id=1032538292]
-position = Vector2(836, 123)
-scale = Vector2(0.25, 0.25)
-texture = ExtResource("15_star_g_s")
-
 [node name="Title" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1551208764]
 z_index = 20
 position = Vector2(273, 110)
 scale = Vector2(0.9, 0.9)
 texture = ExtResource("3_title")
 
-[node name="MenuMoon" parent="MenuLayer/MainMenu" unique_id=600092329 instance=ExtResource("18_moon")]
+[node name="PreviewFox" parent="MenuLayer/MainMenu" unique_id=600092329 instance=ExtResource("18_fox")]
 z_index = 28
 position = Vector2(632, 245)
 
@@ -266,28 +193,27 @@ text = "Quit"
 vertical_alignment = 1
 
 [node name="StatusLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=1779651163]
-z_index = 35
-offset_left = 594.0
-offset_top = 392.0
-offset_right = 844.0
-offset_bottom = 432.0
+z_index = 60
+offset_left = 470.0
+offset_top = 430.0
+offset_right = 900.0
+offset_bottom = 476.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 22
-text = "Click the moon to boop it!"
-horizontal_alignment = 1
-vertical_alignment = 1
+text = "Focus Fox is ready."
+autowrap_mode = 2
 
 [node name="CreatorLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=161264436]
 z_index = 60
-offset_left = 10.0
-offset_top = 509.0
-offset_right = 270.0
-offset_bottom = 537.0
-theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.78)
+offset_left = 496.0
+offset_top = 474.0
+offset_right = 900.0
+offset_bottom = 504.0
+theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.78)
 theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "By Nicholas & Kayleigh"
+theme_override_font_sizes/font_size = 16
+text = "A desktop fox for focus time."
 
 [node name="VersionLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=1372439118]
 z_index = 60
@@ -334,82 +260,46 @@ text = "X"
 [node name="ClickThroughToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=423483557]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 66.0
+offset_top = 72.0
 offset_right = 360.0
-offset_bottom = 100.0
+offset_bottom = 106.0
 focus_mode = 0
 theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 20
 text = "Click-through mode"
 
-[node name="EyeFollowToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1499382226]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 104.0
-offset_right = 360.0
-offset_bottom = 138.0
-focus_mode = 0
-theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-button_pressed = true
-text = "Eye follow"
-
 [node name="HoverFadeToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=351889639]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 142.0
+offset_top = 110.0
 offset_right = 360.0
-offset_bottom = 176.0
+offset_bottom = 144.0
 focus_mode = 0
 theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 20
 text = "Transparent on hover"
 
-[node name="MoonCollisionToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1528879449]
+[node name="TaskbarSnapToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1528879449]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 174.0
+offset_top = 148.0
 offset_right = 360.0
-offset_bottom = 208.0
+offset_bottom = 182.0
 focus_mode = 0
 theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 20
 button_pressed = true
-text = "Bump other planets"
-
-[node name="ScaleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=154355366]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 246.0
-offset_right = 150.0
-offset_bottom = 272.0
-theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Scale"
-
-[node name="ScaleSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=462479219]
-layout_mode = 0
-offset_left = 145.0
-offset_top = 246.0
-offset_right = 358.0
-offset_bottom = 272.0
-focus_mode = 0
-min_value = 0.7
-max_value = 1.35
-step = 0.01
-value = 1.0
+text = "Taskbar snap enabled"
 
 [node name="OpacityLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=2012606448]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 214.0
+offset_top = 206.0
 offset_right = 150.0
-offset_bottom = 240.0
+offset_bottom = 232.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
@@ -418,137 +308,126 @@ text = "Opacity"
 [node name="OpacitySlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=2033893597]
 layout_mode = 0
 offset_left = 145.0
-offset_top = 214.0
+offset_top = 206.0
 offset_right = 358.0
-offset_bottom = 240.0
+offset_bottom = 232.0
 focus_mode = 0
 min_value = 0.35
 max_value = 1.0
 step = 0.01
 value = 1.0
 
-[node name="VolumeLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1310294370]
+[node name="ScaleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=154355366]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 278.0
+offset_top = 238.0
 offset_right = 150.0
-offset_bottom = 304.0
+offset_bottom = 264.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
-text = "Volume"
+text = "Fox scale"
 
-[node name="VolumeSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=697902396]
+[node name="ScaleSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=462479219]
 layout_mode = 0
 offset_left = 145.0
-offset_top = 278.0
-offset_right = 290.0
-offset_bottom = 304.0
+offset_top = 238.0
+offset_right = 358.0
+offset_bottom = 264.0
 focus_mode = 0
-max_value = 1.0
-step = 0.01
-value = 0.8
+min_value = 1.5
+max_value = 5.0
+step = 0.05
+value = 3.0
 
-[node name="MuteToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1159519832]
-layout_mode = 0
-offset_left = 298.0
-offset_top = 274.0
-offset_right = 370.0
-offset_bottom = 308.0
-focus_mode = 0
-theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Mute"
-
-[node name="ResetPositionButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=480148780]
+[node name="TaskbarHeightLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1310294370]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 322.0
+offset_top = 270.0
+offset_right = 150.0
+offset_bottom = 296.0
+theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Taskbar height"
+
+[node name="TaskbarHeightSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=697902396]
+layout_mode = 0
+offset_left = 145.0
+offset_top = 270.0
+offset_right = 358.0
+offset_bottom = 296.0
+focus_mode = 0
+max_value = 160.0
+step = 1.0
+value = 48.0
+
+[node name="ResetFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=480148780]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 324.0
 offset_right = 186.0
-offset_bottom = 356.0
+offset_bottom = 358.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 20
-text = "Reset position"
+text = "Reset fox"
 
-[node name="SelectedMoonLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1887490067]
+[node name="FoxStatusLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1887490067]
 layout_mode = 0
 offset_left = 204.0
-offset_top = 324.0
+offset_top = 326.0
 offset_right = 364.0
-offset_bottom = 352.0
+offset_bottom = 354.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
-text = "Selected: none"
+text = "Fox: menu preview"
 horizontal_alignment = 2
 
-[node name="AddMoonButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1368414196]
+[node name="SpawnFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1368414196]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 370.0
-offset_right = 116.0
-offset_bottom = 404.0
+offset_top = 372.0
+offset_right = 130.0
+offset_bottom = 406.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
-text = "Add"
+text = "Spawn fox"
 
-[node name="PreviousMoonButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1167725377]
+[node name="HideFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=20945567]
 layout_mode = 0
-offset_left = 126.0
-offset_top = 370.0
-offset_right = 202.0
-offset_bottom = 404.0
+offset_left = 144.0
+offset_top = 372.0
+offset_right = 250.0
+offset_bottom = 406.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
-text = "Prev"
+text = "Hide fox"
 
-[node name="NextMoonButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=464305440]
+[node name="ResetAllButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1369400607]
 layout_mode = 0
-offset_left = 212.0
-offset_top = 370.0
-offset_right = 288.0
-offset_bottom = 404.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 17
-text = "Next"
-
-[node name="RemoveMoonButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=20945567]
-layout_mode = 0
-offset_left = 298.0
-offset_top = 370.0
+offset_left = 264.0
+offset_top = 372.0
 offset_right = 370.0
-offset_bottom = 404.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 16
-text = "Del"
-
-[node name="ClearMoonsButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1369400607]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 414.0
-offset_right = 186.0
-offset_bottom = 448.0
+offset_bottom = 406.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
-text = "Clear all"
+text = "Reset all"
 
 [node name="HintLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=316501194]
 layout_mode = 0
-offset_left = 204.0
-offset_top = 410.0
+offset_left = 24.0
+offset_top = 418.0
 offset_right = 364.0
-offset_bottom = 456.0
+offset_bottom = 462.0
 theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.78)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 14
-text = "Customize applies to the selected moon."
+text = "Taskbar height controls where the fox lands."
 autowrap_mode = 2
 
 [node name="CustomizePanel" type="Panel" parent="MenuLayer/MainMenu" unique_id=890660165]
@@ -557,7 +436,7 @@ z_index = 91
 offset_left = 95.0
 offset_top = 60.0
 offset_right = 485.0
-offset_bottom = 500.0
+offset_bottom = 300.0
 
 [node name="TitleLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=293004313]
 layout_mode = 0
@@ -581,202 +460,60 @@ theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 22
 text = "X"
 
-[node name="WardrobeLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1499162212]
+[node name="FoxLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1499162212]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 82.0
+offset_top = 84.0
 offset_right = 360.0
-offset_bottom = 130.0
+offset_bottom = 118.0
 theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 22
-text = "Body"
+text = "Fox"
 
-[node name="MoonBodyButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=576296496]
+[node name="FoxHintLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=576296496]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 124.0
-offset_right = 128.0
-offset_bottom = 166.0
-focus_mode = 0
+offset_top = 120.0
+offset_right = 360.0
+offset_bottom = 154.0
+theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-text = "Moon"
-
-[node name="EarthBodyButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1812784013]
-layout_mode = 0
-offset_left = 144.0
-offset_top = 124.0
-offset_right = 248.0
-offset_bottom = 166.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-text = "Earth"
-
-[node name="FoxBodyButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1145329087]
-layout_mode = 0
-offset_left = 264.0
-offset_top = 124.0
-offset_right = 368.0
-offset_bottom = 166.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-text = "Fox"
+theme_override_font_sizes/font_size = 18
+text = "Focus Fox uses the fox sprite by default."
+autowrap_mode = 2
 
 [node name="BodySpeedLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1272588223]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 186.0
+offset_top = 174.0
 offset_right = 150.0
-offset_bottom = 216.0
+offset_bottom = 204.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
-text = "Rotation"
+text = "Sprite speed"
 
 [node name="BodySpeedSlider" type="HSlider" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=20902574]
 layout_mode = 0
 offset_left = 145.0
-offset_top = 186.0
+offset_top = 174.0
 offset_right = 364.0
-offset_bottom = 216.0
+offset_bottom = 204.0
 focus_mode = 0
 min_value = 0.2
 max_value = 2.0
 step = 0.05
 value = 1.0
 
-[node name="OrbitLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=641646707]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 246.0
-offset_right = 360.0
-offset_bottom = 278.0
-theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 22
-text = "Orbitals"
-
-[node name="NoOrbitsButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1406893815]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 282.0
-offset_right = 184.0
-offset_bottom = 318.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-text = "None"
-
-[node name="PebblesOrbitButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=659353733]
-layout_mode = 0
-offset_left = 204.0
-offset_top = 282.0
-offset_right = 364.0
-offset_bottom = 318.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-text = "Pebbles"
-
-[node name="MeteorsOrbitButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1619937242]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 326.0
-offset_right = 184.0
-offset_bottom = 362.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-text = "Meteors"
-
-[node name="HaloOrbitButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=930226484]
-layout_mode = 0
-offset_left = 204.0
-offset_top = 326.0
-offset_right = 364.0
-offset_bottom = 362.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-text = "Halo"
-
-[node name="SpaceFxLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=739431298]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 360.0
-offset_right = 164.0
-offset_bottom = 386.0
-theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.84)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 16
-text = "Stars"
-
-[node name="GoldStarsButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1499001996]
-layout_mode = 0
-offset_left = 144.0
-offset_top = 378.0
-offset_right = 254.0
-offset_bottom = 410.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Gold"
-
-[node name="PurpleStarsButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=750674826]
-layout_mode = 0
-offset_left = 264.0
-offset_top = 378.0
-offset_right = 364.0
-offset_bottom = 410.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Purple"
-
-[node name="NoStarsButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1880975510]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 378.0
-offset_right = 134.0
-offset_bottom = 410.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "No stars"
-
-[node name="NoCloudsButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=426837037]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 424.0
-offset_right = 184.0
-offset_bottom = 456.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "No clouds"
-
-[node name="CloudsButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=532055406]
-layout_mode = 0
-offset_left = 204.0
-offset_top = 424.0
-offset_right = 364.0
-offset_bottom = 456.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Cloud wisps"
-
 [node name="CustomizeHintLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=2074219637]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 462.0
+offset_top = 220.0
 offset_right = 364.0
-offset_bottom = 500.0
+offset_bottom = 268.0
 theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.78)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 16
-text = "Try Earth with a meteor halo for a tiny desk planetarium."
+text = "Adjust sprite speed to change how lively the fox feels."
 autowrap_mode = 2
