@@ -11,11 +11,15 @@ const GOLD_STAR: Texture2D = preload("res://assets/main_menu/stars/gold/small_st
 const PURPLE_STAR: Texture2D = preload("res://assets/main_menu/stars/purple/small_star.png")
 const CLOUD_SMALL: Texture2D = preload("res://assets/main_menu/clouds/small_clouds.png")
 const CLOUD_SMALL_2: Texture2D = preload("res://assets/main_menu/clouds/small_clouds_2.png")
+const FOX_SPRITE_SHEET: Texture2D = preload("res://assets/fox/Fox Sprite Sheet.png")
 
 const BODY_FRAME_DIRS := {
 	"moon": "res://assets/orbitals/moon",
 	"earth": "res://assets/orbitals/earth",
 }
+const FOX_SPRITE_SIZE := Vector2i(32, 32)
+const FOX_IDLE_FRAME_COUNT := 5
+const FOX_IDLE_ROW := 0
 const ORBIT_PRESETS := {
 	"none": [],
 	"pebbles": [
@@ -217,12 +221,12 @@ func set_eye_follow_enabled(enabled: bool) -> void:
 
 
 func set_body_theme(theme: String) -> void:
-	if not BODY_FRAME_DIRS.has(theme) or not (_visual is AnimatedSprite2D):
+	if not (_visual is AnimatedSprite2D):
 		return
-	_body_theme = theme
-	var frames := _build_sprite_frames(str(BODY_FRAME_DIRS[theme]))
+	var frames := _build_body_sprite_frames(theme)
 	if frames == null:
 		return
+	_body_theme = theme
 	var sprite := _visual as AnimatedSprite2D
 	sprite.sprite_frames = frames
 	sprite.play("default")
@@ -437,7 +441,15 @@ func _set_face_texture(texture: Texture2D) -> void:
 		_face.texture = texture
 
 
-func _build_sprite_frames(directory: String) -> SpriteFrames:
+func _build_body_sprite_frames(theme: String) -> SpriteFrames:
+	if theme == "fox":
+		return _build_fox_sprite_frames()
+	if not BODY_FRAME_DIRS.has(theme):
+		return null
+	return _build_sprite_frames_from_directory(str(BODY_FRAME_DIRS[theme]))
+
+
+func _build_sprite_frames_from_directory(directory: String) -> SpriteFrames:
 	var files := DirAccess.get_files_at(directory)
 	var image_files: Array[String] = []
 	for file in files:
@@ -449,16 +461,37 @@ func _build_sprite_frames(directory: String) -> SpriteFrames:
 	if image_files.is_empty():
 		return null
 
+	var frames := _create_default_sprite_frames()
+	for file in image_files:
+		var texture := load(directory.path_join(file)) as Texture2D
+		if texture != null:
+			frames.add_frame("default", texture)
+	return frames
+
+
+func _build_fox_sprite_frames() -> SpriteFrames:
+	if FOX_SPRITE_SHEET == null:
+		return null
+
+	var frames := _create_default_sprite_frames()
+	for frame_index in range(FOX_IDLE_FRAME_COUNT):
+		var atlas := AtlasTexture.new()
+		atlas.atlas = FOX_SPRITE_SHEET
+		atlas.region = Rect2(
+			Vector2(frame_index * FOX_SPRITE_SIZE.x, FOX_IDLE_ROW * FOX_SPRITE_SIZE.y),
+			Vector2(FOX_SPRITE_SIZE)
+		)
+		frames.add_frame("default", atlas)
+	return frames
+
+
+func _create_default_sprite_frames() -> SpriteFrames:
 	var frames := SpriteFrames.new()
 	if not frames.has_animation("default"):
 		frames.add_animation("default")
 	frames.clear("default")
 	frames.set_animation_loop("default", true)
 	frames.set_animation_speed("default", _get_body_base_speed() * _body_speed_multiplier)
-	for file in image_files:
-		var texture := load(directory.path_join(file)) as Texture2D
-		if texture != null:
-			frames.add_frame("default", texture)
 	return frames
 
 
@@ -472,4 +505,10 @@ func _file_number(file_name: String) -> int:
 
 
 func _get_body_base_speed() -> float:
-	return 8.0 if _body_theme == "moon" else 12.0
+	match _body_theme:
+		"moon":
+			return 8.0
+		"fox":
+			return 10.0
+		_:
+			return 12.0

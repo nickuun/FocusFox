@@ -52,6 +52,7 @@ const SHOOTING_STAR: Texture2D = preload("res://assets/main_menu/stars/shooting/
 @onready var _customize_close_button: Button = $MenuLayer/MainMenu/CustomizePanel/CloseButton
 @onready var _moon_body_button: Button = $MenuLayer/MainMenu/CustomizePanel/MoonBodyButton
 @onready var _earth_body_button: Button = $MenuLayer/MainMenu/CustomizePanel/EarthBodyButton
+@onready var _fox_body_button: Button = $MenuLayer/MainMenu/CustomizePanel/FoxBodyButton
 @onready var _body_speed_slider: HSlider = $MenuLayer/MainMenu/CustomizePanel/BodySpeedSlider
 @onready var _no_orbits_button: Button = $MenuLayer/MainMenu/CustomizePanel/NoOrbitsButton
 @onready var _pebbles_orbit_button: Button = $MenuLayer/MainMenu/CustomizePanel/PebblesOrbitButton
@@ -155,7 +156,7 @@ func _setup_launcher_window() -> void:
 	get_viewport().transparent_bg = false
 
 	var window := get_window()
-	window.title = "Desktop Moons"
+	window.title = "Focus Fox"
 	window.borderless = false
 	window.always_on_top = false
 	window.transparent = false
@@ -178,6 +179,7 @@ func _setup_menu_nodes() -> void:
 	_customize_close_button.pressed.connect(_hide_customize_panel)
 	_moon_body_button.pressed.connect(_set_body_theme.bind("moon"))
 	_earth_body_button.pressed.connect(_set_body_theme.bind("earth"))
+	_fox_body_button.pressed.connect(_set_body_theme.bind("fox"))
 	_body_speed_slider.value_changed.connect(_on_body_speed_changed)
 	_no_orbits_button.pressed.connect(_set_orbit_preset.bind("none"))
 	_pebbles_orbit_button.pressed.connect(_set_orbit_preset.bind("pebbles"))
@@ -530,13 +532,18 @@ func _apply_click_through_mode_to_entry(entry: Dictionary) -> void:
 	if not is_instance_valid(window):
 		return
 	if _click_through_enabled:
-		var passthrough_polygon := _get_offscreen_mouse_polygon()
-		window.mouse_passthrough_polygon = passthrough_polygon
-		DisplayServer.window_set_mouse_passthrough(passthrough_polygon, window.get_window_id())
-	else:
+		# Windows clips drawing outside passthrough polygons, so preserve the full visual window.
+		window.mouse_passthrough = false
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, false, window.get_window_id())
 		var full_polygon := _get_full_window_polygon()
 		window.mouse_passthrough_polygon = full_polygon
 		DisplayServer.window_set_mouse_passthrough(full_polygon, window.get_window_id())
+	else:
+		window.mouse_passthrough = false
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, false, window.get_window_id())
+		var active_polygon := _get_full_window_polygon() if _entry_needs_full_visual_window(entry) else _get_moon_click_polygon(entry)
+		window.mouse_passthrough_polygon = active_polygon
+		DisplayServer.window_set_mouse_passthrough(active_polygon, window.get_window_id())
 
 
 func _get_full_window_polygon() -> PackedVector2Array:
@@ -549,13 +556,21 @@ func _get_full_window_polygon() -> PackedVector2Array:
 	])
 
 
-func _get_offscreen_mouse_polygon() -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(-4.0, -4.0),
-		Vector2(-3.0, -4.0),
-		Vector2(-3.0, -3.0),
-		Vector2(-4.0, -3.0),
-	])
+func _get_moon_click_polygon(entry: Dictionary) -> PackedVector2Array:
+	var radius := _get_entry_visual_radius(entry)
+	var center := Vector2(moon_window_size) * 0.5
+	var points := PackedVector2Array()
+	var segments := 32
+	for index in range(segments):
+		var angle := TAU * float(index) / float(segments)
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	return points
+
+
+func _entry_needs_full_visual_window(entry: Dictionary) -> bool:
+	return str(entry.get("orbit_preset", "none")) != "none" \
+		or str(entry.get("star_preset", "none")) != "none" \
+		or str(entry.get("cloud_preset", "none")) != "none"
 
 
 func _create_overlay_window(entry: Dictionary) -> void:
@@ -611,7 +626,13 @@ func _set_body_theme(theme: String) -> void:
 		_apply_moon_cosmetics(_menu_moon)
 	_apply_moon_cosmetics(_moon)
 	_store_selected_moon_state()
-	_status_label.text = "Earth mode" if theme == "earth" else "Moon mode"
+	match theme:
+		"earth":
+			_status_label.text = "Earth mode"
+		"fox":
+			_status_label.text = "Fox mode"
+		_:
+			_status_label.text = "Moon mode"
 
 
 func _on_body_speed_changed(value: float) -> void:
@@ -833,12 +854,16 @@ func _resolve_moon_collision(a: Dictionary, b: Dictionary) -> void:
 
 
 func _get_entry_pick_radius(entry: Dictionary) -> float:
+	return _get_entry_visual_radius(entry) + moon_edge_padding
+
+
+func _get_entry_visual_radius(entry: Dictionary) -> float:
 	var moon := entry.get("moon") as RigidBody2D
 	if is_instance_valid(moon) and moon.has_method("get_pick_radius"):
 		var radius: Variant = moon.call("get_pick_radius")
 		if typeof(radius) == TYPE_FLOAT or typeof(radius) == TYPE_INT:
-			return float(radius) + moon_edge_padding
-	return 120.0 + moon_edge_padding
+			return float(radius)
+	return 120.0
 
 
 func _sync_entry_window(entry: Dictionary) -> void:
