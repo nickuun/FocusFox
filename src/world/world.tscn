@@ -1,6 +1,8 @@
 [gd_scene format=3 uid="uid://m3p4ccdoqm0x"]
 
 [ext_resource type="Script" uid="uid://brcpg0nxctq1j" path="res://src/world/world.gd" id="1_world"]
+[ext_resource type="Script" path="res://src/world/fox_settings_panel.gd" id="11_settings_panel"]
+[ext_resource type="Script" path="res://src/world/desktop_fox.gd" id="12_desktop_fox"]
 [ext_resource type="Texture2D" uid="uid://cu02xc6hfribl" path="res://assets/main_menu/background.png" id="2_bg"]
 [ext_resource type="Texture2D" uid="uid://b5xmpxyx216km" path="res://assets/main_menu/title.png" id="3_title"]
 [ext_resource type="Texture2D" uid="uid://c28fhgopjjtk5" path="res://assets/main_menu/default_button.png" id="4_button"]
@@ -15,6 +17,9 @@
 
 [node name="World" type="Node2D" unique_id=43647833]
 script = ExtResource("1_world")
+
+[node name="DesktopFox" type="Node" parent="."]
+script = ExtResource("12_desktop_fox")
 
 [node name="MenuLayer" type="CanvasLayer" parent="." unique_id=161516459]
 
@@ -234,6 +239,7 @@ offset_left = 95.0
 offset_top = 60.0
 offset_right = 485.0
 offset_bottom = 500.0
+script = ExtResource("11_settings_panel")
 
 [node name="TitleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=678345779]
 layout_mode = 0
@@ -358,9 +364,10 @@ offset_top = 270.0
 offset_right = 358.0
 offset_bottom = 296.0
 focus_mode = 0
-max_value = 160.0
+min_value = -40.0
+max_value = 120.0
 step = 1.0
-value = 48.0
+value = 24.0
 
 [node name="ResetFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=480148780]
 layout_mode = 0
