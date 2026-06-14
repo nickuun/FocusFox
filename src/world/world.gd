@@ -160,10 +160,11 @@ func _on_taskbar_snap_toggled(enabled: bool) -> void:
 func _on_scale_changed(value: float) -> void:
 	if _syncing_ui:
 		return
-	_desktop_fox.fox_scale = value
+	_desktop_fox.fox_scale = maxf(1.0, roundf(value))
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
 	_desktop_fox.apply_visual_settings()
-	_set_status("Fox scale %.2fx" % value)
+	_refresh_ui()
+	_set_status("Fox scale %.0fx" % _desktop_fox.fox_scale)
 
 
 func _on_opacity_changed(value: float) -> void:

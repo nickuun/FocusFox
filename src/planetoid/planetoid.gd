@@ -68,8 +68,9 @@ func react_bumped() -> void:
 
 
 func set_body_theme(_theme: String) -> void:
-	_sprite.sprite_frames = _build_fox_sprite_frames()
-	_sprite.play("default")
+	if _sprite.sprite_frames == null or not _sprite.sprite_frames.has_animation("default"):
+		_sprite.sprite_frames = _build_fox_sprite_frames()
+		_sprite.play("default")
 	set_body_rotation_speed(_body_speed_multiplier)
 
 

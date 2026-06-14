@@ -18,6 +18,7 @@ angular_damp = 0.82
 script = ExtResource("1_script")
 
 [node name="FoxSprite" type="AnimatedSprite2D" parent="." unique_id=696764942]
+position = Vector2(0, 0)
 scale = Vector2(5, 5)
 autoplay = "default"
 
