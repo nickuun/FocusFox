@@ -14,7 +14,7 @@ const FOX_SCENE: PackedScene = preload("res://src/planetoid/planetoid.tscn")
 @export var max_throw_speed := 1850.0
 @export var floor_friction := 6.5
 @export var hover_modulate := Color(1.12, 1.08, 1.16, 1.0)
-@export var landing_offset := 40.0
+@export var landing_offset := 16.0
 @export var floor_snap_tolerance := 2.0
 @export var rest_velocity_threshold := 24.0
 
@@ -149,13 +149,20 @@ func despawn_fox() -> void:
 	status_changed.emit("Fox hidden")
 
 
+func celebrate() -> void:
+	# A little happy bounce — used when a session starts or completes.
+	if is_instance_valid(_fox):
+		_resting_on_floor = false
+		_fox_velocity.y = -560.0 * _fox_pixel_scale()
+		_fox.call("pulse_click")
+
+
 func reset_fox_position() -> void:
 	if not is_instance_valid(_fox):
 		return
 	var screen_rect := _get_target_screen_rect()
-	var radius := _get_fox_radius() + fox_edge_padding
-	var window_half_size := Vector2(_get_window_size_for_scale()) * 0.5
-	_fox_screen_position = Vector2(screen_rect.position.x + screen_rect.size.x * 0.5, screen_rect.end.y - _get_floor_offset() - maxf(window_half_size.y, radius) + landing_offset)
+	var visual_half := _fox_visual_half()
+	_fox_screen_position = Vector2(screen_rect.position.x + screen_rect.size.x * 0.5, screen_rect.end.y - _get_floor_offset() - visual_half.y + landing_offset * _fox_pixel_scale())
 	_fox_velocity = Vector2.ZERO
 	_dragging = false
 	_sync_overlay_window()
@@ -262,8 +269,18 @@ func _get_offscreen_overlay_position() -> Vector2i:
 	return screen_rect.end + _get_window_size_for_scale() + Vector2i(96, 96)
 
 
+func _fox_pixel_scale() -> float:
+	return maxf(1.0, roundf(fox_scale))
+
+
+func _fox_visual_half() -> Vector2:
+	# Half the rendered sprite footprint, used so the fox rests on the taskbar and
+	# stays on-screen based on what you actually see (not the padded window size).
+	return _fox_sprite_base * _fox_pixel_scale() * 0.5
+
+
 func _get_window_size_for_scale() -> Vector2i:
-	var pixel_scale := maxf(1.0, roundf(fox_scale))
+	var pixel_scale := _fox_pixel_scale()
 	var footprint := _fox_sprite_base * pixel_scale
 	return Vector2i(
 		max(fox_window_size.x, int(ceil(footprint.x)) + fox_window_padding.x),
@@ -314,12 +331,12 @@ func _apply_gravity(delta: float) -> void:
 
 func _apply_screen_bounds() -> void:
 	var screen_rect := _get_target_screen_rect()
-	var window_half_size := Vector2(_get_window_size_for_scale()) * 0.5
-	var radius := _get_fox_radius() + fox_edge_padding
-	var min_x := float(screen_rect.position.x) + maxf(window_half_size.x, radius)
-	var max_x := float(screen_rect.end.x) - maxf(window_half_size.x, radius)
-	var min_y := float(screen_rect.position.y) + maxf(window_half_size.y, radius)
-	var floor_y := float(screen_rect.end.y) - _get_floor_offset() - maxf(window_half_size.y, radius) + landing_offset
+	var visual_half := _fox_visual_half()
+	var edge := fox_edge_padding
+	var min_x := float(screen_rect.position.x) + visual_half.x + edge
+	var max_x := float(screen_rect.end.x) - visual_half.x - edge
+	var min_y := float(screen_rect.position.y) + visual_half.y + edge
+	var floor_y := float(screen_rect.end.y) - _get_floor_offset() - visual_half.y + landing_offset * _fox_pixel_scale()
 	var bumped := false
 	var hit_floor := false
 

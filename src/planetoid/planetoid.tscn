@@ -7,7 +7,7 @@ friction = 0.06
 bounce = 0.9
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_4l1sj"]
-radius = 120.004166
+radius = 80.0
 
 [node name="Fox" type="RigidBody2D" unique_id=957792792 groups=["focus_foxes"]]
 mass = 1.15

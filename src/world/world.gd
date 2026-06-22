@@ -2,33 +2,53 @@ extends Node2D
 
 @export_group("Launcher")
 @export var launcher_window_size := Vector2i(960, 540)
-@export var minimize_launcher_after_spawn := true
+@export var minimize_delay_after_start := 1.5
 
-const START_LABEL := "Start Focus Session"
-const RECALL_LABEL := "Bring Fox Home"
+enum Mode { HOME, CHOOSE, RUNNING }
+
+const SESSIONS := {
+	"deep": {"label": "Deep focus", "minutes": 45},
+	"focus": {"label": "Focus", "minutes": 25},
+	"break": {"label": "Break", "minutes": 15},
+}
 
 @onready var _desktop_fox: DesktopFox = $DesktopFox
 @onready var _preview_fox: RigidBody2D = $MenuLayer/MainMenu/PreviewFox
+
 @onready var _start_button: TextureButton = $MenuLayer/MainMenu/Buttons/StartButton
-@onready var _start_label: Label = $MenuLayer/MainMenu/Buttons/StartButton/Label
 @onready var _quit_button: TextureButton = $MenuLayer/MainMenu/Buttons/QuitButton
+@onready var _deep_button: TextureButton = $MenuLayer/MainMenu/Buttons/DeepButton
+@onready var _focus_button: TextureButton = $MenuLayer/MainMenu/Buttons/FocusButton
+@onready var _break_button: TextureButton = $MenuLayer/MainMenu/Buttons/BreakButton
+@onready var _stop_button: TextureButton = $MenuLayer/MainMenu/Buttons/StopButton
+@onready var _bring_home_button: TextureButton = $MenuLayer/MainMenu/Buttons/BringHomeButton
+
+@onready var _timer_label: Label = $MenuLayer/MainMenu/TimerLabel
+@onready var _session_label: Label = $MenuLayer/MainMenu/SessionLabel
+@onready var _status_label: Label = $MenuLayer/MainMenu/StatusLabel
+
 @onready var _settings_icon_button: TextureButton = $MenuLayer/MainMenu/SettingsIconButton
 @onready var _settings_panel: FoxSettingsPanel = $MenuLayer/MainMenu/SettingsPanel
 @onready var _settings_close_button: Button = $MenuLayer/MainMenu/SettingsPanel/CloseButton
 
+var _mode := Mode.HOME
 var _is_starting := false
 var _syncing_ui := false
+var _minimize_token := 0
+var _clock: PomodoroTimer
 
 
 func _ready() -> void:
 	randomize()
 	_setup_launcher_window()
+	_setup_clock()
 	_setup_menu_nodes()
 	_configure_desktop_fox()
 	_desktop_fox.initialize()
 	_preview_fox.freeze = true
 	_preview_fox.call("set_highlight", false, _desktop_fox.hover_modulate)
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
+	_set_mode(Mode.HOME)
 	_refresh_ui()
 
 
@@ -37,11 +57,19 @@ func _physics_process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _is_starting or not is_instance_valid(_preview_fox):
+	if _mode != Mode.HOME or not is_instance_valid(_preview_fox) or not _preview_fox.visible:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if _preview_fox.global_position.distance_to(get_global_mouse_position()) <= _desktop_fox.get_fox_radius(_preview_fox):
 			_preview_fox.call("pulse_click")
+
+
+func _setup_clock() -> void:
+	_clock = PomodoroTimer.new()
+	_clock.name = "SessionClock"
+	add_child(_clock)
+	_clock.tick.connect(_on_clock_tick)
+	_clock.finished.connect(_on_clock_finished)
 
 
 func _setup_launcher_window() -> void:
@@ -65,6 +93,11 @@ func _setup_launcher_window() -> void:
 func _setup_menu_nodes() -> void:
 	_start_button.pressed.connect(_on_start_pressed)
 	_quit_button.pressed.connect(get_tree().quit)
+	_deep_button.pressed.connect(_on_session_chosen.bind("deep"))
+	_focus_button.pressed.connect(_on_session_chosen.bind("focus"))
+	_break_button.pressed.connect(_on_session_chosen.bind("break"))
+	_stop_button.pressed.connect(_on_stop_pressed)
+	_bring_home_button.pressed.connect(_on_bring_home_pressed)
 	_settings_icon_button.pressed.connect(_on_settings_pressed)
 	_settings_close_button.pressed.connect(_hide_settings_panel)
 	_settings_panel.click_through_toggle.toggled.connect(_on_click_through_toggled)
@@ -82,7 +115,7 @@ func _setup_menu_nodes() -> void:
 
 
 func _configure_desktop_fox() -> void:
-	_desktop_fox.fox_scale = 3.0
+	_desktop_fox.fox_scale = 2.0
 	_desktop_fox.fox_opacity = 1.0
 	_desktop_fox.click_through_enabled = false
 	_desktop_fox.hover_fade_enabled = false
@@ -91,24 +124,101 @@ func _configure_desktop_fox() -> void:
 	_desktop_fox.body_speed_multiplier = 1.0
 
 
+# --- Menu mode -------------------------------------------------------------
+
+func _set_mode(mode: Mode) -> void:
+	_mode = mode
+	var home := mode == Mode.HOME
+	var choose := mode == Mode.CHOOSE
+	var running := mode == Mode.RUNNING
+
+	_preview_fox.visible = home and not _desktop_fox.is_spawned()
+	_start_button.visible = home
+	_quit_button.visible = home
+
+	_deep_button.visible = choose
+	_focus_button.visible = choose
+	_break_button.visible = choose
+	_status_label.visible = choose
+
+	_stop_button.visible = running
+	_session_label.visible = running
+	_timer_label.visible = running
+
+	_bring_home_button.visible = choose or running
+
+
 func _on_start_pressed() -> void:
-	if _is_starting:
-		return
-	# Start doubles as a toggle: once the fox is out on the desktop, the same
-	# button calls it back home so the launcher stays a single clear action.
-	if _desktop_fox.is_spawned():
-		_desktop_fox.despawn_fox()
+	if _is_starting or _desktop_fox.is_spawned():
 		return
 	_is_starting = true
 	_preview_fox.call("pulse_click")
 	await get_tree().create_timer(0.14).timeout
+	# Drop the fox onto the desktop but keep the launcher open so the user can
+	# choose what kind of session they're starting.
 	_desktop_fox.spawn_fox(_desktop_fox.get_preview_screen_position(_preview_fox))
-	_preview_fox.visible = false
 	_is_starting = false
-	_refresh_ui()
-	if minimize_launcher_after_spawn:
+
+
+func _on_session_chosen(id: String) -> void:
+	if not SESSIONS.has(id):
+		return
+	var session: Dictionary = SESSIONS[id]
+	var minutes: float = session["minutes"]
+	_clock.start(minutes * 60.0, id, session["label"])
+	_session_label.text = session["label"]
+	_timer_label.text = _format_time(_clock.remaining())
+	_set_mode(Mode.RUNNING)
+	if is_instance_valid(_desktop_fox) and _desktop_fox.is_spawned():
+		_desktop_fox.celebrate()
+	_queue_minimize()
+
+
+func _queue_minimize() -> void:
+	_minimize_token += 1
+	var token := _minimize_token
+	await get_tree().create_timer(minimize_delay_after_start).timeout
+	# Only tuck the launcher away if the session is still the one we queued for.
+	if token == _minimize_token and _mode == Mode.RUNNING and _clock.is_running():
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
 
+
+func _on_stop_pressed() -> void:
+	_clock.stop()
+	_set_mode(Mode.CHOOSE)
+	_status_label.text = "Paused for now — pick another, or bring the fox home."
+
+
+func _on_bring_home_pressed() -> void:
+	_clock.stop()
+	_desktop_fox.despawn_fox()
+
+
+func _on_clock_tick(remaining: float) -> void:
+	_timer_label.text = _format_time(remaining)
+
+
+func _on_clock_finished() -> void:
+	_minimize_token += 1
+	_restore_window()
+	if _desktop_fox.is_spawned():
+		_desktop_fox.celebrate()
+	_set_mode(Mode.CHOOSE)
+	_status_label.text = "%s done — nice work. Ready for what's next?" % _clock.session_label
+
+
+func _restore_window() -> void:
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	get_window().move_to_foreground()
+	DisplayServer.window_request_attention()
+
+
+func _format_time(seconds: float) -> String:
+	var total := int(ceil(maxf(0.0, seconds)))
+	return "%02d:%02d" % [total / 60, total % 60]
+
+
+# --- Settings panel --------------------------------------------------------
 
 func _on_settings_pressed() -> void:
 	_settings_panel.visible = true
@@ -175,12 +285,10 @@ func _on_spawn_fox_pressed() -> void:
 	if _desktop_fox.is_spawned():
 		return
 	_desktop_fox.spawn_at_screen_center()
-	_preview_fox.visible = false
-	_refresh_ui()
 
 
 func _on_hide_fox_pressed() -> void:
-	_desktop_fox.despawn_fox()
+	_on_bring_home_pressed()
 
 
 func _on_reset_all_pressed() -> void:
@@ -192,14 +300,19 @@ func _on_reset_all_pressed() -> void:
 
 
 func _on_fox_spawned_changed(active: bool) -> void:
-	_preview_fox.visible = not active
+	if active:
+		if _mode == Mode.HOME:
+			_set_mode(Mode.CHOOSE)
+			_status_label.text = "What are you settling into?"
+	else:
+		_clock.stop()
+		_set_mode(Mode.HOME)
 	_refresh_ui()
 
 
 func _refresh_ui() -> void:
 	_syncing_ui = true
 	var spawned := _desktop_fox.is_spawned()
-	_start_label.text = RECALL_LABEL if spawned else START_LABEL
 	_settings_panel.fox_status_label.text = "Fox: active" if spawned else "Fox: menu preview"
 	_settings_panel.scale_slider.value = _desktop_fox.fox_scale
 	_settings_panel.opacity_slider.value = _desktop_fox.fox_opacity

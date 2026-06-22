@@ -4,18 +4,21 @@
 [ext_resource type="Texture2D" uid="uid://ciwftu0oq81f4" path="res://assets/main_menu/backgrounds/background.png" id="3_a20vb"]
 [ext_resource type="Texture2D" uid="uid://b5xmpxyx216km" path="res://assets/main_menu/title.png" id="3_title"]
 [ext_resource type="Texture2D" uid="uid://c28fhgopjjtk5" path="res://assets/main_menu/default_button.png" id="4_button"]
-[ext_resource type="Texture2D" uid="uid://c4j3blhw85o1n" path="res://assets/main_menu/hovered_button.png" id="5_button_hover"]
 [ext_resource type="Texture2D" uid="uid://b6sjs21ca8g7s" path="res://assets/main_menu/default_button - large.png" id="6_a20vb"]
-[ext_resource type="Texture2D" uid="uid://qg0u0d0qlitw" path="res://assets/main_menu/icons/settings.png" id="7_settings"]
-[ext_resource type="Texture2D" uid="uid://bfvf0tc31devq" path="res://assets/main_menu/icons/about.png" id="8_about"]
-[ext_resource type="Texture2D" uid="uid://34yxiva4ln8v" path="res://assets/main_menu/icons/customize.png" id="10_customize"]
 [ext_resource type="Script" uid="uid://3wmaecsqbjtn" path="res://src/world/fox_settings_panel.gd" id="11_settings_panel"]
 [ext_resource type="Script" uid="uid://c8621xaxsy817" path="res://src/world/desktop_fox.gd" id="12_desktop_fox"]
+[ext_resource type="Texture2D" uid="uid://c5ddp7inuo7jl" path="res://assets/main_menu/environment/plant - shadow.png" id="13_a20vb"]
+[ext_resource type="Texture2D" uid="uid://cj2lm0w4uppyq" path="res://assets/main_menu/environment/plant.png" id="14_eo0a0"]
 [ext_resource type="Texture2D" uid="uid://dau4b46fiyhtx" path="res://assets/main_menu/icons/settings/default-gear-icon.png" id="15_eo0a0"]
 [ext_resource type="FontFile" uid="uid://w0p6smylyk1x" path="res://assets/not_sprites/pixel_operator/PixelOperator.ttf" id="17_font"]
 [ext_resource type="PackedScene" uid="uid://bky7btjtomh0p" path="res://src/planetoid/planetoid.tscn" id="18_fox"]
 [ext_resource type="Texture2D" uid="uid://d33vvsfm4cqdi" path="res://assets/main_menu/default_button - hovered.png" id="20_btnhover"]
 [ext_resource type="Texture2D" uid="uid://cf40wpmgb761b" path="res://assets/main_menu/icons/settings/highlighted-gear-icon.png" id="21_gearhi"]
+[ext_resource type="Script" uid="uid://dy1rnck8yapd1" path="res://src/world/throwable_prop.gd" id="22_throw"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_a20vb"]
+radius = 34.0
+height = 98.0
 
 [node name="World" type="Node2D" unique_id=43647833]
 script = ExtResource("1_world")
@@ -63,11 +66,8 @@ stretch_mode = 0
 
 [node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/StartButton" unique_id=72671059]
 layout_mode = 0
-offset_left = 0.0
-offset_top = 0.0
 offset_right = 224.0
 offset_bottom = 60.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 5
@@ -91,11 +91,8 @@ stretch_mode = 0
 
 [node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/QuitButton" unique_id=1642692753]
 layout_mode = 0
-offset_left = 0.0
-offset_top = 0.0
 offset_right = 224.0
 offset_bottom = 60.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 5
@@ -200,9 +197,9 @@ offset_right = 366.0
 offset_bottom = 110.0
 focus_mode = 0
 min_value = 1.0
-max_value = 5.0
+max_value = 4.0
 step = 1.0
-value = 3.0
+value = 2.0
 
 [node name="OpacityLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000003]
 layout_mode = 0
@@ -398,3 +395,198 @@ theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 14
 text = "Lower taskbar height lets the fox sit deeper on the edge."
 autowrap_mode = 2
+
+[node name="Planet" type="Node2D" parent="MenuLayer/MainMenu" unique_id=496703197]
+
+[node name="PlantShadow" type="Sprite2D" parent="MenuLayer/MainMenu/Planet" unique_id=1088798449]
+position = Vector2(134, 372)
+texture = ExtResource("13_a20vb")
+
+[node name="Plant" type="Sprite2D" parent="MenuLayer/MainMenu/Planet" unique_id=1472679930]
+position = Vector2(135, 364)
+texture = ExtResource("14_eo0a0")
+script = ExtResource("22_throw")
+
+[node name="Area2D" type="Area2D" parent="MenuLayer/MainMenu/Planet/Plant" unique_id=1035788673]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="MenuLayer/MainMenu/Planet/Plant/Area2D" unique_id=1368643594]
+position = Vector2(1, 2)
+shape = SubResource("CapsuleShape2D_a20vb")
+
+[node name="SessionLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=210000001]
+visible = false
+z_index = 30
+offset_left = 230.0
+offset_top = 168.0
+offset_right = 730.0
+offset_bottom = 206.0
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 26
+text = "Focus"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TimerLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=210000002]
+visible = false
+z_index = 30
+offset_left = 230.0
+offset_top = 210.0
+offset_right = 730.0
+offset_bottom = 340.0
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 96
+text = "25:00"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StatusLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=210000003]
+visible = false
+z_index = 30
+offset_left = 130.0
+offset_top = 250.0
+offset_right = 830.0
+offset_bottom = 300.0
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 24
+text = "What are you settling into?"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="DeepButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000010]
+visible = false
+offset_left = 165.0
+offset_top = 424.0
+offset_right = 355.0
+offset_bottom = 484.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/DeepButton" unique_id=210000011]
+layout_mode = 0
+offset_right = 190.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Deep · 45m"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="FocusButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000012]
+visible = false
+offset_left = 385.0
+offset_top = 424.0
+offset_right = 575.0
+offset_bottom = 484.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/FocusButton" unique_id=210000013]
+layout_mode = 0
+offset_right = 190.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Focus · 25m"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BreakButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000014]
+visible = false
+offset_left = 605.0
+offset_top = 424.0
+offset_right = 795.0
+offset_bottom = 484.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/BreakButton" unique_id=210000015]
+layout_mode = 0
+offset_right = 190.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Break · 15m"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StopButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000020]
+visible = false
+offset_left = 368.0
+offset_top = 424.0
+offset_right = 592.0
+offset_bottom = 484.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/StopButton" unique_id=210000021]
+layout_mode = 0
+offset_right = 224.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "End session"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BringHomeButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000030]
+visible = false
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 206.0
+offset_bottom = 60.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/BringHomeButton" unique_id=210000031]
+layout_mode = 0
+offset_right = 190.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 16
+text = "Bring fox home"
+horizontal_alignment = 1
+vertical_alignment = 1
