@@ -84,6 +84,18 @@ func set_eye_follow_enabled(_enabled: bool) -> void:
 	pass
 
 
+func get_sprite_pixel_size() -> Vector2:
+	# Rendered size of the sprite frame in pixels, including the sprite's own
+	# (intrinsic) scale but NOT the parent body's scale. Callers multiply by the
+	# body scale themselves so the overlay window can be sized to fit the fox.
+	var base := Vector2(FOX_SPRITE_SIZE)
+	if _sprite.sprite_frames != null:
+		var texture := _sprite.sprite_frames.get_frame_texture(_sprite.animation, _sprite.frame)
+		if texture != null:
+			base = texture.get_size()
+	return base * _sprite.scale.abs()
+
+
 func get_pick_radius() -> float:
 	if _collision_shape.shape is CircleShape2D:
 		var scale_max := maxf(absf(global_scale.x), absf(global_scale.y))
@@ -99,7 +111,9 @@ func get_pick_radius() -> float:
 
 func _build_fox_sprite_frames() -> SpriteFrames:
 	var frames := SpriteFrames.new()
-	frames.add_animation("default")
+	# SpriteFrames is created with a built-in "default" animation already.
+	if not frames.has_animation("default"):
+		frames.add_animation("default")
 	frames.set_animation_loop("default", true)
 	frames.set_animation_speed("default", 10.0 * _body_speed_multiplier)
 	for frame_index in range(FOX_IDLE_FRAME_COUNT):

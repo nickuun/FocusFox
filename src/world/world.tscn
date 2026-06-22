@@ -1,24 +1,26 @@
 [gd_scene format=3 uid="uid://m3p4ccdoqm0x"]
 
 [ext_resource type="Script" uid="uid://brcpg0nxctq1j" path="res://src/world/world.gd" id="1_world"]
-[ext_resource type="Script" path="res://src/world/fox_settings_panel.gd" id="11_settings_panel"]
-[ext_resource type="Script" path="res://src/world/desktop_fox.gd" id="12_desktop_fox"]
-[ext_resource type="Texture2D" uid="uid://cu02xc6hfribl" path="res://assets/main_menu/background.png" id="2_bg"]
+[ext_resource type="Texture2D" uid="uid://ciwftu0oq81f4" path="res://assets/main_menu/backgrounds/background.png" id="3_a20vb"]
 [ext_resource type="Texture2D" uid="uid://b5xmpxyx216km" path="res://assets/main_menu/title.png" id="3_title"]
 [ext_resource type="Texture2D" uid="uid://c28fhgopjjtk5" path="res://assets/main_menu/default_button.png" id="4_button"]
 [ext_resource type="Texture2D" uid="uid://c4j3blhw85o1n" path="res://assets/main_menu/hovered_button.png" id="5_button_hover"]
-[ext_resource type="Texture2D" uid="uid://c7vq7yqfmc7bb" path="res://assets/main_menu/icons/start.png" id="6_start"]
+[ext_resource type="Texture2D" uid="uid://b6sjs21ca8g7s" path="res://assets/main_menu/default_button - large.png" id="6_a20vb"]
 [ext_resource type="Texture2D" uid="uid://qg0u0d0qlitw" path="res://assets/main_menu/icons/settings.png" id="7_settings"]
 [ext_resource type="Texture2D" uid="uid://bfvf0tc31devq" path="res://assets/main_menu/icons/about.png" id="8_about"]
-[ext_resource type="Texture2D" uid="uid://c32vx0sugl1an" path="res://assets/main_menu/icons/quit.png" id="9_quit"]
 [ext_resource type="Texture2D" uid="uid://34yxiva4ln8v" path="res://assets/main_menu/icons/customize.png" id="10_customize"]
+[ext_resource type="Script" uid="uid://3wmaecsqbjtn" path="res://src/world/fox_settings_panel.gd" id="11_settings_panel"]
+[ext_resource type="Script" uid="uid://c8621xaxsy817" path="res://src/world/desktop_fox.gd" id="12_desktop_fox"]
+[ext_resource type="Texture2D" uid="uid://dau4b46fiyhtx" path="res://assets/main_menu/icons/settings/default-gear-icon.png" id="15_eo0a0"]
 [ext_resource type="FontFile" uid="uid://w0p6smylyk1x" path="res://assets/not_sprites/pixel_operator/PixelOperator.ttf" id="17_font"]
 [ext_resource type="PackedScene" uid="uid://bky7btjtomh0p" path="res://src/planetoid/planetoid.tscn" id="18_fox"]
+[ext_resource type="Texture2D" uid="uid://d33vvsfm4cqdi" path="res://assets/main_menu/default_button - hovered.png" id="20_btnhover"]
+[ext_resource type="Texture2D" uid="uid://cf40wpmgb761b" path="res://assets/main_menu/icons/settings/highlighted-gear-icon.png" id="21_gearhi"]
 
 [node name="World" type="Node2D" unique_id=43647833]
 script = ExtResource("1_world")
 
-[node name="DesktopFox" type="Node" parent="."]
+[node name="DesktopFox" type="Node" parent="." unique_id=1680602813]
 script = ExtResource("12_desktop_fox")
 
 [node name="MenuLayer" type="CanvasLayer" parent="." unique_id=161516459]
@@ -27,198 +29,81 @@ script = ExtResource("12_desktop_fox")
 
 [node name="Background" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1489674489]
 position = Vector2(480, 270)
-texture = ExtResource("2_bg")
+texture = ExtResource("3_a20vb")
 
 [node name="Title" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1551208764]
 z_index = 20
-position = Vector2(273, 110)
+position = Vector2(479, 103)
 scale = Vector2(0.9, 0.9)
 texture = ExtResource("3_title")
 
 [node name="PreviewFox" parent="MenuLayer/MainMenu" unique_id=600092329 instance=ExtResource("18_fox")]
 z_index = 28
-position = Vector2(632, 245)
+position = Vector2(481.3, 207)
 
 [node name="Buttons" type="Node2D" parent="MenuLayer/MainMenu" unique_id=2066033205]
 z_index = 40
 
+[node name="DefaultButtonLarge" type="Sprite2D" parent="MenuLayer/MainMenu/Buttons" unique_id=906373050]
+visible = false
+position = Vector2(503, 445)
+texture = ExtResource("6_a20vb")
+
 [node name="StartButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=718603523]
-offset_left = 171.0
-offset_top = 214.0
-offset_right = 395.0
-offset_bottom = 274.0
+offset_left = 188.0
+offset_top = 424.0
+offset_right = 412.0
+offset_bottom = 484.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("5_button_hover")
-texture_hover = ExtResource("5_button_hover")
-
-[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/StartButton" unique_id=2040851293]
-layout_mode = 0
-offset_left = 20.0
-offset_top = 2.0
-offset_right = 63.0
-offset_bottom = 48.0
-mouse_filter = 2
-texture = ExtResource("6_start")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
 
 [node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/StartButton" unique_id=72671059]
 layout_mode = 0
-offset_left = 70.0
-offset_top = 4.0
-offset_right = 200.0
-offset_bottom = 44.0
-theme_override_colors/font_color = Color(1, 0.84, 0.64, 1)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 30
-text = "Start"
-vertical_alignment = 1
-
-[node name="CustomizeButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=1332768537]
-offset_left = 171.0
-offset_top = 274.0
-offset_right = 395.0
-offset_bottom = 334.0
-focus_mode = 0
-texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("5_button_hover")
-texture_hover = ExtResource("5_button_hover")
-
-[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/CustomizeButton" unique_id=279400909]
-layout_mode = 0
-offset_left = 20.0
-offset_top = 2.0
-offset_right = 63.0
-offset_bottom = 48.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 224.0
+offset_bottom = 60.0
 mouse_filter = 2
-texture = ExtResource("10_customize")
-
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/CustomizeButton" unique_id=1106112641]
-layout_mode = 0
-offset_left = 70.0
-offset_top = 4.0
-offset_right = 210.0
-offset_bottom = 44.0
-theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.95)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
 theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 28
-text = "Customize"
-vertical_alignment = 1
-
-[node name="SettingsButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=1695562225]
-offset_left = 171.0
-offset_top = 334.0
-offset_right = 395.0
-offset_bottom = 394.0
-focus_mode = 0
-texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("5_button_hover")
-texture_hover = ExtResource("5_button_hover")
-
-[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/SettingsButton" unique_id=1344775032]
-layout_mode = 0
-offset_left = 20.0
-offset_top = 2.0
-offset_right = 63.0
-offset_bottom = 48.0
-mouse_filter = 2
-texture = ExtResource("7_settings")
-
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/SettingsButton" unique_id=1632299570]
-layout_mode = 0
-offset_left = 70.0
-offset_top = 4.0
-offset_right = 200.0
-offset_bottom = 44.0
-theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.95)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 30
-text = "Settings"
-vertical_alignment = 1
-
-[node name="AboutButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=256389395]
-offset_left = 171.0
-offset_top = 394.0
-offset_right = 395.0
-offset_bottom = 454.0
-focus_mode = 0
-texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("5_button_hover")
-texture_hover = ExtResource("5_button_hover")
-
-[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/AboutButton" unique_id=1095321694]
-layout_mode = 0
-offset_left = 20.0
-offset_top = 2.0
-offset_right = 63.0
-offset_bottom = 48.0
-mouse_filter = 2
-texture = ExtResource("8_about")
-
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/AboutButton" unique_id=1247552540]
-layout_mode = 0
-offset_left = 70.0
-offset_top = 4.0
-offset_right = 200.0
-offset_bottom = 44.0
-theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.95)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 30
-text = "About"
+theme_override_font_sizes/font_size = 20
+text = "Start Focus Session"
+horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="QuitButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=207529761]
-offset_left = 171.0
-offset_top = 454.0
-offset_right = 395.0
-offset_bottom = 514.0
+offset_left = 597.0
+offset_top = 425.0
+offset_right = 821.0
+offset_bottom = 485.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("5_button_hover")
-texture_hover = ExtResource("5_button_hover")
-
-[node name="Icon" type="TextureRect" parent="MenuLayer/MainMenu/Buttons/QuitButton" unique_id=676234579]
-layout_mode = 0
-offset_left = 20.0
-offset_top = 2.0
-offset_right = 63.0
-offset_bottom = 48.0
-mouse_filter = 2
-texture = ExtResource("9_quit")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
 
 [node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/QuitButton" unique_id=1642692753]
 layout_mode = 0
-offset_left = 70.0
-offset_top = 4.0
-offset_right = 200.0
-offset_bottom = 44.0
-theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.95)
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 224.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
 theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 20
 text = "Quit"
+horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="StatusLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=1779651163]
-z_index = 60
-offset_left = 470.0
-offset_top = 430.0
-offset_right = 900.0
-offset_bottom = 476.0
-theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 22
-text = "Focus Fox is ready."
-autowrap_mode = 2
-
-[node name="CreatorLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=161264436]
-z_index = 60
-offset_left = 496.0
-offset_top = 474.0
-offset_right = 900.0
-offset_bottom = 504.0
-theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.78)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 16
-text = "A desktop fox for focus time."
 
 [node name="VersionLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=1372439118]
 z_index = 60
@@ -226,19 +111,41 @@ offset_left = 800.0
 offset_top = 504.0
 offset_right = 940.0
 offset_bottom = 532.0
-theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.78)
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
 text = "v. 0.0.1"
 horizontal_alignment = 2
 
+[node name="VersionLabel2" type="Label" parent="MenuLayer/MainMenu" unique_id=1722349742]
+z_index = 60
+offset_left = 15.0
+offset_top = 504.0
+offset_right = 155.0
+offset_bottom = 532.0
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "By Nicholas & Kayleigh"
+
+[node name="SettingsIconButton" type="TextureButton" parent="MenuLayer/MainMenu" unique_id=1715724111]
+z_index = 50
+offset_left = 902.0
+offset_top = 16.0
+offset_right = 945.0
+offset_bottom = 62.0
+focus_mode = 0
+texture_normal = ExtResource("15_eo0a0")
+texture_pressed = ExtResource("21_gearhi")
+texture_hover = ExtResource("21_gearhi")
+
 [node name="SettingsPanel" type="Panel" parent="MenuLayer/MainMenu" unique_id=81079027]
 visible = false
 z_index = 90
 offset_left = 95.0
-offset_top = 60.0
+offset_top = 44.0
 offset_right = 485.0
-offset_bottom = 500.0
+offset_bottom = 512.0
 script = ExtResource("11_settings_panel")
 
 [node name="TitleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=678345779]
@@ -263,49 +170,46 @@ theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 22
 text = "X"
 
-[node name="ClickThroughToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=423483557]
+[node name="AppearanceHeader" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000001]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 72.0
-offset_right = 360.0
-offset_bottom = 106.0
-focus_mode = 0
-theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+offset_top = 56.0
+offset_right = 366.0
+offset_bottom = 82.0
+theme_override_colors/font_color = Color(1, 0.84, 0.64, 1)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 20
-text = "Click-through mode"
+text = "Appearance"
 
-[node name="HoverFadeToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=351889639]
+[node name="ScaleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000002]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 110.0
-offset_right = 360.0
-offset_bottom = 144.0
-focus_mode = 0
-theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-text = "Transparent on hover"
-
-[node name="TaskbarSnapToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1528879449]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 148.0
-offset_right = 360.0
-offset_bottom = 182.0
-focus_mode = 0
-theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-button_pressed = true
-text = "Taskbar snap enabled"
-
-[node name="OpacityLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=2012606448]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 206.0
+offset_top = 86.0
 offset_right = 150.0
-offset_bottom = 232.0
+offset_bottom = 110.0
+theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Fox size"
+
+[node name="ScaleSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=462479219]
+layout_mode = 0
+offset_left = 150.0
+offset_top = 88.0
+offset_right = 366.0
+offset_bottom = 110.0
+focus_mode = 0
+min_value = 1.0
+max_value = 5.0
+step = 1.0
+value = 3.0
+
+[node name="OpacityLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000003]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 116.0
+offset_right = 150.0
+offset_bottom = 140.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
@@ -313,45 +217,93 @@ text = "Opacity"
 
 [node name="OpacitySlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=2033893597]
 layout_mode = 0
-offset_left = 145.0
-offset_top = 206.0
-offset_right = 358.0
-offset_bottom = 232.0
+offset_left = 150.0
+offset_top = 118.0
+offset_right = 366.0
+offset_bottom = 140.0
 focus_mode = 0
 min_value = 0.35
 max_value = 1.0
 step = 0.01
 value = 1.0
 
-[node name="ScaleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=154355366]
+[node name="LivelinessLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000004]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 238.0
+offset_top = 146.0
 offset_right = 150.0
-offset_bottom = 264.0
+offset_bottom = 170.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
-text = "Fox scale"
+text = "Liveliness"
 
-[node name="ScaleSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=462479219]
+[node name="LivelinessSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000005]
 layout_mode = 0
-offset_left = 145.0
-offset_top = 238.0
-offset_right = 358.0
-offset_bottom = 264.0
+offset_left = 150.0
+offset_top = 148.0
+offset_right = 366.0
+offset_bottom = 170.0
 focus_mode = 0
-min_value = 1.0
-max_value = 6.0
+min_value = 0.2
+max_value = 2.0
 step = 0.05
-value = 3.0
+value = 1.0
+
+[node name="BehaviourHeader" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000006]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 184.0
+offset_right = 366.0
+offset_bottom = 210.0
+theme_override_colors/font_color = Color(1, 0.84, 0.64, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 20
+text = "Behaviour"
+
+[node name="ClickThroughToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=423483557]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 214.0
+offset_right = 366.0
+offset_bottom = 246.0
+focus_mode = 0
+theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Click-through (ignore clicks)"
+
+[node name="HoverFadeToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=351889639]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 250.0
+offset_right = 366.0
+offset_bottom = 282.0
+focus_mode = 0
+theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Fade when resting"
+
+[node name="TaskbarSnapToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1528879449]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 286.0
+offset_right = 366.0
+offset_bottom = 318.0
+focus_mode = 0
+theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+button_pressed = true
+text = "Rest on the taskbar"
 
 [node name="TaskbarHeightLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1310294370]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 270.0
+offset_top = 322.0
 offset_right = 150.0
-offset_bottom = 296.0
+offset_bottom = 346.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
@@ -359,67 +311,77 @@ text = "Taskbar height"
 
 [node name="TaskbarHeightSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=697902396]
 layout_mode = 0
-offset_left = 145.0
-offset_top = 270.0
-offset_right = 358.0
-offset_bottom = 296.0
+offset_left = 150.0
+offset_top = 324.0
+offset_right = 366.0
+offset_bottom = 346.0
 focus_mode = 0
 min_value = -40.0
 max_value = 120.0
-step = 1.0
 value = 24.0
 
-[node name="ResetFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=480148780]
+[node name="FoxHeader" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000007]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 324.0
-offset_right = 186.0
-offset_bottom = 358.0
-focus_mode = 0
+offset_top = 356.0
+offset_right = 200.0
+offset_bottom = 382.0
+theme_override_colors/font_color = Color(1, 0.84, 0.64, 1)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 20
-text = "Reset fox"
+text = "Your fox"
 
 [node name="FoxStatusLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1887490067]
 layout_mode = 0
-offset_left = 204.0
-offset_top = 326.0
-offset_right = 364.0
-offset_bottom = 354.0
+offset_left = 180.0
+offset_top = 358.0
+offset_right = 366.0
+offset_bottom = 380.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 16
 text = "Fox: menu preview"
 horizontal_alignment = 2
 
 [node name="SpawnFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1368414196]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 372.0
-offset_right = 130.0
-offset_bottom = 406.0
+offset_top = 386.0
+offset_right = 126.0
+offset_bottom = 418.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
-text = "Spawn fox"
+text = "Spawn"
 
 [node name="HideFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=20945567]
 layout_mode = 0
-offset_left = 144.0
-offset_top = 372.0
-offset_right = 250.0
-offset_bottom = 406.0
+offset_left = 134.0
+offset_top = 386.0
+offset_right = 236.0
+offset_bottom = 418.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
-text = "Hide fox"
+text = "Hide"
+
+[node name="ResetFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=480148780]
+layout_mode = 0
+offset_left = 244.0
+offset_top = 386.0
+offset_right = 366.0
+offset_bottom = 418.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 17
+text = "Reset pos"
 
 [node name="ResetAllButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1369400607]
 layout_mode = 0
-offset_left = 264.0
-offset_top = 372.0
-offset_right = 370.0
-offset_bottom = 406.0
+offset_left = 24.0
+offset_top = 424.0
+offset_right = 160.0
+offset_bottom = 456.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
@@ -427,100 +389,12 @@ text = "Reset all"
 
 [node name="HintLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=316501194]
 layout_mode = 0
-offset_left = 24.0
-offset_top = 418.0
-offset_right = 364.0
-offset_bottom = 462.0
+offset_left = 172.0
+offset_top = 424.0
+offset_right = 366.0
+offset_bottom = 468.0
 theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.78)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 14
-text = "Taskbar height controls where the fox lands."
-autowrap_mode = 2
-
-[node name="CustomizePanel" type="Panel" parent="MenuLayer/MainMenu" unique_id=890660165]
-visible = false
-z_index = 91
-offset_left = 95.0
-offset_top = 60.0
-offset_right = 485.0
-offset_bottom = 300.0
-
-[node name="TitleLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=293004313]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 16.0
-offset_right = 320.0
-offset_bottom = 52.0
-theme_override_colors/font_color = Color(1, 0.84, 0.64, 1)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 30
-text = "Customize"
-
-[node name="CloseButton" type="Button" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=805586217]
-layout_mode = 0
-offset_left = 332.0
-offset_top = 18.0
-offset_right = 370.0
-offset_bottom = 52.0
-focus_mode = 0
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 22
-text = "X"
-
-[node name="FoxLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1499162212]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 84.0
-offset_right = 360.0
-offset_bottom = 118.0
-theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 22
-text = "Fox"
-
-[node name="FoxHintLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=576296496]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 120.0
-offset_right = 360.0
-offset_bottom = 154.0
-theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Focus Fox uses the fox sprite by default."
-autowrap_mode = 2
-
-[node name="BodySpeedLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=1272588223]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 174.0
-offset_right = 150.0
-offset_bottom = 204.0
-theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Sprite speed"
-
-[node name="BodySpeedSlider" type="HSlider" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=20902574]
-layout_mode = 0
-offset_left = 145.0
-offset_top = 174.0
-offset_right = 364.0
-offset_bottom = 204.0
-focus_mode = 0
-min_value = 0.2
-max_value = 2.0
-step = 0.05
-value = 1.0
-
-[node name="CustomizeHintLabel" type="Label" parent="MenuLayer/MainMenu/CustomizePanel" unique_id=2074219637]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 220.0
-offset_right = 364.0
-offset_bottom = 268.0
-theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.78)
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 16
-text = "Adjust sprite speed to change how lively the fox feels."
+text = "Lower taskbar height lets the fox sit deeper on the edge."
 autowrap_mode = 2

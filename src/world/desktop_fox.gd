@@ -4,7 +4,7 @@ class_name DesktopFox
 const FOX_SCENE: PackedScene = preload("res://src/planetoid/planetoid.tscn")
 
 @export var fox_window_size := Vector2i(320, 320)
-@export var fox_window_padding := Vector2i(192, 192)
+@export var fox_window_padding := Vector2i(128, 128)
 @export var use_usable_screen_area := true
 @export var fox_edge_padding := 2.0
 @export var taskbar_height := 24.0
@@ -36,6 +36,9 @@ var _dragging := false
 var _drag_screen_offset := Vector2.ZERO
 var _hovering := false
 var _resting_on_floor := false
+# Rendered footprint of the fox sprite at body scale 1 (texture * sprite's own
+# scale). Cached from the fox/preview so the overlay window always fits the fox.
+var _fox_sprite_base := Vector2(160.0, 160.0)
 
 signal fox_spawned_changed(active: bool)
 signal status_changed(message: String)
@@ -94,7 +97,16 @@ func apply_cosmetics_to(node: RigidBody2D) -> void:
 	node.scale = Vector2.ONE * pixel_scale
 	node.call("set_body_theme", "fox")
 	node.call("set_body_rotation_speed", body_speed_multiplier)
+	_cache_sprite_base(node)
 	_update_window_size_for_scale(pixel_scale)
+
+
+func _cache_sprite_base(node: RigidBody2D) -> void:
+	if not is_instance_valid(node) or not node.has_method("get_sprite_pixel_size"):
+		return
+	var size: Variant = node.call("get_sprite_pixel_size")
+	if size is Vector2 and (size as Vector2).x > 0.0 and (size as Vector2).y > 0.0:
+		_fox_sprite_base = size
 
 
 func spawn_fox(spawn_position: Vector2) -> void:
@@ -102,7 +114,7 @@ func spawn_fox(spawn_position: Vector2) -> void:
 	if not is_instance_valid(_fox):
 		_fox = FOX_SCENE.instantiate() as RigidBody2D
 		_overlay_root.add_child(_fox)
-		_fox.position = Vector2(fox_window_size) * 0.5
+		_fox.position = Vector2(_get_window_size_for_scale()) * 0.5
 		_fox.mass = 1.0
 		_fox.freeze = true
 		_fox.linear_velocity = Vector2.ZERO
@@ -205,7 +217,7 @@ func _apply_click_through_mode() -> void:
 
 
 func _get_full_window_polygon() -> PackedVector2Array:
-	var size := Vector2(fox_window_size)
+	var size := Vector2(_get_window_size_for_scale())
 	return PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0.0), size, Vector2(0.0, size.y)])
 
 
@@ -251,25 +263,24 @@ func _get_offscreen_overlay_position() -> Vector2i:
 
 
 func _get_window_size_for_scale() -> Vector2i:
-	var pixel_scale := roundi(maxf(1.0, roundf(fox_scale)))
-	var sprite_size := Vector2i(32, 32) * pixel_scale
+	var pixel_scale := maxf(1.0, roundf(fox_scale))
+	var footprint := _fox_sprite_base * pixel_scale
 	return Vector2i(
-		max(fox_window_size.x, sprite_size.x + fox_window_padding.x),
-		max(fox_window_size.y, sprite_size.y + fox_window_padding.y)
+		max(fox_window_size.x, int(ceil(footprint.x)) + fox_window_padding.x),
+		max(fox_window_size.y, int(ceil(footprint.y)) + fox_window_padding.y)
 	)
 
 
-func _update_window_size_for_scale(pixel_scale: float) -> void:
+func _update_window_size_for_scale(_pixel_scale: float) -> void:
 	if not is_instance_valid(_overlay_window):
 		return
-	var old_size := _overlay_window.size
-	var new_size := Vector2i(
-		max(fox_window_size.x, int(32.0 * pixel_scale) + fox_window_padding.x),
-		max(fox_window_size.y, int(32.0 * pixel_scale) + fox_window_padding.y)
-	)
-	if old_size == new_size:
-		return
-	_overlay_window.size = new_size
+	var new_size := _get_window_size_for_scale()
+	if _overlay_window.size != new_size:
+		_overlay_window.size = new_size
+	# Keep the fox centred in the (possibly resized) window so larger sizes are
+	# never clipped against the window edge.
+	if is_instance_valid(_fox):
+		_fox.position = Vector2(new_size) * 0.5
 	_sync_overlay_window()
 
 
@@ -376,7 +387,7 @@ func _update_hover(mouse_screen_position: Vector2) -> void:
 
 
 func _local_position_hits_fox(local_position: Vector2) -> bool:
-	return local_position.distance_to(Vector2(fox_window_size) * 0.5) <= _get_fox_radius()
+	return local_position.distance_to(Vector2(_get_window_size_for_scale()) * 0.5) <= _get_fox_radius()
 
 
 func _set_fox_highlight(highlighted: bool) -> void:
