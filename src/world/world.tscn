@@ -537,11 +537,38 @@ text = "Break · 15m"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="PauseButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000022]
+visible = false
+offset_left = 236.0
+offset_top = 424.0
+offset_right = 460.0
+offset_bottom = 484.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/PauseButton" unique_id=210000023]
+layout_mode = 0
+offset_right = 224.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Pause"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="StopButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000020]
 visible = false
-offset_left = 368.0
+offset_left = 500.0
 offset_top = 424.0
-offset_right = 592.0
+offset_right = 724.0
 offset_bottom = 484.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")

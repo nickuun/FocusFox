@@ -21,6 +21,8 @@ const SESSIONS := {
 @onready var _focus_button: TextureButton = $MenuLayer/MainMenu/Buttons/FocusButton
 @onready var _break_button: TextureButton = $MenuLayer/MainMenu/Buttons/BreakButton
 @onready var _stop_button: TextureButton = $MenuLayer/MainMenu/Buttons/StopButton
+@onready var _pause_button: TextureButton = $MenuLayer/MainMenu/Buttons/PauseButton
+@onready var _pause_label: Label = $MenuLayer/MainMenu/Buttons/PauseButton/Label
 @onready var _bring_home_button: TextureButton = $MenuLayer/MainMenu/Buttons/BringHomeButton
 
 @onready var _timer_label: Label = $MenuLayer/MainMenu/TimerLabel
@@ -70,6 +72,7 @@ func _setup_clock() -> void:
 	add_child(_clock)
 	_clock.tick.connect(_on_clock_tick)
 	_clock.finished.connect(_on_clock_finished)
+	_clock.paused_changed.connect(_on_clock_paused_changed)
 
 
 func _setup_launcher_window() -> void:
@@ -97,6 +100,7 @@ func _setup_menu_nodes() -> void:
 	_focus_button.pressed.connect(_on_session_chosen.bind("focus"))
 	_break_button.pressed.connect(_on_session_chosen.bind("break"))
 	_stop_button.pressed.connect(_on_stop_pressed)
+	_pause_button.pressed.connect(_on_pause_pressed)
 	_bring_home_button.pressed.connect(_on_bring_home_pressed)
 	_settings_icon_button.pressed.connect(_on_settings_pressed)
 	_settings_close_button.pressed.connect(_hide_settings_panel)
@@ -142,6 +146,7 @@ func _set_mode(mode: Mode) -> void:
 	_status_label.visible = choose
 
 	_stop_button.visible = running
+	_pause_button.visible = running
 	_session_label.visible = running
 	_timer_label.visible = running
 
@@ -167,6 +172,8 @@ func _on_session_chosen(id: String) -> void:
 	var minutes: float = session["minutes"]
 	_clock.start(minutes * 60.0, id, session["label"])
 	_session_label.text = session["label"]
+	_pause_label.text = "Pause"
+	_timer_label.modulate = Color.WHITE
 	_timer_label.text = _format_time(_clock.remaining())
 	_set_mode(Mode.RUNNING)
 	if is_instance_valid(_desktop_fox) and _desktop_fox.is_spawned():
@@ -179,14 +186,24 @@ func _queue_minimize() -> void:
 	var token := _minimize_token
 	await get_tree().create_timer(minimize_delay_after_start).timeout
 	# Only tuck the launcher away if the session is still the one we queued for.
-	if token == _minimize_token and _mode == Mode.RUNNING and _clock.is_running():
+	if token == _minimize_token and _mode == Mode.RUNNING and _clock.is_running() and not _clock.is_paused():
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
 
 
 func _on_stop_pressed() -> void:
 	_clock.stop()
 	_set_mode(Mode.CHOOSE)
-	_status_label.text = "Paused for now — pick another, or bring the fox home."
+	_status_label.text = "Stopped — pick another, or bring the fox home."
+
+
+func _on_pause_pressed() -> void:
+	_clock.toggle_pause()
+
+
+func _on_clock_paused_changed(paused: bool) -> void:
+	_pause_label.text = "Resume" if paused else "Pause"
+	_session_label.text = "%s · paused" % _clock.session_label if paused else _clock.session_label
+	_timer_label.modulate = Color(1, 1, 1, 0.5) if paused else Color.WHITE
 
 
 func _on_bring_home_pressed() -> void:
