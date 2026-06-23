@@ -38,12 +38,16 @@ var _is_starting := false
 var _syncing_ui := false
 var _minimize_token := 0
 var _clock: PomodoroTimer
+var _tray: SystemTray
 
 
 func _ready() -> void:
 	randomize()
+	# Closing the launcher tucks it into the tray instead of quitting the app.
+	get_tree().set_auto_accept_quit(false)
 	_setup_launcher_window()
 	_setup_clock()
+	_setup_tray()
 	_setup_menu_nodes()
 	_configure_desktop_fox()
 	_desktop_fox.initialize()
@@ -52,6 +56,14 @@ func _ready() -> void:
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
 	_set_mode(Mode.HOME)
 	_refresh_ui()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if _tray != null and _tray.is_supported():
+			_hide_to_tray()
+		else:
+			get_tree().quit()
 
 
 func _physics_process(delta: float) -> void:
@@ -75,6 +87,16 @@ func _setup_clock() -> void:
 	_clock.paused_changed.connect(_on_clock_paused_changed)
 
 
+func _setup_tray() -> void:
+	_tray = SystemTray.new()
+	_tray.name = "SystemTray"
+	add_child(_tray)
+	_tray.open_requested.connect(_on_tray_open)
+	_tray.pause_toggle_requested.connect(_on_tray_pause)
+	_tray.fox_toggle_requested.connect(_on_tray_fox_toggle)
+	_tray.quit_requested.connect(_on_tray_quit)
+
+
 func _setup_launcher_window() -> void:
 	RenderingServer.set_default_clear_color(Color.TRANSPARENT)
 	get_viewport().transparent_bg = false
@@ -91,6 +113,12 @@ func _setup_launcher_window() -> void:
 
 	var usable_rect := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
 	window.position = usable_rect.position + (usable_rect.size - launcher_window_size) / 2
+
+	# Use the fox headshot as the window (title bar + taskbar) icon too.
+	if DisplayServer.get_name() != "headless":
+		var icon_image := SystemTray.ICON.get_image()
+		if icon_image != null:
+			DisplayServer.set_icon(icon_image)
 
 
 func _setup_menu_nodes() -> void:
@@ -151,6 +179,7 @@ func _set_mode(mode: Mode) -> void:
 	_timer_label.visible = running
 
 	_bring_home_button.visible = choose or running
+	_update_tray()
 
 
 func _on_start_pressed() -> void:
@@ -187,7 +216,7 @@ func _queue_minimize() -> void:
 	await get_tree().create_timer(minimize_delay_after_start).timeout
 	# Only tuck the launcher away if the session is still the one we queued for.
 	if token == _minimize_token and _mode == Mode.RUNNING and _clock.is_running() and not _clock.is_paused():
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
+		_hide_to_tray()
 
 
 func _on_stop_pressed() -> void:
@@ -204,6 +233,7 @@ func _on_clock_paused_changed(paused: bool) -> void:
 	_pause_label.text = "Resume" if paused else "Pause"
 	_session_label.text = "%s · paused" % _clock.session_label if paused else _clock.session_label
 	_timer_label.modulate = Color(1, 1, 1, 0.5) if paused else Color.WHITE
+	_update_tray()
 
 
 func _on_bring_home_pressed() -> void:
@@ -213,21 +243,67 @@ func _on_bring_home_pressed() -> void:
 
 func _on_clock_tick(remaining: float) -> void:
 	_timer_label.text = _format_time(remaining)
+	_update_tray()
 
 
 func _on_clock_finished() -> void:
 	_minimize_token += 1
-	_restore_window()
+	_show_launcher()
 	if _desktop_fox.is_spawned():
 		_desktop_fox.celebrate()
 	_set_mode(Mode.CHOOSE)
 	_status_label.text = "%s done — nice work. Ready for what's next?" % _clock.session_label
 
 
-func _restore_window() -> void:
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+func _hide_to_tray() -> void:
+	# The root window's visibility can't be toggled (it has no parent), so we
+	# minimize it. The tray icon is the way back.
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
+
+
+func _show_launcher() -> void:
+	if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_MINIMIZED:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	get_window().move_to_foreground()
 	DisplayServer.window_request_attention()
+
+
+# --- System tray -----------------------------------------------------------
+
+func _update_tray() -> void:
+	if _tray == null:
+		return
+	var fox_out := _desktop_fox.is_spawned()
+	var running := _clock.is_running()
+	var paused := _clock.is_paused()
+	var status := "Resting"
+	if running:
+		status = "%s · %s" % [_clock.session_label, _format_time(_clock.remaining())]
+		if paused:
+			status += " (paused)"
+	elif fox_out:
+		status = "Fox is out"
+	_tray.update_state(status, running, paused, fox_out)
+
+
+func _on_tray_open() -> void:
+	_show_launcher()
+
+
+func _on_tray_pause() -> void:
+	if _clock.is_running():
+		_clock.toggle_pause()
+
+
+func _on_tray_fox_toggle() -> void:
+	if _desktop_fox.is_spawned():
+		_on_bring_home_pressed()
+	else:
+		_desktop_fox.spawn_at_screen_center()
+
+
+func _on_tray_quit() -> void:
+	get_tree().quit()
 
 
 func _format_time(seconds: float) -> String:
