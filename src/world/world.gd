@@ -180,6 +180,7 @@ func _set_mode(mode: Mode) -> void:
 
 	_bring_home_button.visible = choose or running
 	_update_tray()
+	_update_fox_activity()
 
 
 func _on_start_pressed() -> void:
@@ -234,6 +235,7 @@ func _on_clock_paused_changed(paused: bool) -> void:
 	_session_label.text = "%s · paused" % _clock.session_label if paused else _clock.session_label
 	_timer_label.modulate = Color(1, 1, 1, 0.5) if paused else Color.WHITE
 	_update_tray()
+	_update_fox_activity()
 
 
 func _on_bring_home_pressed() -> void:
@@ -304,6 +306,15 @@ func _on_tray_fox_toggle() -> void:
 
 func _on_tray_quit() -> void:
 	get_tree().quit()
+
+
+func _update_fox_activity() -> void:
+	if not _desktop_fox.is_spawned():
+		return
+	var activity := "idle"
+	if _clock.is_running() and not _clock.is_paused():
+		activity = "break" if _clock.session_id == "break" else "working"
+	_desktop_fox.set_activity(activity)
 
 
 func _format_time(seconds: float) -> String:

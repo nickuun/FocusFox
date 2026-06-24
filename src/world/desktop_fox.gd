@@ -2,6 +2,8 @@ extends Node
 class_name DesktopFox
 
 const FOX_SCENE: PackedScene = preload("res://src/planetoid/planetoid.tscn")
+const BALL_TEXTURE: Texture2D = preload("res://assets/extras/balls/basic-ball.png")
+const BALL_SPRITE_PX := 11.0
 
 @export var fox_window_size := Vector2i(320, 320)
 @export var fox_window_padding := Vector2i(128, 128)
@@ -17,6 +19,18 @@ const FOX_SCENE: PackedScene = preload("res://src/planetoid/planetoid.tscn")
 @export var landing_offset := 16.0
 @export var floor_snap_tolerance := 2.0
 @export var rest_velocity_threshold := 24.0
+
+@export_group("Break play")
+@export var trot_speed := 360.0
+@export var pounce_range := 80.0
+@export var pounce_up := 780.0
+@export var pounce_forward := 300.0
+@export var settle_min := 2.0
+@export var settle_max := 4.5
+@export var play_gap_min := 6.0
+@export var play_gap_max := 12.0
+@export var ball_relative_scale := 3.5
+@export var ball_window_padding := 56
 
 var fox_scale := 3.0
 var fox_opacity := 1.0
@@ -40,6 +54,16 @@ var _resting_on_floor := false
 # scale). Cached from the fox/preview so the overlay window always fits the fox.
 var _fox_sprite_base := Vector2(160.0, 160.0)
 
+var _activity := "idle"  # idle / working / break
+var _ball_window: Window
+var _ball_root: Node2D
+var _ball_sprite: Sprite2D
+var _ball_active := false
+var _ball_screen_position := Vector2.ZERO
+var _play_state := "none"  # none / trot / pounce / settle / gap
+var _settle_timer := 0.0
+var _gap_timer := 0.0
+
 signal fox_spawned_changed(active: bool)
 signal status_changed(message: String)
 
@@ -60,6 +84,8 @@ func physics_step(delta: float) -> void:
 		_fox_screen_position = (mouse_screen_position + _drag_screen_offset).round()
 		_fox_velocity = _mouse_velocity
 	else:
+		if _play_state != "none":
+			_update_ball_play(delta)
 		_apply_gravity(delta)
 		_update_hover(mouse_screen_position)
 
@@ -128,6 +154,7 @@ func spawn_fox(spawn_position: Vector2) -> void:
 	_overlay_window.show()
 	_apply_click_through_mode()
 	_sync_overlay_window()
+	_apply_activity()
 	fox_spawned_changed.emit(true)
 
 
@@ -138,6 +165,7 @@ func spawn_at_screen_center() -> void:
 
 
 func despawn_fox() -> void:
+	_end_ball_play()
 	if is_instance_valid(_overlay_window):
 		_overlay_window.hide()
 	if is_instance_valid(_fox):
@@ -155,6 +183,160 @@ func celebrate() -> void:
 		_resting_on_floor = false
 		_fox_velocity.y = -560.0 * _fox_pixel_scale()
 		_fox.call("pulse_click")
+
+
+# --- Activity / behaviour --------------------------------------------------
+
+func set_activity(activity: String) -> void:
+	# "idle" (resting), "working" (sleeps while you focus), "break" (plays with a ball).
+	_activity = activity
+	_apply_activity()
+
+
+func _apply_activity() -> void:
+	if not is_instance_valid(_fox):
+		return
+	match _activity:
+		"working":
+			_end_ball_play()
+			_fox.call("set_base_state", "sleep")
+		"break":
+			_fox.call("set_base_state", "idle")
+			if _play_state == "none":
+				_begin_episode()
+		_:
+			_end_ball_play()
+			_fox.call("set_base_state", "idle")
+
+
+func _update_ball_play(delta: float) -> void:
+	match _play_state:
+		"trot":
+			if not _ball_active:
+				_play_state = "none"
+				return
+			var dx := _ball_screen_position.x - _fox_screen_position.x
+			_fox.call("set_facing", signf(dx))
+			_fox_screen_position.x = move_toward(_fox_screen_position.x, _ball_screen_position.x, trot_speed * delta)
+			_fox_velocity.x = 0.0
+			if absf(dx) <= pounce_range and _resting_on_floor:
+				_begin_pounce(signf(dx))
+		"pounce":
+			if _resting_on_floor and _fox_velocity.y >= 0.0:
+				_enter_settle()
+		"settle":
+			_settle_timer -= delta
+			if _settle_timer <= 0.0:
+				_end_episode()
+		"gap":
+			_gap_timer -= delta
+			if _gap_timer <= 0.0:
+				_begin_episode()
+
+
+func _begin_episode() -> void:
+	if not is_instance_valid(_fox):
+		return
+	_spawn_ball()
+	_play_state = "trot"
+	_fox.call("set_loop_anim", "trot")
+
+
+func _begin_pounce(direction: float) -> void:
+	_play_state = "pounce"
+	_resting_on_floor = false
+	_fox_velocity.y = -pounce_up
+	_fox_velocity.x = direction * pounce_forward
+	_fox.call("set_facing", direction)
+	_fox.call("play_oneshot", "pounce")
+
+
+func _enter_settle() -> void:
+	_play_state = "settle"
+	_settle_timer = randf_range(settle_min, settle_max)
+	_fox.call("set_base_state", "idle")
+
+
+func _end_episode() -> void:
+	_despawn_ball()
+	if _activity == "break":
+		_play_state = "gap"
+		_gap_timer = randf_range(play_gap_min, play_gap_max)
+	else:
+		_play_state = "none"
+
+
+func _end_ball_play() -> void:
+	_play_state = "none"
+	_despawn_ball()
+
+
+# --- Ball overlay window ---------------------------------------------------
+
+func _ensure_ball_window() -> void:
+	if is_instance_valid(_ball_window):
+		return
+	var window := Window.new()
+	window.name = "FocusFoxBall"
+	window.borderless = true
+	window.always_on_top = true
+	window.transparent = true
+	window.transparent_bg = true
+	window.unresizable = true
+	window.gui_embed_subwindows = false
+	window.visible = false
+	add_child(window)
+	var root := Node2D.new()
+	root.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	window.add_child(root)
+	var sprite := Sprite2D.new()
+	sprite.texture = BALL_TEXTURE
+	root.add_child(sprite)
+	_ball_window = window
+	_ball_root = root
+	_ball_sprite = sprite
+	# The ball is purely decorative — let all clicks pass through to the desktop.
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, true, window.get_window_id())
+
+
+func _spawn_ball() -> void:
+	_ensure_ball_window()
+	var ball_px := BALL_SPRITE_PX * _fox_pixel_scale() * ball_relative_scale
+	var win := int(ceil(ball_px)) + ball_window_padding
+	_ball_window.size = Vector2i(win, win)
+	_ball_sprite.scale = Vector2.ONE * (_fox_pixel_scale() * ball_relative_scale)
+	_ball_sprite.position = Vector2(_ball_window.size) * 0.5
+
+	var rect := _get_target_screen_rect()
+	var half := _fox_visual_half()
+	var min_x := float(rect.position.x) + half.x
+	var max_x := float(rect.end.x) - half.x
+	var mid := (min_x + max_x) * 0.5
+	var ball_x: float
+	if _fox_screen_position.x < mid:
+		ball_x = randf_range(mid + (max_x - mid) * 0.2, max_x)
+	else:
+		ball_x = randf_range(min_x, mid - (mid - min_x) * 0.2)
+	_ball_screen_position = Vector2(ball_x, _ball_floor_y(ball_px))
+	_ball_active = true
+	_ball_window.show()
+	_sync_ball_window()
+
+
+func _despawn_ball() -> void:
+	_ball_active = false
+	if is_instance_valid(_ball_window):
+		_ball_window.hide()
+
+
+func _ball_floor_y(ball_px: float) -> float:
+	var rect := _get_target_screen_rect()
+	return float(rect.end.y) - _get_floor_offset() - ball_px * 0.5
+
+
+func _sync_ball_window() -> void:
+	if is_instance_valid(_ball_window):
+		_ball_window.position = Vector2i((_ball_screen_position - Vector2(_ball_window.size) * 0.5).round())
 
 
 func reset_fox_position() -> void:
