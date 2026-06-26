@@ -6,6 +6,15 @@ extends Node2D
 
 enum Mode { HOME, CHOOSE, RUNNING }
 
+const COLOUR_OPTIONS := [
+	{"key": "default", "label": "Classic"},
+	{"key": "red", "label": "Red"},
+	{"key": "gray", "label": "Grey"},
+	{"key": "lightbrown", "label": "Light brown"},
+	{"key": "darkbrown", "label": "Dark brown"},
+	{"key": "black", "label": "Black"},
+]
+
 const SESSIONS := {
 	"deep": {"label": "Deep focus", "minutes": 45},
 	"focus": {"label": "Focus", "minutes": 25},
@@ -39,6 +48,10 @@ var _syncing_ui := false
 var _minimize_token := 0
 var _clock: PomodoroTimer
 var _tray: SystemTray
+var _save_debounce: Timer
+
+
+const SETTINGS_PATH := "user://focus_fox.cfg"
 
 
 func _ready() -> void:
@@ -46,16 +59,23 @@ func _ready() -> void:
 	# Closing the launcher tucks it into the tray instead of quitting the app.
 	get_tree().set_auto_accept_quit(false)
 	_setup_launcher_window()
+	_setup_save()
 	_setup_clock()
 	_setup_tray()
 	_setup_menu_nodes()
 	_configure_desktop_fox()
+	_load_settings()
 	_desktop_fox.initialize()
 	_preview_fox.freeze = true
 	_preview_fox.call("set_highlight", false, _desktop_fox.hover_modulate)
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
+	_preview_fox.modulate.a = _desktop_fox.fox_opacity
 	_set_mode(Mode.HOME)
 	_refresh_ui()
+
+
+func _exit_tree() -> void:
+	_save_settings()
 
 
 func _notification(what: int) -> void:
@@ -139,6 +159,9 @@ func _setup_menu_nodes() -> void:
 	_settings_panel.opacity_slider.value_changed.connect(_on_opacity_changed)
 	_settings_panel.liveliness_slider.value_changed.connect(_on_liveliness_changed)
 	_settings_panel.taskbar_height_slider.value_changed.connect(_on_taskbar_height_changed)
+	for option in COLOUR_OPTIONS:
+		_settings_panel.colour_option.add_item(option["label"])
+	_settings_panel.colour_option.item_selected.connect(_on_colour_selected)
 	_settings_panel.reset_fox_button.pressed.connect(_on_reset_fox_pressed)
 	_settings_panel.spawn_fox_button.pressed.connect(_on_spawn_fox_pressed)
 	_settings_panel.hide_fox_button.pressed.connect(_on_hide_fox_pressed)
@@ -154,6 +177,7 @@ func _configure_desktop_fox() -> void:
 	_desktop_fox.taskbar_snap_enabled = true
 	_desktop_fox.taskbar_height = 24.0
 	_desktop_fox.body_speed_multiplier = 1.0
+	_desktop_fox.fox_palette = "default"
 
 
 # --- Menu mode -------------------------------------------------------------
@@ -308,6 +332,49 @@ func _on_tray_quit() -> void:
 	get_tree().quit()
 
 
+# --- Persistence -----------------------------------------------------------
+
+func _setup_save() -> void:
+	_save_debounce = Timer.new()
+	_save_debounce.name = "SaveDebounce"
+	_save_debounce.one_shot = true
+	_save_debounce.timeout.connect(_save_settings)
+	add_child(_save_debounce)
+
+
+func _request_save() -> void:
+	# Coalesce rapid changes (slider drags) into a single write shortly after.
+	if _save_debounce != null:
+		_save_debounce.start(0.4)
+
+
+func _save_settings() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("fox", "scale", _desktop_fox.fox_scale)
+	cfg.set_value("fox", "opacity", _desktop_fox.fox_opacity)
+	cfg.set_value("fox", "liveliness", _desktop_fox.body_speed_multiplier)
+	cfg.set_value("fox", "palette", _desktop_fox.fox_palette)
+	cfg.set_value("behaviour", "click_through", _desktop_fox.click_through_enabled)
+	cfg.set_value("behaviour", "hover_fade", _desktop_fox.hover_fade_enabled)
+	cfg.set_value("behaviour", "taskbar_snap", _desktop_fox.taskbar_snap_enabled)
+	cfg.set_value("behaviour", "taskbar_height", _desktop_fox.taskbar_height)
+	cfg.save(SETTINGS_PATH)
+
+
+func _load_settings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS_PATH) != OK:
+		return
+	_desktop_fox.fox_scale = float(cfg.get_value("fox", "scale", _desktop_fox.fox_scale))
+	_desktop_fox.fox_opacity = float(cfg.get_value("fox", "opacity", _desktop_fox.fox_opacity))
+	_desktop_fox.body_speed_multiplier = float(cfg.get_value("fox", "liveliness", _desktop_fox.body_speed_multiplier))
+	_desktop_fox.fox_palette = str(cfg.get_value("fox", "palette", _desktop_fox.fox_palette))
+	_desktop_fox.click_through_enabled = bool(cfg.get_value("behaviour", "click_through", _desktop_fox.click_through_enabled))
+	_desktop_fox.hover_fade_enabled = bool(cfg.get_value("behaviour", "hover_fade", _desktop_fox.hover_fade_enabled))
+	_desktop_fox.taskbar_snap_enabled = bool(cfg.get_value("behaviour", "taskbar_snap", _desktop_fox.taskbar_snap_enabled))
+	_desktop_fox.taskbar_height = float(cfg.get_value("behaviour", "taskbar_height", _desktop_fox.taskbar_height))
+
+
 func _update_fox_activity() -> void:
 	if not _desktop_fox.is_spawned():
 		return
@@ -333,19 +400,28 @@ func _hide_settings_panel() -> void:
 
 
 func _on_click_through_toggled(enabled: bool) -> void:
+	if _syncing_ui:
+		return
 	_desktop_fox.click_through_enabled = enabled
 	_desktop_fox.apply_visual_settings()
+	_request_save()
 
 
 func _on_hover_fade_toggled(enabled: bool) -> void:
+	if _syncing_ui:
+		return
 	_desktop_fox.hover_fade_enabled = enabled
 	_desktop_fox.apply_visual_settings()
+	_request_save()
 
 
 func _on_taskbar_snap_toggled(enabled: bool) -> void:
+	if _syncing_ui:
+		return
 	_desktop_fox.taskbar_snap_enabled = enabled
 	_refresh_ui()
 	_desktop_fox.reset_fox_position()
+	_request_save()
 
 
 func _on_scale_changed(value: float) -> void:
@@ -355,6 +431,7 @@ func _on_scale_changed(value: float) -> void:
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
 	_desktop_fox.apply_visual_settings()
 	_refresh_ui()
+	_request_save()
 
 
 func _on_opacity_changed(value: float) -> void:
@@ -363,6 +440,7 @@ func _on_opacity_changed(value: float) -> void:
 	_desktop_fox.fox_opacity = value
 	_desktop_fox.apply_visual_settings()
 	_preview_fox.modulate.a = value
+	_request_save()
 
 
 func _on_liveliness_changed(value: float) -> void:
@@ -371,6 +449,16 @@ func _on_liveliness_changed(value: float) -> void:
 	_desktop_fox.body_speed_multiplier = value
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
 	_desktop_fox.apply_visual_settings()
+	_request_save()
+
+
+func _on_colour_selected(index: int) -> void:
+	if _syncing_ui or index < 0 or index >= COLOUR_OPTIONS.size():
+		return
+	_desktop_fox.fox_palette = COLOUR_OPTIONS[index]["key"]
+	_desktop_fox.apply_cosmetics_to(_preview_fox)
+	_desktop_fox.apply_visual_settings()
+	_request_save()
 
 
 func _on_taskbar_height_changed(value: float) -> void:
@@ -379,6 +467,7 @@ func _on_taskbar_height_changed(value: float) -> void:
 	_desktop_fox.taskbar_height = value
 	_refresh_ui()
 	_desktop_fox.reset_fox_position()
+	_request_save()
 
 
 func _on_reset_fox_pressed() -> void:
@@ -401,6 +490,7 @@ func _on_reset_all_pressed() -> void:
 	_desktop_fox.apply_visual_settings()
 	_preview_fox.modulate.a = _desktop_fox.fox_opacity
 	_refresh_ui()
+	_request_save()
 
 
 func _on_fox_spawned_changed(active: bool) -> void:
@@ -425,4 +515,9 @@ func _refresh_ui() -> void:
 	_settings_panel.taskbar_snap_toggle.button_pressed = _desktop_fox.taskbar_snap_enabled
 	_settings_panel.click_through_toggle.button_pressed = _desktop_fox.click_through_enabled
 	_settings_panel.hover_fade_toggle.button_pressed = _desktop_fox.hover_fade_enabled
+	var palette_index := 0
+	for i in COLOUR_OPTIONS.size():
+		if COLOUR_OPTIONS[i]["key"] == _desktop_fox.fox_palette:
+			palette_index = i
+	_settings_panel.colour_option.selected = palette_index
 	_syncing_ui = false

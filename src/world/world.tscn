@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://brcpg0nxctq1j" path="res://src/world/world.gd" id="1_world"]
 [ext_resource type="Texture2D" uid="uid://ciwftu0oq81f4" path="res://assets/main_menu/backgrounds/background.png" id="3_a20vb"]
 [ext_resource type="Texture2D" uid="uid://b5xmpxyx216km" path="res://assets/main_menu/title.png" id="3_title"]
+[ext_resource type="Texture2D" uid="uid://b4lc3xvwj4c8m" path="res://assets/main_menu/mainmenu-stats-panel.png" id="4_4dyjh"]
 [ext_resource type="Texture2D" uid="uid://c28fhgopjjtk5" path="res://assets/main_menu/default_button.png" id="4_button"]
 [ext_resource type="Texture2D" uid="uid://b6sjs21ca8g7s" path="res://assets/main_menu/default_button - large.png" id="6_a20vb"]
 [ext_resource type="Script" uid="uid://3wmaecsqbjtn" path="res://src/world/fox_settings_panel.gd" id="11_settings_panel"]
@@ -10,6 +11,7 @@
 [ext_resource type="Texture2D" uid="uid://c5ddp7inuo7jl" path="res://assets/main_menu/environment/plant - shadow.png" id="13_a20vb"]
 [ext_resource type="Texture2D" uid="uid://cj2lm0w4uppyq" path="res://assets/main_menu/environment/plant.png" id="14_eo0a0"]
 [ext_resource type="Texture2D" uid="uid://dau4b46fiyhtx" path="res://assets/main_menu/icons/settings/default-gear-icon.png" id="15_eo0a0"]
+[ext_resource type="Texture2D" uid="uid://qtknhb8lseh4" path="res://assets/main_menu/icons/journal-icon.png" id="16_ij7pi"]
 [ext_resource type="FontFile" uid="uid://w0p6smylyk1x" path="res://assets/not_sprites/pixel_operator/PixelOperator.ttf" id="17_font"]
 [ext_resource type="PackedScene" uid="uid://bky7btjtomh0p" path="res://src/planetoid/planetoid.tscn" id="18_fox"]
 [ext_resource type="Texture2D" uid="uid://d33vvsfm4cqdi" path="res://assets/main_menu/default_button - hovered.png" id="20_btnhover"]
@@ -34,9 +36,13 @@ script = ExtResource("12_desktop_fox")
 position = Vector2(480, 270)
 texture = ExtResource("3_a20vb")
 
+[node name="MainmenuStatsPanel" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1408234629]
+position = Vector2(498, 45)
+texture = ExtResource("4_4dyjh")
+
 [node name="Title" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1551208764]
 z_index = 20
-position = Vector2(479, 103)
+position = Vector2(487, 231)
 scale = Vector2(0.9, 0.9)
 texture = ExtResource("3_title")
 
@@ -66,14 +72,15 @@ stretch_mode = 0
 
 [node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/StartButton" unique_id=72671059]
 layout_mode = 0
+offset_top = -5.0
 offset_right = 224.0
-offset_bottom = 60.0
+offset_bottom = 57.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 5
+theme_override_constants/outline_size = 9
 theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-text = "Start Focus Session"
+theme_override_font_sizes/font_size = 42
+text = "Start"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -91,14 +98,171 @@ stretch_mode = 0
 
 [node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/QuitButton" unique_id=1642692753]
 layout_mode = 0
+offset_top = -5.0
+offset_right = 224.0
+offset_bottom = 57.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 9
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 42
+text = "Quit"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DeepButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000010]
+visible = false
+offset_left = 165.0
+offset_top = 424.0
+offset_right = 355.0
+offset_bottom = 484.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/DeepButton" unique_id=210000011]
+layout_mode = 0
+offset_right = 190.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Deep · 45m"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="FocusButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000012]
+visible = false
+offset_left = 385.0
+offset_top = 424.0
+offset_right = 575.0
+offset_bottom = 484.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/FocusButton" unique_id=210000013]
+layout_mode = 0
+offset_right = 190.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Focus · 25m"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BreakButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000014]
+visible = false
+offset_left = 605.0
+offset_top = 424.0
+offset_right = 795.0
+offset_bottom = 484.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/BreakButton" unique_id=210000015]
+layout_mode = 0
+offset_right = 190.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Break · 15m"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PauseButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000022]
+visible = false
+offset_left = 236.0
+offset_top = 424.0
+offset_right = 460.0
+offset_bottom = 484.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/PauseButton" unique_id=210000023]
+layout_mode = 0
 offset_right = 224.0
 offset_bottom = 60.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 5
 theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 20
-text = "Quit"
+theme_override_font_sizes/font_size = 18
+text = "Pause"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StopButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000020]
+visible = false
+offset_left = 500.0
+offset_top = 424.0
+offset_right = 724.0
+offset_bottom = 484.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/StopButton" unique_id=210000021]
+layout_mode = 0
+offset_right = 224.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "End session"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BringHomeButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000030]
+visible = false
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 206.0
+offset_bottom = 60.0
+focus_mode = 0
+texture_normal = ExtResource("4_button")
+texture_pressed = ExtResource("20_btnhover")
+texture_hover = ExtResource("20_btnhover")
+ignore_texture_size = true
+stretch_mode = 0
+
+[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/BringHomeButton" unique_id=210000031]
+layout_mode = 0
+offset_right = 190.0
+offset_bottom = 48.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 16
+text = "Bring fox home"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -140,9 +304,9 @@ texture_hover = ExtResource("21_gearhi")
 visible = false
 z_index = 90
 offset_left = 95.0
-offset_top = 44.0
+offset_top = 30.0
 offset_right = 485.0
-offset_bottom = 512.0
+offset_bottom = 540.0
 script = ExtResource("11_settings_panel")
 
 [node name="TitleLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=678345779]
@@ -198,7 +362,6 @@ offset_bottom = 110.0
 focus_mode = 0
 min_value = 1.0
 max_value = 4.0
-step = 1.0
 value = 2.0
 
 [node name="OpacityLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000003]
@@ -247,12 +410,33 @@ max_value = 2.0
 step = 0.05
 value = 1.0
 
+[node name="ColourLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000008]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 176.0
+offset_right = 150.0
+offset_bottom = 200.0
+theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "Fox colour"
+
+[node name="ColourOption" type="OptionButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000009]
+layout_mode = 0
+offset_left = 150.0
+offset_top = 176.0
+offset_right = 366.0
+offset_bottom = 208.0
+focus_mode = 0
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 16
+
 [node name="BehaviourHeader" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000006]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 184.0
+offset_top = 216.0
 offset_right = 366.0
-offset_bottom = 210.0
+offset_bottom = 242.0
 theme_override_colors/font_color = Color(1, 0.84, 0.64, 1)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 20
@@ -261,9 +445,9 @@ text = "Behaviour"
 [node name="ClickThroughToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=423483557]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 214.0
+offset_top = 246.0
 offset_right = 366.0
-offset_bottom = 246.0
+offset_bottom = 278.0
 focus_mode = 0
 theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
 theme_override_fonts/font = ExtResource("17_font")
@@ -273,9 +457,9 @@ text = "Click-through (ignore clicks)"
 [node name="HoverFadeToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=351889639]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 250.0
+offset_top = 282.0
 offset_right = 366.0
-offset_bottom = 282.0
+offset_bottom = 314.0
 focus_mode = 0
 theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
 theme_override_fonts/font = ExtResource("17_font")
@@ -285,9 +469,9 @@ text = "Fade when resting"
 [node name="TaskbarSnapToggle" type="CheckButton" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1528879449]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 286.0
+offset_top = 318.0
 offset_right = 366.0
-offset_bottom = 318.0
+offset_bottom = 350.0
 focus_mode = 0
 theme_override_colors/font_color = Color(0.9, 0.82, 1, 1)
 theme_override_fonts/font = ExtResource("17_font")
@@ -298,9 +482,9 @@ text = "Rest on the taskbar"
 [node name="TaskbarHeightLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1310294370]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 322.0
+offset_top = 354.0
 offset_right = 150.0
-offset_bottom = 346.0
+offset_bottom = 378.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 18
@@ -309,9 +493,9 @@ text = "Taskbar height"
 [node name="TaskbarHeightSlider" type="HSlider" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=697902396]
 layout_mode = 0
 offset_left = 150.0
-offset_top = 324.0
+offset_top = 356.0
 offset_right = 366.0
-offset_bottom = 346.0
+offset_bottom = 378.0
 focus_mode = 0
 min_value = -40.0
 max_value = 120.0
@@ -320,9 +504,9 @@ value = 24.0
 [node name="FoxHeader" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=110000007]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 356.0
+offset_top = 388.0
 offset_right = 200.0
-offset_bottom = 382.0
+offset_bottom = 414.0
 theme_override_colors/font_color = Color(1, 0.84, 0.64, 1)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 20
@@ -331,9 +515,9 @@ text = "Your fox"
 [node name="FoxStatusLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1887490067]
 layout_mode = 0
 offset_left = 180.0
-offset_top = 358.0
+offset_top = 390.0
 offset_right = 366.0
-offset_bottom = 380.0
+offset_bottom = 412.0
 theme_override_colors/font_color = Color(1, 0.83, 0.64, 0.92)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 16
@@ -343,9 +527,9 @@ horizontal_alignment = 2
 [node name="SpawnFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1368414196]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 386.0
+offset_top = 418.0
 offset_right = 126.0
-offset_bottom = 418.0
+offset_bottom = 450.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
@@ -354,9 +538,9 @@ text = "Spawn"
 [node name="HideFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=20945567]
 layout_mode = 0
 offset_left = 134.0
-offset_top = 386.0
+offset_top = 418.0
 offset_right = 236.0
-offset_bottom = 418.0
+offset_bottom = 450.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
@@ -365,9 +549,9 @@ text = "Hide"
 [node name="ResetFoxButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=480148780]
 layout_mode = 0
 offset_left = 244.0
-offset_top = 386.0
+offset_top = 418.0
 offset_right = 366.0
-offset_bottom = 418.0
+offset_bottom = 450.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
@@ -376,9 +560,9 @@ text = "Reset pos"
 [node name="ResetAllButton" type="Button" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=1369400607]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 424.0
+offset_top = 456.0
 offset_right = 160.0
-offset_bottom = 456.0
+offset_bottom = 488.0
 focus_mode = 0
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 17
@@ -387,9 +571,9 @@ text = "Reset all"
 [node name="HintLabel" type="Label" parent="MenuLayer/MainMenu/SettingsPanel" unique_id=316501194]
 layout_mode = 0
 offset_left = 172.0
-offset_top = 424.0
+offset_top = 456.0
 offset_right = 366.0
-offset_bottom = 468.0
+offset_bottom = 500.0
 theme_override_colors/font_color = Color(0.82, 0.72, 0.93, 0.78)
 theme_override_fonts/font = ExtResource("17_font")
 theme_override_font_sizes/font_size = 14
@@ -456,164 +640,6 @@ horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
 
-[node name="DeepButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000010]
-visible = false
-offset_left = 165.0
-offset_top = 424.0
-offset_right = 355.0
-offset_bottom = 484.0
-focus_mode = 0
-texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("20_btnhover")
-texture_hover = ExtResource("20_btnhover")
-ignore_texture_size = true
-stretch_mode = 0
-
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/DeepButton" unique_id=210000011]
-layout_mode = 0
-offset_right = 190.0
-offset_bottom = 60.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 5
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Deep · 45m"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="FocusButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000012]
-visible = false
-offset_left = 385.0
-offset_top = 424.0
-offset_right = 575.0
-offset_bottom = 484.0
-focus_mode = 0
-texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("20_btnhover")
-texture_hover = ExtResource("20_btnhover")
-ignore_texture_size = true
-stretch_mode = 0
-
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/FocusButton" unique_id=210000013]
-layout_mode = 0
-offset_right = 190.0
-offset_bottom = 60.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 5
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Focus · 25m"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="BreakButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000014]
-visible = false
-offset_left = 605.0
-offset_top = 424.0
-offset_right = 795.0
-offset_bottom = 484.0
-focus_mode = 0
-texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("20_btnhover")
-texture_hover = ExtResource("20_btnhover")
-ignore_texture_size = true
-stretch_mode = 0
-
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/BreakButton" unique_id=210000015]
-layout_mode = 0
-offset_right = 190.0
-offset_bottom = 60.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 5
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Break · 15m"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PauseButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000022]
-visible = false
-offset_left = 236.0
-offset_top = 424.0
-offset_right = 460.0
-offset_bottom = 484.0
-focus_mode = 0
-texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("20_btnhover")
-texture_hover = ExtResource("20_btnhover")
-ignore_texture_size = true
-stretch_mode = 0
-
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/PauseButton" unique_id=210000023]
-layout_mode = 0
-offset_right = 224.0
-offset_bottom = 60.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 5
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "Pause"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="StopButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000020]
-visible = false
-offset_left = 500.0
-offset_top = 424.0
-offset_right = 724.0
-offset_bottom = 484.0
-focus_mode = 0
-texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("20_btnhover")
-texture_hover = ExtResource("20_btnhover")
-ignore_texture_size = true
-stretch_mode = 0
-
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/StopButton" unique_id=210000021]
-layout_mode = 0
-offset_right = 224.0
-offset_bottom = 60.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 5
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 18
-text = "End session"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="BringHomeButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000030]
-visible = false
-offset_left = 16.0
-offset_top = 12.0
-offset_right = 206.0
-offset_bottom = 60.0
-focus_mode = 0
-texture_normal = ExtResource("4_button")
-texture_pressed = ExtResource("20_btnhover")
-texture_hover = ExtResource("20_btnhover")
-ignore_texture_size = true
-stretch_mode = 0
-
-[node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/BringHomeButton" unique_id=210000031]
-layout_mode = 0
-offset_right = 190.0
-offset_bottom = 48.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 5
-theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 16
-text = "Bring fox home"
-horizontal_alignment = 1
-vertical_alignment = 1
+[node name="JournalIcon" type="Sprite2D" parent="MenuLayer" unique_id=598295919]
+position = Vector2(923, 96)
+texture = ExtResource("16_ij7pi")

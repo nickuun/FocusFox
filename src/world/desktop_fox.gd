@@ -22,15 +22,23 @@ const BALL_SPRITE_PX := 11.0
 
 @export_group("Break play")
 @export var trot_speed := 360.0
-@export var pounce_range := 80.0
-@export var pounce_up := 780.0
-@export var pounce_forward := 300.0
+@export var pounce_range := 220.0   # distance the fox leaps from to land on the ball
+@export var pounce_duration := 0.52
+@export var pounce_height := 95.0   # arc peak, multiplied by fox scale
 @export var settle_min := 2.0
 @export var settle_max := 4.5
 @export var play_gap_min := 6.0
 @export var play_gap_max := 12.0
 @export var ball_relative_scale := 3.5
 @export var ball_window_padding := 56
+@export var ball_gravity := 2600.0
+@export var ball_bounce := 0.62
+@export var ball_floor_friction := 2.4
+@export var ball_throw_boost := 0.85
+@export var ball_max_throw_speed := 2600.0
+@export var ball_rest_threshold := 28.0
+@export var ball_kick_up := 540.0
+@export var ball_kick_side := 360.0
 
 var fox_scale := 3.0
 var fox_opacity := 1.0
@@ -60,9 +68,28 @@ var _ball_root: Node2D
 var _ball_sprite: Sprite2D
 var _ball_active := false
 var _ball_screen_position := Vector2.ZERO
+var _ball_velocity := Vector2.ZERO
+var _ball_dragging := false
+var _ball_drag_offset := Vector2.ZERO
+var _ball_resting := false
+var _ball_px := 60.0
 var _play_state := "none"  # none / trot / pounce / settle / gap
 var _settle_timer := 0.0
 var _gap_timer := 0.0
+var _pounce_t := 0.0
+var _pounce_start := Vector2.ZERO
+var _pounce_target := Vector2.ZERO
+var _pounce_peak := 0.0
+
+var fox_palette := "default"
+var _palettes := {
+	"default": [Color("d67941"), Color("9d5021")],
+	"red": [Color("d6534a"), Color("9e2c22")],
+	"gray": [Color("b0b0b0"), Color("6b6b6b")],
+	"lightbrown": [Color("c89b6a"), Color("936a3c")],
+	"darkbrown": [Color("8a5a30"), Color("543313")],
+	"black": [Color("4a4a4a"), Color("1e1e1e")],
+}
 
 signal fox_spawned_changed(active: bool)
 signal status_changed(message: String)
@@ -84,14 +111,20 @@ func physics_step(delta: float) -> void:
 		_fox_screen_position = (mouse_screen_position + _drag_screen_offset).round()
 		_fox_velocity = _mouse_velocity
 	else:
+		var skip_gravity := false
 		if _play_state != "none":
-			_update_ball_play(delta)
-		_apply_gravity(delta)
+			skip_gravity = _update_ball_play(delta)
+		if not skip_gravity:
+			_apply_gravity(delta)
 		_update_hover(mouse_screen_position)
 
 	_apply_screen_bounds()
 	_fox_screen_position = _fox_screen_position.round()
 	_sync_overlay_window()
+
+	if _ball_active:
+		_update_ball_physics(delta, mouse_screen_position)
+		_sync_ball_window()
 
 
 func handle_overlay_input(event: InputEvent) -> void:
@@ -112,6 +145,7 @@ func apply_visual_settings() -> void:
 	_apply_fox_visual_state()
 	_apply_click_through_mode()
 	_apply_fox_settings(_fox)
+	_apply_palette_to(_fox)
 
 
 func apply_cosmetics_to(node: RigidBody2D) -> void:
@@ -123,8 +157,16 @@ func apply_cosmetics_to(node: RigidBody2D) -> void:
 	node.scale = Vector2.ONE * pixel_scale
 	node.call("set_body_theme", "fox")
 	node.call("set_body_rotation_speed", body_speed_multiplier)
+	_apply_palette_to(node)
 	_cache_sprite_base(node)
 	_update_window_size_for_scale(pixel_scale)
+
+
+func _apply_palette_to(node: RigidBody2D) -> void:
+	if not is_instance_valid(node) or not node.has_method("set_palette"):
+		return
+	var pair: Array = _palettes.get(fox_palette, _palettes["default"])
+	node.call("set_palette", pair[0], pair[1])
 
 
 func _cache_sprite_base(node: RigidBody2D) -> void:
@@ -203,67 +245,109 @@ func _apply_activity() -> void:
 		"break":
 			_fox.call("set_base_state", "idle")
 			if _play_state == "none":
-				_begin_episode()
+				_start_ball_play()
 		_:
 			_end_ball_play()
 			_fox.call("set_base_state", "idle")
 
 
-func _update_ball_play(delta: float) -> void:
+func _start_ball_play() -> void:
+	# One ball for the whole break; the fox keeps going back to play with it,
+	# and the player can grab and throw it at any time.
+	_spawn_ball()
+	_begin_chase()
+
+
+func _begin_chase() -> void:
+	if not is_instance_valid(_fox):
+		return
+	_play_state = "trot"
+	_fox.call("set_loop_anim", "trot")
+
+
+func _update_ball_play(delta: float) -> bool:
+	# Returns true when it has fully taken over the fox's position this frame
+	# (during the scripted pounce arc), so the caller skips gravity.
 	match _play_state:
 		"trot":
 			if not _ball_active:
 				_play_state = "none"
-				return
+				return false
 			var dx := _ball_screen_position.x - _fox_screen_position.x
 			_fox.call("set_facing", signf(dx))
 			_fox_screen_position.x = move_toward(_fox_screen_position.x, _ball_screen_position.x, trot_speed * delta)
 			_fox_velocity.x = 0.0
-			if absf(dx) <= pounce_range and _resting_on_floor:
+			# Only pounce on a ball that's holding still on the floor.
+			if _ball_resting and not _ball_dragging and absf(dx) <= pounce_range and _resting_on_floor:
 				_begin_pounce(signf(dx))
+			return false
 		"pounce":
-			if _resting_on_floor and _fox_velocity.y >= 0.0:
+			_pounce_t += delta / maxf(0.1, pounce_duration)
+			var t := clampf(_pounce_t, 0.0, 1.0)
+			var arc := -_pounce_peak * 4.0 * t * (1.0 - t)
+			_fox_screen_position = Vector2(
+				lerpf(_pounce_start.x, _pounce_target.x, t),
+				lerpf(_pounce_start.y, _pounce_target.y, t) + arc
+			)
+			_fox_velocity = Vector2.ZERO
+			_resting_on_floor = false
+			if t >= 1.0:
+				_fox_screen_position = _pounce_target
+				_resting_on_floor = true
 				_enter_settle()
+			return true
 		"settle":
 			_settle_timer -= delta
 			if _settle_timer <= 0.0:
-				_end_episode()
+				_begin_gap()
+			return false
 		"gap":
 			_gap_timer -= delta
-			if _gap_timer <= 0.0:
-				_begin_episode()
-
-
-func _begin_episode() -> void:
-	if not is_instance_valid(_fox):
-		return
-	_spawn_ball()
-	_play_state = "trot"
-	_fox.call("set_loop_anim", "trot")
+			# Wait for the ball to settle before chasing it again.
+			if _gap_timer <= 0.0 and _ball_active and _ball_resting and not _ball_dragging:
+				_begin_chase()
+			return false
+	return false
 
 
 func _begin_pounce(direction: float) -> void:
 	_play_state = "pounce"
 	_resting_on_floor = false
-	_fox_velocity.y = -pounce_up
-	_fox_velocity.x = direction * pounce_forward
+	_fox_velocity = Vector2.ZERO
+	_pounce_t = 0.0
+	_pounce_start = _fox_screen_position
+	_pounce_target = Vector2(_ball_screen_position.x, _floor_center_y())
+	_pounce_peak = pounce_height * _fox_pixel_scale()
 	_fox.call("set_facing", direction)
-	_fox.call("play_oneshot", "pounce")
+	_fox.call("play_pounce", pounce_duration)
+
+
+func _floor_center_y() -> float:
+	var rect := _get_target_screen_rect()
+	return float(rect.end.y) - _get_floor_offset() - _fox_visual_half().y + landing_offset * _fox_pixel_scale()
 
 
 func _enter_settle() -> void:
 	_play_state = "settle"
 	_settle_timer = randf_range(settle_min, settle_max)
 	_fox.call("set_base_state", "idle")
+	_kick_ball()
 
 
-func _end_episode() -> void:
-	_despawn_ball()
-	if _activity == "break":
-		_play_state = "gap"
-		_gap_timer = randf_range(play_gap_min, play_gap_max)
-	else:
-		_play_state = "none"
+func _kick_ball() -> void:
+	# The fox boops the ball as it lands, popping it into a little bounce.
+	if not _ball_active or _ball_dragging:
+		return
+	var dir := signf(_ball_screen_position.x - _fox_screen_position.x)
+	if dir == 0.0:
+		dir = 1.0 if randf() < 0.5 else -1.0
+	_ball_velocity = Vector2(dir * ball_kick_side, -ball_kick_up)
+	_ball_resting = false
+
+
+func _begin_gap() -> void:
+	_play_state = "gap"
+	_gap_timer = randf_range(play_gap_min, play_gap_max)
 
 
 func _end_ball_play() -> void:
@@ -272,6 +356,92 @@ func _end_ball_play() -> void:
 
 
 # --- Ball overlay window ---------------------------------------------------
+
+func handle_ball_input(event: InputEvent) -> void:
+	if click_through_enabled or not _ball_active:
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		var mouse := Vector2(DisplayServer.mouse_get_position())
+		if event.pressed:
+			if _ball_local_hits(event.position):
+				_start_ball_drag(mouse)
+				get_viewport().set_input_as_handled()
+		elif _ball_dragging:
+			_release_ball_drag()
+			get_viewport().set_input_as_handled()
+
+
+func _ball_local_hits(local_position: Vector2) -> bool:
+	return local_position.distance_to(Vector2(_ball_window.size) * 0.5) <= _ball_radius()
+
+
+func _start_ball_drag(mouse_screen_position: Vector2) -> void:
+	_ball_dragging = true
+	_ball_resting = false
+	_ball_drag_offset = _ball_screen_position - mouse_screen_position
+	_ball_velocity = Vector2.ZERO
+	if is_instance_valid(_fox):
+		_fox.call("pulse_click")
+
+
+func _release_ball_drag() -> void:
+	_ball_dragging = false
+	_ball_resting = false
+	_ball_velocity = (_mouse_velocity * ball_throw_boost).limit_length(ball_max_throw_speed)
+
+
+func _update_ball_physics(delta: float, mouse_screen_position: Vector2) -> void:
+	if _ball_dragging:
+		_ball_screen_position = mouse_screen_position + _ball_drag_offset
+		_ball_velocity = _mouse_velocity
+		_ball_resting = false
+	elif not _ball_resting:
+		_ball_velocity.y += ball_gravity * delta
+		_ball_screen_position += _ball_velocity * delta
+	_apply_ball_bounds(delta)
+	_ball_screen_position = _ball_screen_position.round()
+
+
+func _apply_ball_bounds(delta: float) -> void:
+	var rect := _get_target_screen_rect()
+	var r := _ball_radius()
+	var min_x := float(rect.position.x) + r
+	var max_x := float(rect.end.x) - r
+	var min_y := float(rect.position.y) + r
+	var floor_y := float(rect.end.y) - _get_floor_offset() - r
+	var on_floor := false
+
+	if _ball_screen_position.x < min_x:
+		_ball_screen_position.x = min_x
+		_ball_velocity.x = absf(_ball_velocity.x) * ball_bounce
+	elif _ball_screen_position.x > max_x:
+		_ball_screen_position.x = max_x
+		_ball_velocity.x = -absf(_ball_velocity.x) * ball_bounce
+
+	if _ball_screen_position.y < min_y:
+		_ball_screen_position.y = min_y
+		_ball_velocity.y = absf(_ball_velocity.y) * ball_bounce
+	elif _ball_screen_position.y >= floor_y:
+		_ball_screen_position.y = floor_y
+		on_floor = true
+		if absf(_ball_velocity.y) > ball_rest_threshold:
+			_ball_velocity.y = -absf(_ball_velocity.y) * ball_bounce
+		else:
+			_ball_velocity.y = 0.0
+		_ball_velocity.x = move_toward(_ball_velocity.x, 0.0, ball_floor_friction * 100.0 * delta)
+
+	if _ball_dragging:
+		_ball_resting = false
+	elif on_floor and absf(_ball_velocity.y) <= ball_rest_threshold and absf(_ball_velocity.x) <= ball_rest_threshold:
+		_ball_velocity = Vector2.ZERO
+		_ball_resting = true
+	elif not on_floor:
+		_ball_resting = false
+
+
+func _ball_radius() -> float:
+	return _ball_px * 0.5
+
 
 func _ensure_ball_window() -> void:
 	if is_instance_valid(_ball_window):
@@ -285,6 +455,7 @@ func _ensure_ball_window() -> void:
 	window.unresizable = true
 	window.gui_embed_subwindows = false
 	window.visible = false
+	window.window_input.connect(handle_ball_input)
 	add_child(window)
 	var root := Node2D.new()
 	root.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -295,14 +466,12 @@ func _ensure_ball_window() -> void:
 	_ball_window = window
 	_ball_root = root
 	_ball_sprite = sprite
-	# The ball is purely decorative — let all clicks pass through to the desktop.
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, true, window.get_window_id())
 
 
 func _spawn_ball() -> void:
 	_ensure_ball_window()
-	var ball_px := BALL_SPRITE_PX * _fox_pixel_scale() * ball_relative_scale
-	var win := int(ceil(ball_px)) + ball_window_padding
+	_ball_px = BALL_SPRITE_PX * _fox_pixel_scale() * ball_relative_scale
+	var win := int(ceil(_ball_px)) + ball_window_padding
 	_ball_window.size = Vector2i(win, win)
 	_ball_sprite.scale = Vector2.ONE * (_fox_pixel_scale() * ball_relative_scale)
 	_ball_sprite.position = Vector2(_ball_window.size) * 0.5
@@ -317,16 +486,47 @@ func _spawn_ball() -> void:
 		ball_x = randf_range(mid + (max_x - mid) * 0.2, max_x)
 	else:
 		ball_x = randf_range(min_x, mid - (mid - min_x) * 0.2)
-	_ball_screen_position = Vector2(ball_x, _ball_floor_y(ball_px))
+	_ball_screen_position = Vector2(ball_x, _ball_floor_y(_ball_px))
+	_ball_velocity = Vector2.ZERO
+	_ball_resting = true
+	_ball_dragging = false
 	_ball_active = true
 	_ball_window.show()
+	_apply_ball_passthrough()
 	_sync_ball_window()
 
 
 func _despawn_ball() -> void:
 	_ball_active = false
+	_ball_dragging = false
 	if is_instance_valid(_ball_window):
 		_ball_window.hide()
+
+
+func _apply_ball_passthrough() -> void:
+	if not is_instance_valid(_ball_window):
+		return
+	var id := _ball_window.get_window_id()
+	_ball_window.mouse_passthrough = false
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, false, id)
+	var polygon := _ball_full_polygon() if click_through_enabled else _ball_circle_polygon()
+	_ball_window.mouse_passthrough_polygon = polygon
+	DisplayServer.window_set_mouse_passthrough(polygon, id)
+
+
+func _ball_full_polygon() -> PackedVector2Array:
+	var size := Vector2(_ball_window.size)
+	return PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0.0), size, Vector2(0.0, size.y)])
+
+
+func _ball_circle_polygon() -> PackedVector2Array:
+	var center := Vector2(_ball_window.size) * 0.5
+	var radius := _ball_radius()
+	var points := PackedVector2Array()
+	for index in range(20):
+		var angle := TAU * float(index) / 20.0
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	return points
 
 
 func _ball_floor_y(ball_px: float) -> float:
@@ -403,6 +603,7 @@ func _apply_click_through_mode() -> void:
 	var active_polygon := _get_full_window_polygon() if click_through_enabled else _get_fox_click_polygon()
 	_overlay_window.mouse_passthrough_polygon = active_polygon
 	DisplayServer.window_set_mouse_passthrough(active_polygon, _overlay_window.get_window_id())
+	_apply_ball_passthrough()
 
 
 func _get_full_window_polygon() -> PackedVector2Array:

@@ -1,6 +1,7 @@
 extends RigidBody2D
 
 const FOX_SPRITE_SHEET: Texture2D = preload("res://assets/fox/Fox Sprite Sheet.png")
+const PALETTE_SHADER: Shader = preload("res://src/planetoid/fox_palette.gdshader")
 
 const FOX_SPRITE_SIZE := Vector2i(32, 32)
 
@@ -103,6 +104,24 @@ func play_oneshot(state: String) -> void:
 func set_facing(direction: float) -> void:
 	if absf(direction) > 0.01:
 		_sprite.flip_h = direction < 0.0
+
+
+func play_pounce(seconds: float) -> void:
+	# Time the pounce animation so its final (landing) frame lands with the fox.
+	if _sprite.sprite_frames != null:
+		var count := _sprite.sprite_frames.get_frame_count("pounce")
+		_sprite.sprite_frames.set_animation_speed("pounce", float(count) / maxf(0.1, seconds))
+	play_oneshot("pounce")
+
+
+func set_palette(target_a: Color, target_b: Color) -> void:
+	var material := _sprite.material as ShaderMaterial
+	if material == null:
+		material = ShaderMaterial.new()
+		material.shader = PALETTE_SHADER
+		_sprite.material = material
+	material.set_shader_parameter("target_a", target_a)
+	material.set_shader_parameter("target_b", target_b)
 
 
 func _on_anim_finished() -> void:

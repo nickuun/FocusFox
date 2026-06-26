@@ -7,6 +7,7 @@ class_name FoxSettingsPanel
 @onready var scale_slider: HSlider = $ScaleSlider
 @onready var opacity_slider: HSlider = $OpacitySlider
 @onready var liveliness_slider: HSlider = $LivelinessSlider
+@onready var colour_option: OptionButton = $ColourOption
 
 # Behaviour
 @onready var click_through_toggle: CheckButton = $ClickThroughToggle
