@@ -14,6 +14,7 @@ config/name="Focus Fox"
 run/main_scene="uid://m3p4ccdoqm0x"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 run/max_fps=60
+boot_splash/use_filter=false
 boot_splash/image="uid://ecxnbndksoq3"
 config/icon="res://icon.svg"
 

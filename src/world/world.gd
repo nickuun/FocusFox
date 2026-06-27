@@ -42,6 +42,18 @@ const SESSIONS := {
 @onready var _settings_panel: FoxSettingsPanel = $MenuLayer/MainMenu/SettingsPanel
 @onready var _settings_close_button: Button = $MenuLayer/MainMenu/SettingsPanel/CloseButton
 
+@onready var _main_menu: Node2D = $MenuLayer/MainMenu
+@onready var _background: Sprite2D = $MenuLayer/MainMenu/Background
+@onready var _title: Sprite2D = $MenuLayer/MainMenu/Title
+@onready var _stats_today_value: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/TodayValue
+@onready var _stats_week_value: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/WeekValue
+@onready var _stats_total_header: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/TotalHeader
+@onready var _journal_icon: TextureButton = $MenuLayer/JournalIcon
+@onready var _journal_panel: JournalPanel = $MenuLayer/JournalPanel
+
+const JOURNAL_ICON := preload("res://assets/main_menu/icons/journal-icon.png")
+const HOME_ICON := preload("res://assets/main_menu/icons/home-icon.png")
+
 var _mode := Mode.HOME
 var _is_starting := false
 var _syncing_ui := false
@@ -49,6 +61,10 @@ var _minimize_token := 0
 var _clock: PomodoroTimer
 var _tray: SystemTray
 var _save_debounce: Timer
+var _stats: StatsStore
+var _journal_open := false
+var _intro_running := false
+var _session_started_at := 0
 
 
 const SETTINGS_PATH := "user://focus_fox.cfg"
@@ -58,6 +74,8 @@ func _ready() -> void:
 	randomize()
 	# Closing the launcher tucks it into the tray instead of quitting the app.
 	get_tree().set_auto_accept_quit(false)
+	_stats = StatsStore.new()
+	_stats.load()
 	_setup_launcher_window()
 	_setup_save()
 	_setup_clock()
@@ -72,6 +90,8 @@ func _ready() -> void:
 	_preview_fox.modulate.a = _desktop_fox.fox_opacity
 	_set_mode(Mode.HOME)
 	_refresh_ui()
+	_refresh_stats_bar()
+	_play_intro()
 
 
 func _exit_tree() -> void:
@@ -152,6 +172,7 @@ func _setup_menu_nodes() -> void:
 	_bring_home_button.pressed.connect(_on_bring_home_pressed)
 	_settings_icon_button.pressed.connect(_on_settings_pressed)
 	_settings_close_button.pressed.connect(_hide_settings_panel)
+	_journal_icon.pressed.connect(_on_journal_pressed)
 	_settings_panel.click_through_toggle.toggled.connect(_on_click_through_toggled)
 	_settings_panel.hover_fade_toggle.toggled.connect(_on_hover_fade_toggled)
 	_settings_panel.taskbar_snap_toggle.toggled.connect(_on_taskbar_snap_toggled)
@@ -208,7 +229,7 @@ func _set_mode(mode: Mode) -> void:
 
 
 func _on_start_pressed() -> void:
-	if _is_starting or _desktop_fox.is_spawned():
+	if _intro_running or _is_starting or _desktop_fox.is_spawned():
 		return
 	_is_starting = true
 	_preview_fox.call("pulse_click")
@@ -224,6 +245,7 @@ func _on_session_chosen(id: String) -> void:
 		return
 	var session: Dictionary = SESSIONS[id]
 	var minutes: float = session["minutes"]
+	_session_started_at = int(Time.get_unix_time_from_system())
 	_clock.start(minutes * 60.0, id, session["label"])
 	_session_label.text = session["label"]
 	_pause_label.text = "Pause"
@@ -273,6 +295,14 @@ func _on_clock_tick(remaining: float) -> void:
 
 
 func _on_clock_finished() -> void:
+	# Only completed sessions count towards the journal.
+	if _clock.session_id == "break":
+		_stats.record_break(_session_started_at)
+	else:
+		_stats.record_focus(_clock.total_seconds, _session_started_at)
+	_refresh_stats_bar()
+	if _journal_open:
+		_journal_panel.refresh(_stats)
 	_minimize_token += 1
 	_show_launcher()
 	if _desktop_fox.is_spawned():
@@ -392,11 +422,91 @@ func _format_time(seconds: float) -> String:
 # --- Settings panel --------------------------------------------------------
 
 func _on_settings_pressed() -> void:
+	if _intro_running:
+		return
+	if _journal_open:
+		_set_journal_open(false)
 	_settings_panel.visible = true
 
 
 func _hide_settings_panel() -> void:
 	_settings_panel.visible = false
+
+
+# --- Journal ---------------------------------------------------------------
+
+func _on_journal_pressed() -> void:
+	if _intro_running:
+		return
+	_set_journal_open(not _journal_open)
+
+
+func _set_journal_open(open: bool) -> void:
+	_journal_open = open
+	if open:
+		_hide_settings_panel()
+		_journal_panel.refresh(_stats)
+	_journal_panel.visible = open
+	_journal_icon.texture_normal = HOME_ICON if open else JOURNAL_ICON
+
+
+func _refresh_stats_bar() -> void:
+	var today: Dictionary = _stats.today()
+	var sessions := int(today.get("sessions", 0))
+	_stats_today_value.text = "%d %s" % [sessions, "session" if sessions == 1 else "sessions"]
+	_stats_week_value.text = "%d-day trail" % _stats.current_trail()
+	_stats_total_header.text = _format_focus_total(_stats.total_focus())
+
+
+func _format_focus_total(seconds: float) -> String:
+	var mins := int(round(seconds / 60.0))
+	if mins < 60:
+		return "%dm" % mins
+	return "%dh %dm" % [mins / 60, mins % 60]
+
+
+# --- Intro animation -------------------------------------------------------
+
+func _play_intro() -> void:
+	_intro_running = true
+	# Everything except the background and the title hides, then fades in last.
+	var fade_targets: Array = []
+	for child in _main_menu.get_children():
+		if child == _background or child == _title:
+			continue
+		fade_targets.append(child)
+	fade_targets.append(_journal_icon)
+
+	# Remember each node's resting alpha (the preview fox carries its opacity).
+	var rest := {}
+	for n in fade_targets:
+		rest[n] = (n as CanvasItem).modulate.a
+		(n as CanvasItem).modulate.a = 0.0
+
+	var title_scale: Vector2 = _title.scale
+	_title.modulate.a = 0.0
+	_title.scale = title_scale * 0.82
+
+	# Phase 1 — the title gently appears in the middle.
+	var t1 := create_tween().set_parallel(true)
+	t1.tween_property(_title, "modulate:a", 1.0, 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	t1.tween_property(_title, "scale", title_scale, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await t1.finished
+	await get_tree().create_timer(0.35).timeout
+
+	# Phase 2 — the title fades away for good.
+	var t2 := create_tween()
+	t2.tween_property(_title, "modulate:a", 0.0, 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	await t2.finished
+	_title.visible = false
+
+	# Phase 3 — the rest of the menu blooms in (title stays hidden).
+	var t3 := create_tween().set_parallel(true)
+	for n in fade_targets:
+		t3.tween_property(n, "modulate:a", rest[n], 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await t3.finished
+
+	_intro_running = false
 
 
 func _on_click_through_toggled(enabled: bool) -> void:

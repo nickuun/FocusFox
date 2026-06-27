@@ -17,6 +17,7 @@
 [ext_resource type="Texture2D" uid="uid://d33vvsfm4cqdi" path="res://assets/main_menu/default_button - hovered.png" id="20_btnhover"]
 [ext_resource type="Texture2D" uid="uid://cf40wpmgb761b" path="res://assets/main_menu/icons/settings/highlighted-gear-icon.png" id="21_gearhi"]
 [ext_resource type="Script" uid="uid://dy1rnck8yapd1" path="res://src/world/throwable_prop.gd" id="22_throw"]
+[ext_resource type="Script" uid="uid://don5ko6d0bn48" path="res://src/world/journal_panel.gd" id="23_journal"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_a20vb"]
 radius = 34.0
@@ -33,12 +34,63 @@ script = ExtResource("12_desktop_fox")
 [node name="MainMenu" type="Node2D" parent="MenuLayer" unique_id=304852977]
 
 [node name="Background" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1489674489]
-position = Vector2(480, 270)
+position = Vector2(480, 75)
 texture = ExtResource("3_a20vb")
 
 [node name="MainmenuStatsPanel" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1408234629]
 position = Vector2(498, 45)
 texture = ExtResource("4_4dyjh")
+
+[node name="TodayHeader" type="Label" parent="MenuLayer/MainMenu/MainmenuStatsPanel" unique_id=210100001]
+offset_left = -266.0
+offset_top = -22.0
+offset_right = -90.0
+offset_bottom = 8.0
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 22
+text = "Today"
+
+[node name="TodayValue" type="Label" parent="MenuLayer/MainMenu/MainmenuStatsPanel" unique_id=210100002]
+offset_left = -266.0
+offset_top = -4.0
+offset_right = -50.0
+offset_bottom = 24.0
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "0 sessions"
+
+[node name="WeekValue" type="Label" parent="MenuLayer/MainMenu/MainmenuStatsPanel" unique_id=210100003]
+offset_left = -52.0
+offset_top = -16.0
+offset_right = 150.0
+offset_bottom = 18.0
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 21
+text = "0-day trail"
+vertical_alignment = 1
+
+[node name="TotalHeader" type="Label" parent="MenuLayer/MainMenu/MainmenuStatsPanel" unique_id=210100004]
+offset_left = 162.0
+offset_top = -22.0
+offset_right = 340.0
+offset_bottom = 8.0
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 22
+text = "0h 0m"
+
+[node name="TotalSub" type="Label" parent="MenuLayer/MainMenu/MainmenuStatsPanel" unique_id=210100005]
+offset_left = 162.0
+offset_top = -2.0
+offset_right = 360.0
+offset_bottom = 22.0
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 0.85)
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 18
+text = "focused together"
 
 [node name="Title" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1551208764]
 z_index = 20
@@ -241,11 +293,10 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="BringHomeButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=210000030]
-visible = false
-offset_left = 16.0
-offset_top = 12.0
-offset_right = 206.0
-offset_bottom = 60.0
+offset_left = 382.0
+offset_top = 102.0
+offset_right = 572.0
+offset_bottom = 150.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
 texture_pressed = ExtResource("20_btnhover")
@@ -291,9 +342,9 @@ text = "By Nicholas & Kayleigh"
 
 [node name="SettingsIconButton" type="TextureButton" parent="MenuLayer/MainMenu" unique_id=1715724111]
 z_index = 50
-offset_left = 902.0
+offset_left = 25.0
 offset_top = 16.0
-offset_right = 945.0
+offset_right = 68.0
 offset_bottom = 62.0
 focus_mode = 0
 texture_normal = ExtResource("15_eo0a0")
@@ -640,6 +691,18 @@ horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
 
-[node name="JournalIcon" type="Sprite2D" parent="MenuLayer" unique_id=598295919]
-position = Vector2(923, 96)
-texture = ExtResource("16_ij7pi")
+[node name="JournalPanel" type="Control" parent="MenuLayer" unique_id=598295920]
+visible = false
+z_index = 80
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("23_journal")
+
+[node name="JournalIcon" type="TextureButton" parent="MenuLayer" unique_id=598295919]
+z_index = 100
+offset_left = 902.0
+offset_top = 22.0
+offset_right = 945.0
+offset_bottom = 68.0
+focus_mode = 0
+texture_normal = ExtResource("16_ij7pi")
