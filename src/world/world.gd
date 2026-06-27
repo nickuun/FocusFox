@@ -15,20 +15,26 @@ const COLOUR_OPTIONS := [
 	{"key": "black", "label": "Black"},
 ]
 
-const SESSIONS := {
-	"deep": {"label": "Deep focus", "minutes": 45},
-	"focus": {"label": "Focus", "minutes": 25},
-	"break": {"label": "Break", "minutes": 15},
+# Pomodoro session types. Durations live in _session_minutes (user-configurable).
+const SESSION_META := {
+	"focus": {"label": "Focus", "is_break": false},
+	"short": {"label": "Short break", "is_break": true},
+	"long": {"label": "Long break", "is_break": true},
 }
+const SESSIONS_BEFORE_LONG := 4
+const DEFAULT_MINUTES := {"focus": 25, "short": 5, "long": 15}
 
 @onready var _desktop_fox: DesktopFox = $DesktopFox
 @onready var _preview_fox: RigidBody2D = $MenuLayer/MainMenu/PreviewFox
 
 @onready var _start_button: TextureButton = $MenuLayer/MainMenu/Buttons/StartButton
 @onready var _quit_button: TextureButton = $MenuLayer/MainMenu/Buttons/QuitButton
-@onready var _deep_button: TextureButton = $MenuLayer/MainMenu/Buttons/DeepButton
+@onready var _short_button: TextureButton = $MenuLayer/MainMenu/Buttons/DeepButton
 @onready var _focus_button: TextureButton = $MenuLayer/MainMenu/Buttons/FocusButton
-@onready var _break_button: TextureButton = $MenuLayer/MainMenu/Buttons/BreakButton
+@onready var _long_button: TextureButton = $MenuLayer/MainMenu/Buttons/BreakButton
+@onready var _short_choice_label: Label = $MenuLayer/MainMenu/Buttons/DeepButton/Label
+@onready var _focus_choice_label: Label = $MenuLayer/MainMenu/Buttons/FocusButton/Label
+@onready var _long_choice_label: Label = $MenuLayer/MainMenu/Buttons/BreakButton/Label
 @onready var _stop_button: TextureButton = $MenuLayer/MainMenu/Buttons/StopButton
 @onready var _pause_button: TextureButton = $MenuLayer/MainMenu/Buttons/PauseButton
 @onready var _pause_label: Label = $MenuLayer/MainMenu/Buttons/PauseButton/Label
@@ -37,10 +43,10 @@ const SESSIONS := {
 @onready var _timer_label: Label = $MenuLayer/MainMenu/TimerLabel
 @onready var _session_label: Label = $MenuLayer/MainMenu/SessionLabel
 @onready var _status_label: Label = $MenuLayer/MainMenu/StatusLabel
+@onready var _task_input: LineEdit = $MenuLayer/MainMenu/TaskInput
 
 @onready var _settings_icon_button: TextureButton = $MenuLayer/MainMenu/SettingsIconButton
 @onready var _settings_panel: FoxSettingsPanel = $MenuLayer/MainMenu/SettingsPanel
-@onready var _settings_close_button: Button = $MenuLayer/MainMenu/SettingsPanel/CloseButton
 
 @onready var _main_menu: Node2D = $MenuLayer/MainMenu
 @onready var _background: Sprite2D = $MenuLayer/MainMenu/Background
@@ -53,6 +59,8 @@ const SESSIONS := {
 
 const JOURNAL_ICON := preload("res://assets/main_menu/icons/journal-icon.png")
 const HOME_ICON := preload("res://assets/main_menu/icons/home-icon.png")
+const BTN_NORMAL := preload("res://assets/main_menu/default_button.png")
+const BTN_HILITE := preload("res://assets/main_menu/default_button - hovered.png")
 
 var _mode := Mode.HOME
 var _is_starting := false
@@ -65,6 +73,10 @@ var _stats: StatsStore
 var _journal_open := false
 var _intro_running := false
 var _session_started_at := 0
+var _session_minutes := {"focus": 25.0, "short": 5.0, "long": 15.0}
+var _cycle_focus_count := 0  # completed focus sessions in the current Pomodoro set
+var _last_completed := ""     # "focus" / "short" / "long" / "" — drives the next-move hint
+var _current_task := ""
 
 
 const SETTINGS_PATH := "user://focus_fox.cfg"
@@ -91,6 +103,7 @@ func _ready() -> void:
 	_set_mode(Mode.HOME)
 	_refresh_ui()
 	_refresh_stats_bar()
+	_refresh_session_buttons()
 	_play_intro()
 
 
@@ -164,22 +177,23 @@ func _setup_launcher_window() -> void:
 func _setup_menu_nodes() -> void:
 	_start_button.pressed.connect(_on_start_pressed)
 	_quit_button.pressed.connect(get_tree().quit)
-	_deep_button.pressed.connect(_on_session_chosen.bind("deep"))
+	_short_button.pressed.connect(_on_session_chosen.bind("short"))
 	_focus_button.pressed.connect(_on_session_chosen.bind("focus"))
-	_break_button.pressed.connect(_on_session_chosen.bind("break"))
+	_long_button.pressed.connect(_on_session_chosen.bind("long"))
 	_stop_button.pressed.connect(_on_stop_pressed)
 	_pause_button.pressed.connect(_on_pause_pressed)
 	_bring_home_button.pressed.connect(_on_bring_home_pressed)
 	_settings_icon_button.pressed.connect(_on_settings_pressed)
-	_settings_close_button.pressed.connect(_hide_settings_panel)
+	_settings_panel.close_button.pressed.connect(_hide_settings_panel)
 	_journal_icon.pressed.connect(_on_journal_pressed)
-	_settings_panel.click_through_toggle.toggled.connect(_on_click_through_toggled)
-	_settings_panel.hover_fade_toggle.toggled.connect(_on_hover_fade_toggled)
 	_settings_panel.taskbar_snap_toggle.toggled.connect(_on_taskbar_snap_toggled)
 	_settings_panel.scale_slider.value_changed.connect(_on_scale_changed)
 	_settings_panel.opacity_slider.value_changed.connect(_on_opacity_changed)
 	_settings_panel.liveliness_slider.value_changed.connect(_on_liveliness_changed)
 	_settings_panel.taskbar_height_slider.value_changed.connect(_on_taskbar_height_changed)
+	_settings_panel.focus_length_slider.value_changed.connect(_on_length_changed.bind("focus"))
+	_settings_panel.short_length_slider.value_changed.connect(_on_length_changed.bind("short"))
+	_settings_panel.long_length_slider.value_changed.connect(_on_length_changed.bind("long"))
 	for option in COLOUR_OPTIONS:
 		_settings_panel.colour_option.add_item(option["label"])
 	_settings_panel.colour_option.item_selected.connect(_on_colour_selected)
@@ -213,10 +227,11 @@ func _set_mode(mode: Mode) -> void:
 	_start_button.visible = home
 	_quit_button.visible = home
 
-	_deep_button.visible = choose
+	_short_button.visible = choose
 	_focus_button.visible = choose
-	_break_button.visible = choose
+	_long_button.visible = choose
 	_status_label.visible = choose
+	_task_input.visible = choose
 
 	_stop_button.visible = running
 	_pause_button.visible = running
@@ -224,6 +239,8 @@ func _set_mode(mode: Mode) -> void:
 	_timer_label.visible = running
 
 	_bring_home_button.visible = choose or running
+	if choose:
+		_apply_recommendation()
 	_update_tray()
 	_update_fox_activity()
 
@@ -241,13 +258,14 @@ func _on_start_pressed() -> void:
 
 
 func _on_session_chosen(id: String) -> void:
-	if not SESSIONS.has(id):
+	if not SESSION_META.has(id):
 		return
-	var session: Dictionary = SESSIONS[id]
-	var minutes: float = session["minutes"]
+	var label: String = SESSION_META[id]["label"]
+	var minutes: float = _session_minutes.get(id, DEFAULT_MINUTES.get(id, 25))
+	_current_task = _task_input.text.strip_edges() if id == "focus" else ""
 	_session_started_at = int(Time.get_unix_time_from_system())
-	_clock.start(minutes * 60.0, id, session["label"])
-	_session_label.text = session["label"]
+	_clock.start(minutes * 60.0, id, label)
+	_session_label.text = _running_session_label(id, label)
 	_pause_label.text = "Pause"
 	_timer_label.modulate = Color.WHITE
 	_timer_label.text = _format_time(_clock.remaining())
@@ -255,6 +273,12 @@ func _on_session_chosen(id: String) -> void:
 	if is_instance_valid(_desktop_fox) and _desktop_fox.is_spawned():
 		_desktop_fox.celebrate()
 	_queue_minimize()
+
+
+func _running_session_label(id: String, label: String) -> String:
+	if id == "focus" and _current_task != "":
+		return "%s · %s" % [label, _current_task]
+	return label
 
 
 func _queue_minimize() -> void:
@@ -295,11 +319,18 @@ func _on_clock_tick(remaining: float) -> void:
 
 
 func _on_clock_finished() -> void:
-	# Only completed sessions count towards the journal.
-	if _clock.session_id == "break":
+	# Only completed sessions count towards the journal + the Pomodoro cycle.
+	var id := _clock.session_id
+	if _is_break(id):
 		_stats.record_break(_session_started_at)
+		_last_completed = id
+		if id == "long":
+			_cycle_focus_count = 0
 	else:
-		_stats.record_focus(_clock.total_seconds, _session_started_at)
+		_stats.record_focus(_clock.total_seconds, _session_started_at, _current_task)
+		_cycle_focus_count += 1
+		_last_completed = "focus"
+		_current_task = ""
 	_refresh_stats_bar()
 	if _journal_open:
 		_journal_panel.refresh(_stats)
@@ -307,8 +338,8 @@ func _on_clock_finished() -> void:
 	_show_launcher()
 	if _desktop_fox.is_spawned():
 		_desktop_fox.celebrate()
+	# _set_mode(CHOOSE) applies the next-move recommendation + status text.
 	_set_mode(Mode.CHOOSE)
-	_status_label.text = "%s done — nice work. Ready for what's next?" % _clock.session_label
 
 
 func _hide_to_tray() -> void:
@@ -384,10 +415,11 @@ func _save_settings() -> void:
 	cfg.set_value("fox", "opacity", _desktop_fox.fox_opacity)
 	cfg.set_value("fox", "liveliness", _desktop_fox.body_speed_multiplier)
 	cfg.set_value("fox", "palette", _desktop_fox.fox_palette)
-	cfg.set_value("behaviour", "click_through", _desktop_fox.click_through_enabled)
-	cfg.set_value("behaviour", "hover_fade", _desktop_fox.hover_fade_enabled)
 	cfg.set_value("behaviour", "taskbar_snap", _desktop_fox.taskbar_snap_enabled)
 	cfg.set_value("behaviour", "taskbar_height", _desktop_fox.taskbar_height)
+	cfg.set_value("pomodoro", "focus", _session_minutes["focus"])
+	cfg.set_value("pomodoro", "short", _session_minutes["short"])
+	cfg.set_value("pomodoro", "long", _session_minutes["long"])
 	cfg.save(SETTINGS_PATH)
 
 
@@ -399,10 +431,10 @@ func _load_settings() -> void:
 	_desktop_fox.fox_opacity = float(cfg.get_value("fox", "opacity", _desktop_fox.fox_opacity))
 	_desktop_fox.body_speed_multiplier = float(cfg.get_value("fox", "liveliness", _desktop_fox.body_speed_multiplier))
 	_desktop_fox.fox_palette = str(cfg.get_value("fox", "palette", _desktop_fox.fox_palette))
-	_desktop_fox.click_through_enabled = bool(cfg.get_value("behaviour", "click_through", _desktop_fox.click_through_enabled))
-	_desktop_fox.hover_fade_enabled = bool(cfg.get_value("behaviour", "hover_fade", _desktop_fox.hover_fade_enabled))
 	_desktop_fox.taskbar_snap_enabled = bool(cfg.get_value("behaviour", "taskbar_snap", _desktop_fox.taskbar_snap_enabled))
 	_desktop_fox.taskbar_height = float(cfg.get_value("behaviour", "taskbar_height", _desktop_fox.taskbar_height))
+	for id in _session_minutes:
+		_session_minutes[id] = float(cfg.get_value("pomodoro", id, _session_minutes[id]))
 
 
 func _update_fox_activity() -> void:
@@ -410,8 +442,12 @@ func _update_fox_activity() -> void:
 		return
 	var activity := "idle"
 	if _clock.is_running() and not _clock.is_paused():
-		activity = "break" if _clock.session_id == "break" else "working"
+		activity = "break" if _is_break(_clock.session_id) else "working"
 	_desktop_fox.set_activity(activity)
+
+
+func _is_break(id: String) -> bool:
+	return SESSION_META.has(id) and SESSION_META[id]["is_break"]
 
 
 func _format_time(seconds: float) -> String:
@@ -465,6 +501,61 @@ func _format_focus_total(seconds: float) -> String:
 	return "%dh %dm" % [mins / 60, mins % 60]
 
 
+# --- Pomodoro flow ---------------------------------------------------------
+
+## The Pomodoro rhythm: focus -> short break, repeated, then a long break after
+## a full set of focus rounds. We recommend (and highlight) the natural next step.
+func _recommended_next() -> String:
+	if _last_completed == "focus":
+		return "long" if _cycle_focus_count >= SESSIONS_BEFORE_LONG else "short"
+	return "focus"
+
+
+func _apply_recommendation() -> void:
+	var rec := _recommended_next()
+	_highlight_choice(rec)
+	_status_label.text = _recommendation_text(rec)
+
+
+func _highlight_choice(rec: String) -> void:
+	_short_button.texture_normal = BTN_HILITE if rec == "short" else BTN_NORMAL
+	_focus_button.texture_normal = BTN_HILITE if rec == "focus" else BTN_NORMAL
+	_long_button.texture_normal = BTN_HILITE if rec == "long" else BTN_NORMAL
+
+
+func _recommendation_text(rec: String) -> String:
+	match rec:
+		"short":
+			return "Lovely focus! Ready for a %d-minute breather?" % int(_session_minutes["short"])
+		"long":
+			return "%d rounds done — time for a longer rest." % SESSIONS_BEFORE_LONG
+		_:
+			if _last_completed == "":
+				return "What are you settling into?"
+			return "Break's over — ready to focus again?"
+
+
+func _refresh_session_buttons() -> void:
+	_short_choice_label.text = "Short break · %dm" % int(_session_minutes["short"])
+	_focus_choice_label.text = "Focus · %dm" % int(_session_minutes["focus"])
+	_long_choice_label.text = "Long break · %dm" % int(_session_minutes["long"])
+
+
+func _refresh_settings_length_labels() -> void:
+	_settings_panel.focus_length_label.text = "Focus  %dm" % int(_session_minutes["focus"])
+	_settings_panel.short_length_label.text = "Short break  %dm" % int(_session_minutes["short"])
+	_settings_panel.long_length_label.text = "Long break  %dm" % int(_session_minutes["long"])
+
+
+func _on_length_changed(value: float, id: String) -> void:
+	if _syncing_ui:
+		return
+	_session_minutes[id] = roundf(value)
+	_refresh_session_buttons()
+	_refresh_settings_length_labels()
+	_request_save()
+
+
 # --- Intro animation -------------------------------------------------------
 
 func _play_intro() -> void:
@@ -507,22 +598,6 @@ func _play_intro() -> void:
 	await t3.finished
 
 	_intro_running = false
-
-
-func _on_click_through_toggled(enabled: bool) -> void:
-	if _syncing_ui:
-		return
-	_desktop_fox.click_through_enabled = enabled
-	_desktop_fox.apply_visual_settings()
-	_request_save()
-
-
-func _on_hover_fade_toggled(enabled: bool) -> void:
-	if _syncing_ui:
-		return
-	_desktop_fox.hover_fade_enabled = enabled
-	_desktop_fox.apply_visual_settings()
-	_request_save()
 
 
 func _on_taskbar_snap_toggled(enabled: bool) -> void:
@@ -596,10 +671,13 @@ func _on_hide_fox_pressed() -> void:
 
 func _on_reset_all_pressed() -> void:
 	_configure_desktop_fox()
+	for id in _session_minutes:
+		_session_minutes[id] = float(DEFAULT_MINUTES[id])
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
 	_desktop_fox.apply_visual_settings()
 	_preview_fox.modulate.a = _desktop_fox.fox_opacity
 	_refresh_ui()
+	_refresh_session_buttons()
 	_request_save()
 
 
@@ -623,8 +701,10 @@ func _refresh_ui() -> void:
 	_settings_panel.liveliness_slider.value = _desktop_fox.body_speed_multiplier
 	_settings_panel.taskbar_height_slider.value = _desktop_fox.taskbar_height
 	_settings_panel.taskbar_snap_toggle.button_pressed = _desktop_fox.taskbar_snap_enabled
-	_settings_panel.click_through_toggle.button_pressed = _desktop_fox.click_through_enabled
-	_settings_panel.hover_fade_toggle.button_pressed = _desktop_fox.hover_fade_enabled
+	_settings_panel.focus_length_slider.value = _session_minutes["focus"]
+	_settings_panel.short_length_slider.value = _session_minutes["short"]
+	_settings_panel.long_length_slider.value = _session_minutes["long"]
+	_refresh_settings_length_labels()
 	var palette_index := 0
 	for i in COLOUR_OPTIONS.size():
 		if COLOUR_OPTIONS[i]["key"] == _desktop_fox.fox_palette:

@@ -23,9 +23,12 @@ const DEN_FINDS := [
 	"a lamp", "a soft rug", "a bookshelf", "a cozy blanket",
 	"a potted fern", "a little painting", "a warm cushion", "a tiny clock",
 ]
-const DEN_STEP := 5
+## A den find every this many minutes of focus (session length is configurable,
+## so we reward time spent, not session count).
+const DEN_STEP_MIN := 60
 
 var _subtitle: Label
+var _today_tasks_lbl: Label
 var _today_sessions: Label
 var _today_time: Label
 var _today_breaks: Label
@@ -54,8 +57,9 @@ func _build() -> void:
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
-	_lbl(self, "Fox Journal", 0, 22, 960, 52, 44, INK, HORIZONTAL_ALIGNMENT_CENTER)
-	_subtitle = _lbl(self, "", 0, 80, 960, 28, 20, INK_SOFT, HORIZONTAL_ALIGNMENT_CENTER)
+	_lbl(self, "Fox Journal", 0, 14, 960, 52, 44, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	_subtitle = _lbl(self, "", 0, 70, 960, 26, 20, INK_SOFT, HORIZONTAL_ALIGNMENT_CENTER)
+	_today_tasks_lbl = _lbl(self, "", 0, 96, 960, 20, 14, INK_SOFT, HORIZONTAL_ALIGNMENT_CENTER)
 
 	_build_today()
 	_build_week()
@@ -124,7 +128,7 @@ func _build_den() -> void:
 	_den_bar.position = Vector2(24, 78)
 	_den_bar.size = Vector2(620, 22)
 	_den_bar.min_value = 0
-	_den_bar.max_value = DEN_STEP
+	_den_bar.max_value = DEN_STEP_MIN
 	_den_bar.show_percentage = false
 	_den_bar.add_theme_stylebox_override("background", _stylebox(INSET_BG, CARD_BORDER, 1, 11))
 	_den_bar.add_theme_stylebox_override("fill", _stylebox(GREEN, GREEN, 0, 11))
@@ -163,13 +167,23 @@ func refresh(stats: StatsStore) -> void:
 	_at_longest.text = "%d" % stats.longest_streak
 	_at_breaks.text = "%d" % stats.total_breaks()
 
-	var total := stats.total_sessions()
-	var in_cycle := total % DEN_STEP
-	var remaining := DEN_STEP - in_cycle
-	var item: String = DEN_FINDS[(total / DEN_STEP) % DEN_FINDS.size()]
-	_den_text.text = "Complete %d more %s to add %s to your den." % [remaining, _plural(remaining, "session", "sessions"), item]
+	var focus_min := int(total_focus / 60.0)
+	var in_cycle := focus_min % DEN_STEP_MIN
+	var remaining := DEN_STEP_MIN - in_cycle
+	var item: String = DEN_FINDS[(focus_min / DEN_STEP_MIN) % DEN_FINDS.size()]
+	_den_text.text = "Focus for %d more %s to add %s to your den." % [remaining, _plural(remaining, "minute", "minutes"), item]
 	_den_bar.value = in_cycle
-	_den_count.text = "%d / %d sessions" % [in_cycle, DEN_STEP]
+	_den_count.text = "%d / %d min" % [in_cycle, DEN_STEP_MIN]
+
+	var tasks := stats.today_tasks()
+	if tasks.is_empty():
+		_today_tasks_lbl.text = ""
+	else:
+		var shown: Array = tasks.slice(maxi(0, tasks.size() - 5))
+		var line := "Today's focus: " + " · ".join(shown)
+		if line.length() > 96:
+			line = line.substr(0, 95) + "…"
+		_today_tasks_lbl.text = line
 
 
 # --- Builders --------------------------------------------------------------

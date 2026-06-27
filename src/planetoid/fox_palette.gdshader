@@ -9,15 +9,24 @@ uniform vec4 target_a : source_color = vec4(0.839216, 0.474510, 0.254902, 1.0);
 uniform vec4 target_b : source_color = vec4(0.615686, 0.313726, 0.129412, 1.0);
 uniform float tolerance = 0.04;
 
+// In a canvas_item vertex shader COLOR carries the node's final modulate
+// (opacity + the hover highlight tint). We stash it and re-apply it in the
+// fragment, which a custom fragment() would otherwise discard.
+varying vec4 v_modulate;
+
+void vertex() {
+	v_modulate = COLOR;
+}
+
 void fragment() {
 	vec4 texel = texture(TEXTURE, UV);
-	if (texel.a <= 0.0) {
-		COLOR = texel;
-	} else if (distance(texel.rgb, source_a.rgb) <= tolerance) {
-		COLOR = vec4(target_a.rgb, texel.a);
-	} else if (distance(texel.rgb, source_b.rgb) <= tolerance) {
-		COLOR = vec4(target_b.rgb, texel.a);
-	} else {
-		COLOR = texel;
+	vec3 rgb = texel.rgb;
+	if (texel.a > 0.0) {
+		if (distance(texel.rgb, source_a.rgb) <= tolerance) {
+			rgb = target_a.rgb;
+		} else if (distance(texel.rgb, source_b.rgb) <= tolerance) {
+			rgb = target_b.rgb;
+		}
 	}
+	COLOR = vec4(rgb, texel.a) * v_modulate;
 }

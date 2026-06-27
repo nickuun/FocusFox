@@ -41,10 +41,15 @@ func save() -> void:
 
 # --- Recording -------------------------------------------------------------
 
-func record_focus(seconds: float, started_at: int) -> void:
+func record_focus(seconds: float, started_at: int, task := "") -> void:
 	var e := _entry(_today_key())
 	e["sessions"] = int(e["sessions"]) + 1
 	e["focus"] = float(e["focus"]) + maxf(0.0, seconds)
+	var trimmed := task.strip_edges()
+	if trimmed != "":
+		var tasks: Array = e.get("tasks", [])
+		tasks.append(trimmed)
+		e["tasks"] = tasks
 	_register_session(started_at)
 	save()
 
@@ -72,6 +77,10 @@ func _register_session(started_at: int) -> void:
 
 func today() -> Dictionary:
 	return days.get(_today_key(), {"sessions": 0, "focus": 0.0, "breaks": 0})
+
+
+func today_tasks() -> Array:
+	return days.get(_today_key(), {}).get("tasks", [])
 
 
 func total_sessions() -> int:
