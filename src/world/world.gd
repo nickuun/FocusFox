@@ -24,6 +24,8 @@ const SESSION_META := {
 }
 const SESSIONS_BEFORE_LONG := 4
 const DEFAULT_MINUTES := {"focus": 25, "short": 5, "long": 15}
+const CLOCK_DIAL_INTRO_SECONDS := 0.28
+const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 
 @onready var _desktop_fox: DesktopFox = $DesktopFox
 @onready var _preview_fox: RigidBody2D = $MenuLayer/MainMenu/PreviewFox
@@ -81,6 +83,8 @@ var _session_minutes := {"focus": 25.0, "short": 5.0, "long": 15.0}
 var _cycle_focus_count := 0  # completed focus sessions in the current Pomodoro set
 var _last_completed := ""     # "focus" / "short" / "long" / "" — drives the next-move hint
 var _current_task := ""
+var _clock_dial_base_scale := Vector2.ONE
+var _clock_dial_intro_tween: Tween
 
 
 const SETTINGS_PATH := "user://focus_fox.cfg"
@@ -104,6 +108,7 @@ func _ready() -> void:
 	_preview_fox.call("set_highlight", false, _desktop_fox.hover_modulate)
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
 	_preview_fox.modulate.a = _desktop_fox.fox_opacity
+	_clock_dial_base_scale = _clock_dial.scale
 	_set_mode(Mode.HOME)
 	_refresh_ui()
 	_refresh_stats_bar()
@@ -241,6 +246,7 @@ func _configure_desktop_fox() -> void:
 # --- Menu mode -------------------------------------------------------------
 
 func _set_mode(mode: Mode) -> void:
+	var entering_running := mode == Mode.RUNNING and _mode != Mode.RUNNING
 	_mode = mode
 	var home := mode == Mode.HOME
 	var choose := mode == Mode.CHOOSE
@@ -261,6 +267,10 @@ func _set_mode(mode: Mode) -> void:
 	_session_label.visible = running
 	_timer_label.visible = running
 	_clock_dial.visible = running
+	if entering_running:
+		_play_clock_dial_intro()
+	elif not running:
+		_reset_clock_dial_intro()
 
 	_bring_home_button.visible = choose or running
 	if choose:
@@ -303,6 +313,7 @@ func _on_session_chosen(id: String) -> void:
 	_pause_label.text = "Pause"
 	_timer_label.modulate = Color.WHITE
 	_timer_label.text = _format_time(_clock.remaining())
+	_update_clock_dial()
 	_set_mode(Mode.RUNNING)
 	if is_instance_valid(_desktop_fox) and _desktop_fox.is_spawned():
 		_desktop_fox.celebrate()
@@ -366,6 +377,23 @@ func _update_clock_dial() -> void:
 	if _clock.total_seconds > 0.0:
 		elapsed = clampf(1.0 - _clock.remaining() / _clock.total_seconds, 0.0, 1.0)
 	mat.set_shader_parameter("fill", elapsed)
+
+
+func _play_clock_dial_intro() -> void:
+	_reset_clock_dial_intro()
+	_clock_dial.scale = _clock_dial_base_scale * CLOCK_DIAL_INTRO_START_SCALE
+	_clock_dial.modulate.a = 0.0
+	_clock_dial_intro_tween = create_tween().set_parallel(true)
+	_clock_dial_intro_tween.tween_property(_clock_dial, "scale", _clock_dial_base_scale, CLOCK_DIAL_INTRO_SECONDS).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_clock_dial_intro_tween.tween_property(_clock_dial, "modulate:a", 1.0, CLOCK_DIAL_INTRO_SECONDS * 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+func _reset_clock_dial_intro() -> void:
+	if _clock_dial_intro_tween != null and _clock_dial_intro_tween.is_valid():
+		_clock_dial_intro_tween.kill()
+	_clock_dial_intro_tween = null
+	_clock_dial.scale = _clock_dial_base_scale
+	_clock_dial.modulate.a = 1.0
 
 
 func _on_clock_finished() -> void:
