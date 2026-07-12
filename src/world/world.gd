@@ -57,6 +57,7 @@ const DEFAULT_MINUTES := {"focus": 25, "short": 5, "long": 15}
 @onready var _stats_total_header: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/TotalHeader
 @onready var _journal_icon: TextureButton = $MenuLayer/JournalIcon
 @onready var _journal_panel: JournalPanel = $MenuLayer/JournalPanel
+@onready var _clock_dial: Sprite2D = $MenuLayer/ClockDial
 
 const JOURNAL_ICON := preload("res://assets/main_menu/icons/journal-icon.png")
 const HOME_ICON := preload("res://assets/main_menu/icons/home-icon.png")
@@ -259,6 +260,7 @@ func _set_mode(mode: Mode) -> void:
 	_pause_button.visible = running
 	_session_label.visible = running
 	_timer_label.visible = running
+	_clock_dial.visible = running
 
 	_bring_home_button.visible = choose or running
 	if choose:
@@ -351,7 +353,19 @@ func _on_bring_home_pressed() -> void:
 
 func _on_clock_tick(remaining: float) -> void:
 	_timer_label.text = _format_time(remaining)
+	_update_clock_dial()
 	_update_tray()
+
+
+func _update_clock_dial() -> void:
+	# The dial fills as the session elapses (0 = just started, 1 = complete).
+	var mat := _clock_dial.material as ShaderMaterial
+	if mat == null:
+		return
+	var elapsed := 0.0
+	if _clock.total_seconds > 0.0:
+		elapsed = clampf(1.0 - _clock.remaining() / _clock.total_seconds, 0.0, 1.0)
+	mat.set_shader_parameter("fill", elapsed)
 
 
 func _on_clock_finished() -> void:

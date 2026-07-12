@@ -14,14 +14,26 @@
 [ext_resource type="Texture2D" uid="uid://qtknhb8lseh4" path="res://assets/main_menu/icons/journal-icon.png" id="16_ij7pi"]
 [ext_resource type="FontFile" uid="uid://w0p6smylyk1x" path="res://assets/not_sprites/pixel_operator/PixelOperator.ttf" id="17_font"]
 [ext_resource type="PackedScene" uid="uid://bky7btjtomh0p" path="res://src/planetoid/planetoid.tscn" id="18_fox"]
+[ext_resource type="Texture2D" uid="uid://nfw1slh0kywc" path="res://assets/main_menu/clock/Clock_Full.png" id="19_8p8v4"]
 [ext_resource type="Texture2D" uid="uid://d33vvsfm4cqdi" path="res://assets/main_menu/default_button - hovered.png" id="20_btnhover"]
 [ext_resource type="Texture2D" uid="uid://cf40wpmgb761b" path="res://assets/main_menu/icons/settings/highlighted-gear-icon.png" id="21_gearhi"]
 [ext_resource type="Script" uid="uid://dy1rnck8yapd1" path="res://src/world/throwable_prop.gd" id="22_throw"]
 [ext_resource type="Script" uid="uid://don5ko6d0bn48" path="res://src/world/journal_panel.gd" id="23_journal"]
+[ext_resource type="Shader" uid="uid://b4qdxfhr5vp2s" path="res://src/world/clock_dial.gdshader" id="24_clockshader"]
+[ext_resource type="Texture2D" uid="uid://bk85h07bs5usl" path="res://assets/main_menu/clock/Clock_No Fox_Empty.png" id="25_clockempty"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_a20vb"]
 radius = 34.0
 height = 98.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_clockdial"]
+shader = ExtResource("24_clockshader")
+shader_parameter/full_tex = ExtResource("19_8p8v4")
+shader_parameter/fill = 0.0
+shader_parameter/center = Vector2(0.5693, 0.4713)
+shader_parameter/start_deg = 135.0
+shader_parameter/aspect = 1.7777778
+shader_parameter/clockwise = true
 
 [node name="World" type="Node2D" unique_id=43647833]
 script = ExtResource("1_world")
@@ -409,12 +421,14 @@ vertical_alignment = 1
 visible = false
 z_index = 30
 offset_left = 230.0
-offset_top = 210.0
+offset_top = 300.0
 offset_right = 730.0
-offset_bottom = 340.0
-theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
+offset_bottom = 400.0
+theme_override_colors/font_color = Color(1, 0.827451, 0.635294, 1)
+theme_override_colors/font_outline_color = Color(0.294118, 0.0901961, 0.00392157, 1)
+theme_override_constants/outline_size = 4
 theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 96
+theme_override_font_sizes/font_size = 72
 text = "25:00"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -462,3 +476,10 @@ offset_right = 945.0
 offset_bottom = 68.0
 focus_mode = 0
 texture_normal = ExtResource("16_ij7pi")
+
+[node name="ClockDial" type="Sprite2D" parent="MenuLayer" unique_id=769053101]
+z_index = 20
+texture_filter = 1
+material = SubResource("ShaderMaterial_clockdial")
+position = Vector2(479, 285)
+texture = ExtResource("25_clockempty")
