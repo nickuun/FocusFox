@@ -18,6 +18,10 @@ boot_splash/use_filter=false
 boot_splash/image="uid://ecxnbndksoq3"
 config/icon="res://icon.svg"
 
+[autoload]
+
+Audio="*res://src/world/audio.gd"
+
 [display]
 
 window/size/viewport_width=960

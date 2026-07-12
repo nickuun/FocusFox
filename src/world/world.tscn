@@ -98,6 +98,19 @@ position = Vector2(487, 231)
 scale = Vector2(0.9, 0.9)
 texture = ExtResource("3_title")
 
+[node name="Slogan" type="Label" parent="MenuLayer/MainMenu/Title" unique_id=13644777]
+offset_left = -151.11108
+offset_top = 83.33333
+offset_right = 179.77783
+offset_bottom = 118.33333
+theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
+theme_override_constants/outline_size = 2
+theme_override_fonts/font = ExtResource("17_font")
+theme_override_font_sizes/font_size = 34
+text = "Your Desktop Companion"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="PreviewFox" parent="MenuLayer/MainMenu" unique_id=600092329 instance=ExtResource("18_fox")]
 z_index = 28
 position = Vector2(481.3, 207)
@@ -111,9 +124,9 @@ position = Vector2(503, 445)
 texture = ExtResource("6_a20vb")
 
 [node name="StartButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=718603523]
-offset_left = 188.0
+offset_left = 544.0
 offset_top = 424.0
-offset_right = 412.0
+offset_right = 768.0
 offset_bottom = 484.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
@@ -137,9 +150,9 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="QuitButton" type="TextureButton" parent="MenuLayer/MainMenu/Buttons" unique_id=207529761]
-offset_left = 597.0
+offset_left = 188.0
 offset_top = 425.0
-offset_right = 821.0
+offset_right = 412.0
 offset_bottom = 485.0
 focus_mode = 0
 texture_normal = ExtResource("4_button")
@@ -303,6 +316,7 @@ texture_pressed = ExtResource("20_btnhover")
 texture_hover = ExtResource("20_btnhover")
 ignore_texture_size = true
 stretch_mode = 0
+metadata/_edit_use_anchors_ = true
 
 [node name="Label" type="Label" parent="MenuLayer/MainMenu/Buttons/BringHomeButton" unique_id=210000031]
 layout_mode = 0

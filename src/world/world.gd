@@ -13,6 +13,7 @@ const COLOUR_OPTIONS := [
 	{"key": "lightbrown", "label": "Light brown"},
 	{"key": "darkbrown", "label": "Dark brown"},
 	{"key": "black", "label": "Black"},
+	{"key": "rainbow", "label": "Rainbow"},
 ]
 
 # Pomodoro session types. Durations live in _session_minutes (user-configurable).
@@ -70,6 +71,8 @@ var _clock: PomodoroTimer
 var _tray: SystemTray
 var _save_debounce: Timer
 var _stats: StatsStore
+var _den: Den
+var _reset_dialog: ConfirmationDialog
 var _journal_open := false
 var _intro_running := false
 var _session_started_at := 0
@@ -104,6 +107,8 @@ func _ready() -> void:
 	_refresh_ui()
 	_refresh_stats_bar()
 	_refresh_session_buttons()
+	_setup_dialogs()
+	_setup_den()
 	_play_intro()
 
 
@@ -194,6 +199,9 @@ func _setup_menu_nodes() -> void:
 	_settings_panel.focus_length_slider.value_changed.connect(_on_length_changed.bind("focus"))
 	_settings_panel.short_length_slider.value_changed.connect(_on_length_changed.bind("short"))
 	_settings_panel.long_length_slider.value_changed.connect(_on_length_changed.bind("long"))
+	_settings_panel.mute_toggle.toggled.connect(_on_mute_toggled)
+	_settings_panel.volume_slider.value_changed.connect(_on_volume_changed)
+	_settings_panel.reset_data_button.pressed.connect(_on_reset_data_pressed)
 	for option in COLOUR_OPTIONS:
 		_settings_panel.colour_option.add_item(option["label"])
 	_settings_panel.colour_option.item_selected.connect(_on_colour_selected)
@@ -204,13 +212,29 @@ func _setup_menu_nodes() -> void:
 	_desktop_fox.fox_spawned_changed.connect(_on_fox_spawned_changed)
 
 
+func _setup_dialogs() -> void:
+	_reset_dialog = ConfirmationDialog.new()
+	_reset_dialog.title = "Reset game data?"
+	_reset_dialog.dialog_text = "This erases your journal stats, streaks and den.\nThis can't be undone."
+	_reset_dialog.ok_button_text = "Reset"
+	_reset_dialog.confirmed.connect(_do_reset_data)
+	add_child(_reset_dialog)
+
+
+func _setup_den() -> void:
+	_den = Den.new()
+	_den.name = "Den"
+	_main_menu.add_child(_den)
+	_den.refresh(_stats.total_focus(), false)
+
+
 func _configure_desktop_fox() -> void:
 	_desktop_fox.fox_scale = 2.0
 	_desktop_fox.fox_opacity = 1.0
 	_desktop_fox.click_through_enabled = false
 	_desktop_fox.hover_fade_enabled = false
 	_desktop_fox.taskbar_snap_enabled = true
-	_desktop_fox.taskbar_height = 24.0
+	_desktop_fox.taskbar_height = 0.0  # sit-depth nudge; taskbar size is auto-detected
 	_desktop_fox.body_speed_multiplier = 1.0
 	_desktop_fox.fox_palette = "default"
 
@@ -243,11 +267,20 @@ func _set_mode(mode: Mode) -> void:
 		_apply_recommendation()
 	_update_tray()
 	_update_fox_activity()
+	_update_ambient()
+
+
+func _update_ambient() -> void:
+	if _clock != null and _clock.is_running() and not _clock.is_paused() and not _is_break(_clock.session_id):
+		Audio.play_ambient("focus")
+	else:
+		Audio.stop_ambient()
 
 
 func _on_start_pressed() -> void:
 	if _intro_running or _is_starting or _desktop_fox.is_spawned():
 		return
+	Audio.play("click")
 	_is_starting = true
 	_preview_fox.call("pulse_click")
 	await get_tree().create_timer(0.14).timeout
@@ -263,6 +296,7 @@ func _on_session_chosen(id: String) -> void:
 	var label: String = SESSION_META[id]["label"]
 	var minutes: float = _session_minutes.get(id, DEFAULT_MINUTES.get(id, 25))
 	_current_task = _task_input.text.strip_edges() if id == "focus" else ""
+	Audio.play("start")
 	_session_started_at = int(Time.get_unix_time_from_system())
 	_clock.start(minutes * 60.0, id, label)
 	_session_label.text = _running_session_label(id, label)
@@ -291,12 +325,14 @@ func _queue_minimize() -> void:
 
 
 func _on_stop_pressed() -> void:
+	Audio.play("back")
 	_clock.stop()
 	_set_mode(Mode.CHOOSE)
 	_status_label.text = "Stopped — pick another, or bring the fox home."
 
 
 func _on_pause_pressed() -> void:
+	Audio.play("click")
 	_clock.toggle_pause()
 
 
@@ -306,9 +342,11 @@ func _on_clock_paused_changed(paused: bool) -> void:
 	_timer_label.modulate = Color(1, 1, 1, 0.5) if paused else Color.WHITE
 	_update_tray()
 	_update_fox_activity()
+	_update_ambient()
 
 
 func _on_bring_home_pressed() -> void:
+	Audio.play("click")
 	_clock.stop()
 	_desktop_fox.despawn_fox()
 
@@ -331,9 +369,12 @@ func _on_clock_finished() -> void:
 		_cycle_focus_count += 1
 		_last_completed = "focus"
 		_current_task = ""
+	Audio.play("complete")
 	_refresh_stats_bar()
 	if _journal_open:
 		_journal_panel.refresh(_stats)
+	if _den != null:
+		_den.refresh(_stats.total_focus(), true)
 	_minimize_token += 1
 	_show_launcher()
 	if _desktop_fox.is_spawned():
@@ -420,6 +461,8 @@ func _save_settings() -> void:
 	cfg.set_value("pomodoro", "focus", _session_minutes["focus"])
 	cfg.set_value("pomodoro", "short", _session_minutes["short"])
 	cfg.set_value("pomodoro", "long", _session_minutes["long"])
+	cfg.set_value("audio", "muted", Audio.muted)
+	cfg.set_value("audio", "volume", Audio.volume)
 	cfg.save(SETTINGS_PATH)
 
 
@@ -435,6 +478,8 @@ func _load_settings() -> void:
 	_desktop_fox.taskbar_height = float(cfg.get_value("behaviour", "taskbar_height", _desktop_fox.taskbar_height))
 	for id in _session_minutes:
 		_session_minutes[id] = float(cfg.get_value("pomodoro", id, _session_minutes[id]))
+	Audio.set_muted(bool(cfg.get_value("audio", "muted", Audio.muted)))
+	Audio.set_volume(float(cfg.get_value("audio", "volume", Audio.volume)))
 
 
 func _update_fox_activity() -> void:
@@ -462,10 +507,13 @@ func _on_settings_pressed() -> void:
 		return
 	if _journal_open:
 		_set_journal_open(false)
+	Audio.play("open")
 	_settings_panel.visible = true
 
 
 func _hide_settings_panel() -> void:
+	if _settings_panel.visible:
+		Audio.play("close")
 	_settings_panel.visible = false
 
 
@@ -479,6 +527,7 @@ func _on_journal_pressed() -> void:
 
 func _set_journal_open(open: bool) -> void:
 	_journal_open = open
+	Audio.play("open" if open else "close")
 	if open:
 		_hide_settings_panel()
 		_journal_panel.refresh(_stats)
@@ -554,6 +603,50 @@ func _on_length_changed(value: float, id: String) -> void:
 	_refresh_session_buttons()
 	_refresh_settings_length_labels()
 	_request_save()
+
+
+# --- Sound + data ----------------------------------------------------------
+
+func _on_mute_toggled(enabled: bool) -> void:
+	if _syncing_ui:
+		return
+	Audio.set_muted(enabled)
+	_update_ambient()
+	_request_save()
+
+
+func _on_volume_changed(value: float) -> void:
+	if _syncing_ui:
+		return
+	Audio.set_volume(value)
+	if not _syncing_ui:
+		Audio.play("click")
+	_request_save()
+
+
+func _on_reset_data_pressed() -> void:
+	Audio.play("back")
+	_reset_dialog.popup_centered()
+
+
+func _do_reset_data() -> void:
+	# Wipe persisted progress, then reset in-memory state to a clean slate.
+	for path in [SETTINGS_PATH, StatsStore.PATH]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+	_stats = StatsStore.new()
+	_cycle_focus_count = 0
+	_last_completed = ""
+	_current_task = ""
+	_task_input.text = ""
+	if _den != null:
+		_den.reset_layout()
+		_den.refresh(0.0, false)
+	_on_reset_all_pressed()  # fox cosmetics + session lengths back to defaults (+ saves)
+	_refresh_stats_bar()
+	if _journal_open:
+		_journal_panel.refresh(_stats)
+	Audio.play("complete")
 
 
 # --- Intro animation -------------------------------------------------------
@@ -704,6 +797,8 @@ func _refresh_ui() -> void:
 	_settings_panel.focus_length_slider.value = _session_minutes["focus"]
 	_settings_panel.short_length_slider.value = _session_minutes["short"]
 	_settings_panel.long_length_slider.value = _session_minutes["long"]
+	_settings_panel.mute_toggle.button_pressed = Audio.muted
+	_settings_panel.volume_slider.value = Audio.volume
 	_refresh_settings_length_labels()
 	var palette_index := 0
 	for i in COLOUR_OPTIONS.size():

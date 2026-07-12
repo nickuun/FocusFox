@@ -114,7 +114,7 @@ func play_pounce(seconds: float) -> void:
 	play_oneshot("pounce")
 
 
-func set_palette(target_a: Color, target_b: Color) -> void:
+func set_palette(target_a: Color, target_b: Color, rainbow := false) -> void:
 	var material := _sprite.material as ShaderMaterial
 	if material == null:
 		material = ShaderMaterial.new()
@@ -122,6 +122,7 @@ func set_palette(target_a: Color, target_b: Color) -> void:
 		_sprite.material = material
 	material.set_shader_parameter("target_a", target_a)
 	material.set_shader_parameter("target_b", target_b)
+	material.set_shader_parameter("rainbow", 1.0 if rainbow else 0.0)
 
 
 func _on_anim_finished() -> void:

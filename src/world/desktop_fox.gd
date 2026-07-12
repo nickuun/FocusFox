@@ -165,8 +165,9 @@ func apply_cosmetics_to(node: RigidBody2D) -> void:
 func _apply_palette_to(node: RigidBody2D) -> void:
 	if not is_instance_valid(node) or not node.has_method("set_palette"):
 		return
+	var is_rainbow := fox_palette == "rainbow"
 	var pair: Array = _palettes.get(fox_palette, _palettes["default"])
-	node.call("set_palette", pair[0], pair[1])
+	node.call("set_palette", pair[0], pair[1], is_rainbow)
 
 
 func _cache_sprite_base(node: RigidBody2D) -> void:
@@ -765,8 +766,21 @@ func _apply_screen_bounds() -> void:
 		_fox.call("react_bumped")
 
 
+func _taskbar_thickness() -> float:
+	# Tier-1 auto-detect: the gap between the full screen and the usable work area
+	# along the bottom edge is the taskbar's thickness (0 if it's top/side/hidden).
+	var idx := DisplayServer.window_get_current_screen()
+	var full_pos := DisplayServer.screen_get_position(idx)
+	var full_size := DisplayServer.screen_get_size(idx)
+	var usable := DisplayServer.screen_get_usable_rect(idx)
+	return maxf(0.0, float((full_pos.y + full_size.y) - (usable.position.y + usable.size.y)))
+
+
 func _get_floor_offset() -> float:
-	return taskbar_height if taskbar_snap_enabled else 0.0
+	# taskbar_height is now a small "sit depth" nudge (0 = feet on the taskbar).
+	if taskbar_snap_enabled:
+		return -taskbar_height
+	return _taskbar_thickness()
 
 
 func _sync_overlay_window() -> void:
@@ -804,7 +818,6 @@ func _get_fox_radius() -> float:
 
 
 func _get_target_screen_rect() -> Rect2i:
-	var screen_index := DisplayServer.window_get_current_screen()
-	if use_usable_screen_area:
-		return DisplayServer.screen_get_usable_rect(screen_index)
-	return Rect2i(Vector2i.ZERO, DisplayServer.screen_get_size(screen_index))
+	# Full monitor rect; the taskbar is accounted for in _get_floor_offset() now.
+	var idx := DisplayServer.window_get_current_screen()
+	return Rect2i(DisplayServer.screen_get_position(idx), DisplayServer.screen_get_size(idx))

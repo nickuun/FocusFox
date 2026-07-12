@@ -16,6 +16,9 @@ class_name ThrowableProp
 @export var margin := 48.0
 @export var shadow_lift_range := 220.0
 
+signal grabbed
+signal settled
+
 @onready var _area: Area2D = $Area2D
 
 var _shadow: Sprite2D
@@ -94,6 +97,7 @@ func _simulate(delta: float) -> void:
 			if absf(_velocity.x) <= rest_velocity_threshold:
 				_velocity = Vector2.ZERO
 				_resting = true
+				settled.emit()
 		else:
 			_velocity.y = -absf(_velocity.y) * bounce
 
@@ -130,6 +134,7 @@ func _begin_drag() -> void:
 	_resting = false
 	_drag_offset = position - get_global_mouse_position()
 	_velocity = Vector2.ZERO
+	grabbed.emit()
 
 
 func _end_drag() -> void:
