@@ -40,6 +40,9 @@ const BALL_SPRITE_PX := 11.0
 @export var ball_kick_up := 540.0
 @export var ball_kick_side := 360.0
 
+const CHASE_STUCK_SECONDS := 0.45
+const CHASE_REACHED_PADDING := 8.0
+
 var fox_scale := 3.0
 var fox_opacity := 1.0
 var click_through_enabled := false
@@ -75,6 +78,7 @@ var _ball_px := 60.0
 var _play_state := "none"  # none / trot / pounce / settle / gap
 var _settle_timer := 0.0
 var _gap_timer := 0.0
+var _chase_reached_timer := 0.0
 var _pounce_t := 0.0
 var _pounce_start := Vector2.ZERO
 var _pounce_target := Vector2.ZERO
@@ -262,6 +266,7 @@ func _begin_chase() -> void:
 	if not is_instance_valid(_fox):
 		return
 	_play_state = "trot"
+	_chase_reached_timer = 0.0
 	_fox.call("set_loop_anim", "trot")
 
 
@@ -273,13 +278,24 @@ func _update_ball_play(delta: float) -> bool:
 			if not _ball_active:
 				_play_state = "none"
 				return false
-			var dx := _ball_screen_position.x - _fox_screen_position.x
-			_fox.call("set_facing", signf(dx))
+			var dx_before := _ball_screen_position.x - _fox_screen_position.x
+			_fox.call("set_facing", _pounce_direction(dx_before))
 			_fox_screen_position.x = move_toward(_fox_screen_position.x, _ball_screen_position.x, trot_speed * delta)
 			_fox_velocity.x = 0.0
-			# Only pounce on a ball that's holding still on the floor.
-			if _ball_resting and not _ball_dragging and absf(dx) <= pounce_range and _resting_on_floor:
-				_begin_pounce(signf(dx))
+			var dx_after := _ball_screen_position.x - _fox_screen_position.x
+			var reached_ball := absf(dx_after) <= _chase_reached_distance()
+			var ball_ready := _ball_ready_for_pounce()
+			if ball_ready and (absf(dx_before) <= pounce_range or absf(dx_after) <= pounce_range):
+				_begin_pounce(_pounce_direction(dx_before, dx_after))
+			elif reached_ball and not _ball_dragging:
+				_chase_reached_timer += delta
+				if _chase_reached_timer >= CHASE_STUCK_SECONDS and _ball_can_be_forced_to_rest():
+					_ball_screen_position.y = _ball_floor_y(_ball_px)
+					_ball_velocity = Vector2.ZERO
+					_ball_resting = true
+					_begin_pounce(_pounce_direction(dx_before, dx_after))
+			else:
+				_chase_reached_timer = 0.0
 			return false
 		"pounce":
 			_pounce_t += delta / maxf(0.1, pounce_duration)
@@ -310,8 +326,41 @@ func _update_ball_play(delta: float) -> bool:
 	return false
 
 
+func _ball_ready_for_pounce() -> bool:
+	return _ball_resting and not _ball_dragging and _fox_ready_to_pounce()
+
+
+func _ball_can_be_forced_to_rest() -> bool:
+	if _ball_dragging or not _fox_ready_to_pounce():
+		return false
+	var floor_y := _ball_floor_y(_ball_px)
+	var floor_distance := absf(_ball_screen_position.y - floor_y)
+	var floor_tolerance := maxf(floor_snap_tolerance * 2.0, _ball_radius() * 0.35)
+	return floor_distance <= floor_tolerance and absf(_ball_velocity.y) <= ball_rest_threshold * 2.0
+
+
+func _fox_ready_to_pounce() -> bool:
+	if _resting_on_floor:
+		return true
+	return absf(_fox_screen_position.y - _floor_center_y()) <= floor_snap_tolerance * 2.0
+
+
+func _chase_reached_distance() -> float:
+	return _ball_radius() + CHASE_REACHED_PADDING * _fox_pixel_scale()
+
+
+func _pounce_direction(primary_dx: float, fallback_dx: float = 0.0) -> float:
+	var direction := signf(primary_dx)
+	if direction == 0.0:
+		direction = signf(fallback_dx)
+	if direction == 0.0:
+		direction = 1.0
+	return direction
+
+
 func _begin_pounce(direction: float) -> void:
 	_play_state = "pounce"
+	_chase_reached_timer = 0.0
 	_resting_on_floor = false
 	_fox_velocity = Vector2.ZERO
 	_pounce_t = 0.0
