@@ -24,8 +24,7 @@ var scale_slider: HSlider
 var opacity_slider: HSlider
 var liveliness_slider: HSlider
 var colour_option: OptionButton
-var taskbar_snap_toggle: CheckButton
-var taskbar_height_slider: HSlider
+var sit_height_slider: HSlider
 var focus_length_slider: HSlider
 var short_length_slider: HSlider
 var long_length_slider: HSlider
@@ -88,10 +87,8 @@ func _build() -> void:
 	_host.add_child(colour_option)
 
 	_header("Behaviour", 160)
-	taskbar_snap_toggle = _toggle("Rest on the taskbar", 190)
-	taskbar_snap_toggle.button_pressed = true
-	_row_label("Sit depth", 226)
-	taskbar_height_slider = _hslider(228, -20.0, 40.0, 1.0, 0.0)
+	_row_label("Sit height", 194)
+	sit_height_slider = _hslider(196, 0.0, 200.0, 1.0, 48.0)
 
 	_header("Session lengths", 258)
 	focus_length_label = _row_label("Focus", 288)

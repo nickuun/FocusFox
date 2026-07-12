@@ -191,11 +191,10 @@ func _setup_menu_nodes() -> void:
 	_settings_icon_button.pressed.connect(_on_settings_pressed)
 	_settings_panel.close_button.pressed.connect(_hide_settings_panel)
 	_journal_icon.pressed.connect(_on_journal_pressed)
-	_settings_panel.taskbar_snap_toggle.toggled.connect(_on_taskbar_snap_toggled)
 	_settings_panel.scale_slider.value_changed.connect(_on_scale_changed)
 	_settings_panel.opacity_slider.value_changed.connect(_on_opacity_changed)
 	_settings_panel.liveliness_slider.value_changed.connect(_on_liveliness_changed)
-	_settings_panel.taskbar_height_slider.value_changed.connect(_on_taskbar_height_changed)
+	_settings_panel.sit_height_slider.value_changed.connect(_on_sit_height_changed)
 	_settings_panel.focus_length_slider.value_changed.connect(_on_length_changed.bind("focus"))
 	_settings_panel.short_length_slider.value_changed.connect(_on_length_changed.bind("short"))
 	_settings_panel.long_length_slider.value_changed.connect(_on_length_changed.bind("long"))
@@ -233,8 +232,7 @@ func _configure_desktop_fox() -> void:
 	_desktop_fox.fox_opacity = 1.0
 	_desktop_fox.click_through_enabled = false
 	_desktop_fox.hover_fade_enabled = false
-	_desktop_fox.taskbar_snap_enabled = true
-	_desktop_fox.taskbar_height = 0.0  # sit-depth nudge; taskbar size is auto-detected
+	_desktop_fox.sit_height = 48.0  # feet rest above the screen bottom; clears a taskbar
 	_desktop_fox.body_speed_multiplier = 1.0
 	_desktop_fox.fox_palette = "default"
 
@@ -456,8 +454,7 @@ func _save_settings() -> void:
 	cfg.set_value("fox", "opacity", _desktop_fox.fox_opacity)
 	cfg.set_value("fox", "liveliness", _desktop_fox.body_speed_multiplier)
 	cfg.set_value("fox", "palette", _desktop_fox.fox_palette)
-	cfg.set_value("behaviour", "taskbar_snap", _desktop_fox.taskbar_snap_enabled)
-	cfg.set_value("behaviour", "taskbar_height", _desktop_fox.taskbar_height)
+	cfg.set_value("behaviour", "sit_height", _desktop_fox.sit_height)
 	cfg.set_value("pomodoro", "focus", _session_minutes["focus"])
 	cfg.set_value("pomodoro", "short", _session_minutes["short"])
 	cfg.set_value("pomodoro", "long", _session_minutes["long"])
@@ -474,8 +471,7 @@ func _load_settings() -> void:
 	_desktop_fox.fox_opacity = float(cfg.get_value("fox", "opacity", _desktop_fox.fox_opacity))
 	_desktop_fox.body_speed_multiplier = float(cfg.get_value("fox", "liveliness", _desktop_fox.body_speed_multiplier))
 	_desktop_fox.fox_palette = str(cfg.get_value("fox", "palette", _desktop_fox.fox_palette))
-	_desktop_fox.taskbar_snap_enabled = bool(cfg.get_value("behaviour", "taskbar_snap", _desktop_fox.taskbar_snap_enabled))
-	_desktop_fox.taskbar_height = float(cfg.get_value("behaviour", "taskbar_height", _desktop_fox.taskbar_height))
+	_desktop_fox.sit_height = float(cfg.get_value("behaviour", "sit_height", _desktop_fox.sit_height))
 	for id in _session_minutes:
 		_session_minutes[id] = float(cfg.get_value("pomodoro", id, _session_minutes[id]))
 	Audio.set_muted(bool(cfg.get_value("audio", "muted", Audio.muted)))
@@ -693,15 +689,6 @@ func _play_intro() -> void:
 	_intro_running = false
 
 
-func _on_taskbar_snap_toggled(enabled: bool) -> void:
-	if _syncing_ui:
-		return
-	_desktop_fox.taskbar_snap_enabled = enabled
-	_refresh_ui()
-	_desktop_fox.reset_fox_position()
-	_request_save()
-
-
 func _on_scale_changed(value: float) -> void:
 	if _syncing_ui:
 		return
@@ -739,10 +726,10 @@ func _on_colour_selected(index: int) -> void:
 	_request_save()
 
 
-func _on_taskbar_height_changed(value: float) -> void:
+func _on_sit_height_changed(value: float) -> void:
 	if _syncing_ui:
 		return
-	_desktop_fox.taskbar_height = value
+	_desktop_fox.sit_height = value
 	_refresh_ui()
 	_desktop_fox.reset_fox_position()
 	_request_save()
@@ -792,8 +779,7 @@ func _refresh_ui() -> void:
 	_settings_panel.scale_slider.value = _desktop_fox.fox_scale
 	_settings_panel.opacity_slider.value = _desktop_fox.fox_opacity
 	_settings_panel.liveliness_slider.value = _desktop_fox.body_speed_multiplier
-	_settings_panel.taskbar_height_slider.value = _desktop_fox.taskbar_height
-	_settings_panel.taskbar_snap_toggle.button_pressed = _desktop_fox.taskbar_snap_enabled
+	_settings_panel.sit_height_slider.value = _desktop_fox.sit_height
 	_settings_panel.focus_length_slider.value = _session_minutes["focus"]
 	_settings_panel.short_length_slider.value = _session_minutes["short"]
 	_settings_panel.long_length_slider.value = _session_minutes["long"]

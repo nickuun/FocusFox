@@ -9,7 +9,7 @@ const BALL_SPRITE_PX := 11.0
 @export var fox_window_padding := Vector2i(128, 128)
 @export var use_usable_screen_area := true
 @export var fox_edge_padding := 2.0
-@export var taskbar_height := 24.0
+@export var sit_height := 48.0  # pixels the fox's feet rest above the screen bottom
 @export var fox_gravity := 2450.0
 @export var fox_bounce := 0.18
 @export var throw_boost := 0.72
@@ -44,7 +44,6 @@ var fox_scale := 3.0
 var fox_opacity := 1.0
 var click_through_enabled := false
 var hover_fade_enabled := false
-var taskbar_snap_enabled := true
 var body_speed_multiplier := 1.0
 
 var _overlay_window: Window
@@ -766,21 +765,10 @@ func _apply_screen_bounds() -> void:
 		_fox.call("react_bumped")
 
 
-func _taskbar_thickness() -> float:
-	# Tier-1 auto-detect: the gap between the full screen and the usable work area
-	# along the bottom edge is the taskbar's thickness (0 if it's top/side/hidden).
-	var idx := DisplayServer.window_get_current_screen()
-	var full_pos := DisplayServer.screen_get_position(idx)
-	var full_size := DisplayServer.screen_get_size(idx)
-	var usable := DisplayServer.screen_get_usable_rect(idx)
-	return maxf(0.0, float((full_pos.y + full_size.y) - (usable.position.y + usable.size.y)))
-
-
 func _get_floor_offset() -> float:
-	# taskbar_height is now a small "sit depth" nudge (0 = feet on the taskbar).
-	if taskbar_snap_enabled:
-		return -taskbar_height
-	return _taskbar_thickness()
+	# The fox's feet rest sit_height pixels above the bottom of the screen, so the
+	# default clears a typical taskbar. Users can dial it for their own taskbar.
+	return sit_height
 
 
 func _sync_overlay_window() -> void:
