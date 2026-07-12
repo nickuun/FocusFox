@@ -408,7 +408,7 @@ func _apply_ball_bounds(delta: float) -> void:
 	var min_x := float(rect.position.x) + r
 	var max_x := float(rect.end.x) - r
 	var min_y := float(rect.position.y) + r
-	var floor_y := float(rect.end.y) - _get_floor_offset() - r
+	var floor_y := _ground_contact_y() - r
 	var on_floor := false
 
 	if _ball_screen_position.x < min_x:
@@ -529,9 +529,15 @@ func _ball_circle_polygon() -> PackedVector2Array:
 	return points
 
 
+func _ground_contact_y() -> float:
+	# The screen-space line where things visually rest on the floor. The fox's feet
+	# land here (see _floor_center_y / _resolve_fox_bounds), so the ball must share it
+	# to sit on the same taskbar-aware ground instead of floating above it.
+	return float(_get_target_screen_rect().end.y) - _get_floor_offset() + landing_offset * _fox_pixel_scale()
+
+
 func _ball_floor_y(ball_px: float) -> float:
-	var rect := _get_target_screen_rect()
-	return float(rect.end.y) - _get_floor_offset() - ball_px * 0.5
+	return _ground_contact_y() - ball_px * 0.5
 
 
 func _sync_ball_window() -> void:
@@ -612,13 +618,16 @@ func _get_full_window_polygon() -> PackedVector2Array:
 
 
 func _get_fox_click_polygon() -> PackedVector2Array:
-	var radius := _get_fox_radius()
+	# Square hit region matching the fox's full rendered footprint, so the corners
+	# of the sprite (feet, tail tips) stay grabbable instead of a circle clipping them.
 	var center := Vector2(_get_window_size_for_scale()) * 0.5
-	var points := PackedVector2Array()
-	for index in range(32):
-		var angle := TAU * float(index) / 32.0
-		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
-	return points
+	var half := _fox_hit_half()
+	return PackedVector2Array([
+		center - half,
+		Vector2(center.x + half.x, center.y - half.y),
+		center + half,
+		Vector2(center.x - half.x, center.y + half.y),
+	])
 
 
 func _create_overlay_window() -> void:
@@ -660,6 +669,12 @@ func _fox_visual_half() -> Vector2:
 	# Half the rendered sprite footprint, used so the fox rests on the taskbar and
 	# stays on-screen based on what you actually see (not the padded window size).
 	return _fox_sprite_base * _fox_pixel_scale() * 0.5
+
+
+func _fox_hit_half() -> Vector2:
+	# Half-extent of the square hit region: the visual footprint plus one scaled
+	# pixel of slack so the outermost sprite pixels (feet/tail) stay inside it.
+	return _fox_visual_half() + Vector2.ONE * _fox_pixel_scale()
 
 
 func _get_window_size_for_scale() -> Vector2i:
@@ -789,20 +804,14 @@ func _update_hover(mouse_screen_position: Vector2) -> void:
 
 
 func _local_position_hits_fox(local_position: Vector2) -> bool:
-	return local_position.distance_to(Vector2(_get_window_size_for_scale()) * 0.5) <= _get_fox_radius()
+	var offset := (local_position - Vector2(_get_window_size_for_scale()) * 0.5).abs()
+	var half := _fox_hit_half()
+	return offset.x <= half.x and offset.y <= half.y
 
 
 func _set_fox_highlight(highlighted: bool) -> void:
 	if is_instance_valid(_fox):
 		_fox.call("set_highlight", highlighted, hover_modulate)
-
-
-func _get_fox_radius() -> float:
-	if is_instance_valid(_fox):
-		var radius: Variant = _fox.call("get_pick_radius")
-		if typeof(radius) == TYPE_FLOAT or typeof(radius) == TYPE_INT:
-			return float(radius)
-	return 64.0
 
 
 func _get_target_screen_rect() -> Rect2i:
