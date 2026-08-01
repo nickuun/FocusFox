@@ -19,6 +19,7 @@
 [ext_resource type="Texture2D" uid="uid://cf40wpmgb761b" path="res://assets/main_menu/icons/settings/highlighted-gear-icon.png" id="21_gearhi"]
 [ext_resource type="Script" uid="uid://dy1rnck8yapd1" path="res://src/world/throwable_prop.gd" id="22_throw"]
 [ext_resource type="Script" uid="uid://don5ko6d0bn48" path="res://src/world/journal_panel.gd" id="23_journal"]
+[ext_resource type="Script" path="res://src/world/achievement_toast.gd" id="26_toast"]
 [ext_resource type="Shader" uid="uid://b4qdxfhr5vp2s" path="res://src/world/clock_dial.gdshader" id="24_clockshader"]
 [ext_resource type="Texture2D" uid="uid://bk85h07bs5usl" path="res://assets/main_menu/clock/Clock_No Fox_Empty.png" id="25_clockempty"]
 
@@ -37,6 +38,9 @@ shader_parameter/clockwise = true
 
 [node name="World" type="Node2D" unique_id=43647833]
 script = ExtResource("1_world")
+
+[node name="AchievementToast" type="CanvasLayer" parent="." unique_id=2910000001]
+script = ExtResource("26_toast")
 
 [node name="DesktopFox" type="Node" parent="." unique_id=1680602813]
 script = ExtResource("12_desktop_fox")

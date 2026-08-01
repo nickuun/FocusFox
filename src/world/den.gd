@@ -43,6 +43,8 @@ func refresh(focus_seconds: float, allow_reveal: bool) -> void:
 		var id: String = item["id"]
 		if focus_min >= int(item["unlock_min"]) and not _items.has(id):
 			_create_item(item, allow_reveal)
+	if allow_reveal:
+		Achievements.on_item_unlocked(_items.size())
 
 
 func reset_layout() -> void:

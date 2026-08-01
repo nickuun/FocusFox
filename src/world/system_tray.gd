@@ -21,6 +21,7 @@ const TAG_QUIT := 199
 var _indicator := -1
 var _menu := RID()
 var _idx_header := -1
+var _idx_open := -1
 var _idx_pause := -1
 var _idx_fox := -1
 
@@ -44,7 +45,7 @@ func _build() -> void:
 	_idx_header = NativeMenu.add_item(_menu, "Focus Fox", Callable(), Callable(), TAG_HEADER)
 	NativeMenu.set_item_disabled(_menu, _idx_header, true)
 	NativeMenu.add_separator(_menu)
-	NativeMenu.add_item(_menu, "Open", _on_item, Callable(), TAG_OPEN)
+	_idx_open = NativeMenu.add_item(_menu, "Open", _on_item, Callable(), TAG_OPEN)
 	_idx_pause = NativeMenu.add_item(_menu, "Pause", _on_item, Callable(), TAG_PAUSE)
 	_idx_fox = NativeMenu.add_item(_menu, "Send fox out", _on_item, Callable(), TAG_FOX)
 	NativeMenu.add_separator(_menu)
@@ -55,10 +56,11 @@ func _build() -> void:
 		DisplayServer.status_indicator_set_menu(_indicator, _menu)
 
 
-func update_state(status_text: String, session_running: bool, paused: bool, fox_out: bool) -> void:
+func update_state(status_text: String, session_running: bool, paused: bool, fox_out: bool, launcher_open: bool) -> void:
 	if not is_supported():
 		return
 	NativeMenu.set_item_text(_menu, _idx_header, status_text)
+	NativeMenu.set_item_text(_menu, _idx_open, "Hide window" if launcher_open else "Open window")
 	NativeMenu.set_item_disabled(_menu, _idx_pause, not session_running)
 	NativeMenu.set_item_text(_menu, _idx_pause, "Resume" if paused else "Pause")
 	NativeMenu.set_item_text(_menu, _idx_fox, "Bring fox home" if fox_out else "Send fox out")

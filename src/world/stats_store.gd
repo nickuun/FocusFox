@@ -104,6 +104,16 @@ func total_breaks() -> int:
 	return n
 
 
+## Total number of distinct calendar days on which any session was recorded.
+## Used by AchievementStore for "Back Tomorrow?", "The Fox Remembers", etc.
+func total_days_used() -> int:
+	var n := 0
+	for k in days:
+		if _active(k):
+			n += 1
+	return n
+
+
 ## Consecutive active days ending today (or yesterday, so a fresh day doesn't
 ## drop the trail before you've focused yet).
 func current_trail() -> int:

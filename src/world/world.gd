@@ -78,6 +78,7 @@ var _den: Den
 var _reset_dialog: ConfirmationDialog
 var _journal_open := false
 var _intro_running := false
+var _overlay_host: Window         # owns the fox/ball windows; see OverlayWindow
 var _session_started_at := 0
 var _session_minutes := {"focus": 25.0, "short": 5.0, "long": 15.0}
 var _cycle_focus_count := 0  # completed focus sessions in the current Pomodoro set
@@ -96,7 +97,9 @@ func _ready() -> void:
 	get_tree().set_auto_accept_quit(false)
 	_stats = StatsStore.new()
 	_stats.load()
+	Achievements.on_first_launch()
 	_setup_launcher_window()
+	_setup_overlay_host()
 	_setup_save()
 	_setup_clock()
 	_setup_tray()
@@ -124,6 +127,7 @@ func _exit_tree() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		Achievements.on_app_closing(_mode == Mode.RUNNING)
 		if _tray != null and _tray.is_supported():
 			_hide_to_tray()
 		else:
@@ -183,6 +187,15 @@ func _setup_launcher_window() -> void:
 		var icon_image := SystemTray.ICON.get_image()
 		if icon_image != null:
 			DisplayServer.set_icon(icon_image)
+
+
+func _setup_overlay_host() -> void:
+	# One invisible window owns every desktop overlay, so the fox is unaffected by
+	# whatever happens to the launcher. It costs the app's one extra alt-tab entry;
+	# activating that entry opens the launcher rather than doing nothing.
+	_overlay_host = OverlayWindow.create_host(self)
+	_overlay_host.focus_entered.connect(_show_launcher)
+	_desktop_fox.overlay_host = _overlay_host
 
 
 func _setup_menu_nodes() -> void:
@@ -307,6 +320,7 @@ func _on_session_chosen(id: String) -> void:
 	var minutes: float = _session_minutes.get(id, DEFAULT_MINUTES.get(id, 25))
 	_current_task = _task_input.text.strip_edges() if id == "focus" else ""
 	Audio.play("start")
+	Achievements.on_session_started(id)
 	_session_started_at = int(Time.get_unix_time_from_system())
 	_clock.start(minutes * 60.0, id, label)
 	_session_label.text = _running_session_label(id, label)
@@ -337,9 +351,10 @@ func _queue_minimize() -> void:
 
 func _on_stop_pressed() -> void:
 	Audio.play("back")
+	Achievements.on_session_ended_early()
 	_clock.stop()
 	_set_mode(Mode.CHOOSE)
-	_status_label.text = "Stopped — pick another, or bring the fox home."
+	_status_label.text = Encouragements.pick("early_exit")
 
 
 func _on_pause_pressed() -> void:
@@ -358,6 +373,7 @@ func _on_clock_paused_changed(paused: bool) -> void:
 
 func _on_bring_home_pressed() -> void:
 	Audio.play("click")
+	Achievements.on_bring_fox_home()
 	_clock.stop()
 	_desktop_fox.despawn_fox()
 
@@ -399,16 +415,23 @@ func _reset_clock_dial_intro() -> void:
 func _on_clock_finished() -> void:
 	# Only completed sessions count towards the journal + the Pomodoro cycle.
 	var id := _clock.session_id
+	var encouragement := ""
 	if _is_break(id):
 		_stats.record_break(_session_started_at)
 		_last_completed = id
 		if id == "long":
 			_cycle_focus_count = 0
+		encouragement = Encouragements.pick("break")
 	else:
 		_stats.record_focus(_clock.total_seconds, _session_started_at, _current_task)
 		_cycle_focus_count += 1
 		_last_completed = "focus"
 		_current_task = ""
+		# Check whether the fox slept the whole session without being disturbed.
+		if _desktop_fox.is_spawned() and not Achievements._fox_clicked_this_session:
+			Achievements.on_sleepy_session_completed()
+		Achievements.on_session_completed(_clock.total_seconds, id, _stats)
+		encouragement = Encouragements.pick("focus")
 	Audio.play("complete")
 	_refresh_stats_bar()
 	if _journal_open:
@@ -419,14 +442,19 @@ func _on_clock_finished() -> void:
 	_show_launcher()
 	if _desktop_fox.is_spawned():
 		_desktop_fox.celebrate()
-	# _set_mode(CHOOSE) applies the next-move recommendation + status text.
+	# _set_mode(CHOOSE) applies the next-move recommendation + status text,
+	# then we overwrite it with a warm encouragement for this completion moment.
 	_set_mode(Mode.CHOOSE)
+	_status_label.text = encouragement
 
 
 func _hide_to_tray() -> void:
-	# The root window's visibility can't be toggled (it has no parent), so we
-	# minimize it. The tray icon is the way back.
+	# A plain minimize. Safe because the overlays are owned by the off-screen host
+	# window, not by the launcher — Windows hides a window's owned children when it
+	# is minimized, so if the launcher owned them the fox would vanish every time
+	# you tucked the launcher away. The tray icon is the way back.
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
+	_update_tray()
 
 
 func _show_launcher() -> void:
@@ -434,6 +462,11 @@ func _show_launcher() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	get_window().move_to_foreground()
 	DisplayServer.window_request_attention()
+	_update_tray()
+
+
+func _is_launcher_open() -> bool:
+	return DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_MINIMIZED
 
 
 # --- System tray -----------------------------------------------------------
@@ -451,11 +484,16 @@ func _update_tray() -> void:
 			status += " (paused)"
 	elif fox_out:
 		status = "Fox is out"
-	_tray.update_state(status, running, paused, fox_out)
+	_tray.update_state(status, running, paused, fox_out, _is_launcher_open())
 
 
 func _on_tray_open() -> void:
-	_show_launcher()
+	# Toggle, so clicking the tray icon repeatedly shows and hides the launcher
+	# instead of only ever showing it.
+	if _is_launcher_open():
+		_hide_to_tray()
+	else:
+		_show_launcher()
 
 
 func _on_tray_pause() -> void:
@@ -466,6 +504,9 @@ func _on_tray_pause() -> void:
 func _on_tray_fox_toggle() -> void:
 	if _desktop_fox.is_spawned():
 		_on_bring_home_pressed()
+		# The fox's home is the den, so show it — otherwise the fox just disappears
+		# off the desktop with nothing to show where it went.
+		_show_launcher()
 	else:
 		_desktop_fox.spawn_at_screen_center()
 
@@ -640,6 +681,7 @@ func _on_length_changed(value: float, id: String) -> void:
 	_session_minutes[id] = roundf(value)
 	_refresh_session_buttons()
 	_refresh_settings_length_labels()
+	Achievements.on_setting_changed()
 	_request_save()
 
 
@@ -650,6 +692,7 @@ func _on_mute_toggled(enabled: bool) -> void:
 		return
 	Audio.set_muted(enabled)
 	_update_ambient()
+	Achievements.on_setting_changed()
 	_request_save()
 
 
@@ -659,6 +702,7 @@ func _on_volume_changed(value: float) -> void:
 	Audio.set_volume(value)
 	if not _syncing_ui:
 		Audio.play("click")
+	Achievements.on_setting_changed()
 	_request_save()
 
 
@@ -738,6 +782,7 @@ func _on_scale_changed(value: float) -> void:
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
 	_desktop_fox.apply_visual_settings()
 	_refresh_ui()
+	Achievements.on_setting_changed()
 	_request_save()
 
 
@@ -747,6 +792,7 @@ func _on_opacity_changed(value: float) -> void:
 	_desktop_fox.fox_opacity = value
 	_desktop_fox.apply_visual_settings()
 	_preview_fox.modulate.a = value
+	Achievements.on_setting_changed()
 	_request_save()
 
 
@@ -756,6 +802,7 @@ func _on_liveliness_changed(value: float) -> void:
 	_desktop_fox.body_speed_multiplier = value
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
 	_desktop_fox.apply_visual_settings()
+	Achievements.on_setting_changed()
 	_request_save()
 
 
@@ -765,6 +812,7 @@ func _on_colour_selected(index: int) -> void:
 	_desktop_fox.fox_palette = COLOUR_OPTIONS[index]["key"]
 	_desktop_fox.apply_cosmetics_to(_preview_fox)
 	_desktop_fox.apply_visual_settings()
+	Achievements.on_colour_changed(COLOUR_OPTIONS[index]["key"])
 	_request_save()
 
 
@@ -774,6 +822,7 @@ func _on_sit_height_changed(value: float) -> void:
 	_desktop_fox.sit_height = value
 	_refresh_ui()
 	_desktop_fox.reset_fox_position()
+	Achievements.on_setting_changed()
 	_request_save()
 
 

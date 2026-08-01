@@ -29,6 +29,9 @@ const BALL_SPRITE_PX := 11.0
 @export var settle_max := 4.5
 @export var play_gap_min := 6.0
 @export var play_gap_max := 12.0
+@export var thrown_chase_seconds := 4.0
+@export var thrown_chase_speed_multiplier := 1.55
+@export var thrown_chase_lead_seconds := 0.22
 @export var ball_relative_scale := 3.5
 @export var ball_window_padding := 56
 @export var ball_gravity := 2600.0
@@ -48,6 +51,10 @@ var fox_opacity := 1.0
 var click_through_enabled := false
 var hover_fade_enabled := false
 var body_speed_multiplier := 1.0
+
+## The window that owns every overlay, so they stay out of the taskbar without
+## being at the mercy of the launcher being minimized. Set by World before use.
+var overlay_host: Window
 
 var _overlay_window: Window
 var _overlay_root: Node2D
@@ -79,6 +86,7 @@ var _play_state := "none"  # none / trot / pounce / settle / gap
 var _settle_timer := 0.0
 var _gap_timer := 0.0
 var _chase_reached_timer := 0.0
+var _player_throw_chase_timer := 0.0
 var _pounce_t := 0.0
 var _pounce_start := Vector2.ZERO
 var _pounce_target := Vector2.ZERO
@@ -96,6 +104,7 @@ var _palettes := {
 
 signal fox_spawned_changed(active: bool)
 signal status_changed(message: String)
+signal fox_clicked  ## Emitted when the player clicks/pets the fox body.
 
 
 func initialize() -> void:
@@ -129,6 +138,9 @@ func physics_step(delta: float) -> void:
 		_update_ball_physics(delta, mouse_screen_position)
 		_sync_ball_window()
 
+	# Report fox speed for the "Zoomies" achievement every frame.
+	Achievements.on_fox_speed(_fox_velocity.length())
+
 
 func handle_overlay_input(event: InputEvent) -> void:
 	if click_through_enabled:
@@ -137,6 +149,8 @@ func handle_overlay_input(event: InputEvent) -> void:
 		var mouse_screen_position := Vector2(DisplayServer.mouse_get_position())
 		if event.pressed:
 			if _local_position_hits_fox(event.position):
+				fox_clicked.emit()
+				Achievements.on_fox_petted()
 				_start_drag(mouse_screen_position)
 				get_viewport().set_input_as_handled()
 		elif _dragging:
@@ -198,6 +212,7 @@ func spawn_fox(spawn_position: Vector2) -> void:
 	_dragging = false
 	_hovering = false
 	_overlay_window.show()
+	OverlayWindow.claim(_overlay_window)
 	_apply_click_through_mode()
 	_sync_overlay_window()
 	_apply_activity()
@@ -273,27 +288,32 @@ func _begin_chase() -> void:
 func _update_ball_play(delta: float) -> bool:
 	# Returns true when it has fully taken over the fox's position this frame
 	# (during the scripted pounce arc), so the caller skips gravity.
+	_player_throw_chase_timer = maxf(0.0, _player_throw_chase_timer - delta)
 	match _play_state:
 		"trot":
 			if not _ball_active:
 				_play_state = "none"
 				return false
-			var dx_before := _ball_screen_position.x - _fox_screen_position.x
-			_fox.call("set_facing", _pounce_direction(dx_before))
-			_fox_screen_position.x = move_toward(_fox_screen_position.x, _ball_screen_position.x, trot_speed * delta)
+			var ball_dx_before := _ball_screen_position.x - _fox_screen_position.x
+			var chase_x := _ball_chase_target_x()
+			var chase_dx_before := chase_x - _fox_screen_position.x
+			_fox.call("set_facing", _pounce_direction(chase_dx_before, ball_dx_before))
+			_fox_screen_position.x = move_toward(_fox_screen_position.x, chase_x, _current_chase_speed() * delta)
 			_fox_velocity.x = 0.0
-			var dx_after := _ball_screen_position.x - _fox_screen_position.x
-			var reached_ball := absf(dx_after) <= _chase_reached_distance()
+			var ball_dx_after := _ball_screen_position.x - _fox_screen_position.x
+			var reached_ball := absf(ball_dx_after) <= _chase_reached_distance()
 			var ball_ready := _ball_ready_for_pounce()
-			if ball_ready and (absf(dx_before) <= pounce_range or absf(dx_after) <= pounce_range):
-				_begin_pounce(_pounce_direction(dx_before, dx_after))
+			if ball_ready and (absf(ball_dx_before) <= pounce_range or absf(ball_dx_after) <= pounce_range):
+				_begin_pounce(_pounce_direction(ball_dx_before, ball_dx_after))
+			elif _player_throw_chase_timer > 0.0 and _ball_ready_for_moving_pounce(ball_dx_after):
+				_begin_pounce(_pounce_direction(ball_dx_before, ball_dx_after))
 			elif reached_ball and not _ball_dragging:
 				_chase_reached_timer += delta
 				if _chase_reached_timer >= CHASE_STUCK_SECONDS and _ball_can_be_forced_to_rest():
 					_ball_screen_position.y = _ball_floor_y(_ball_px)
 					_ball_velocity = Vector2.ZERO
 					_ball_resting = true
-					_begin_pounce(_pounce_direction(dx_before, dx_after))
+					_begin_pounce(_pounce_direction(ball_dx_before, ball_dx_after))
 			else:
 				_chase_reached_timer = 0.0
 			return false
@@ -319,15 +339,41 @@ func _update_ball_play(delta: float) -> bool:
 			return false
 		"gap":
 			_gap_timer -= delta
-			# Wait for the ball to settle before chasing it again.
-			if _gap_timer <= 0.0 and _ball_active and _ball_resting and not _ball_dragging:
+			# Player throws get chased while they bounce; autonomous play waits
+			# for the ball to settle before looping back in.
+			if _ball_active and not _ball_dragging and (_player_throw_chase_timer > 0.0 or (_gap_timer <= 0.0 and _ball_resting)):
 				_begin_chase()
 			return false
 	return false
 
 
+func _current_chase_speed() -> float:
+	if _player_throw_chase_timer > 0.0:
+		return trot_speed * thrown_chase_speed_multiplier
+	return trot_speed
+
+
+func _ball_chase_target_x() -> float:
+	var target_x := _ball_screen_position.x
+	if _player_throw_chase_timer > 0.0 and not _ball_resting:
+		target_x += _ball_velocity.x * thrown_chase_lead_seconds
+	var rect := _get_target_screen_rect()
+	var half := _fox_visual_half()
+	return clampf(target_x, float(rect.position.x) + half.x, float(rect.end.x) - half.x)
+
+
 func _ball_ready_for_pounce() -> bool:
 	return _ball_resting and not _ball_dragging and _fox_ready_to_pounce()
+
+
+func _ball_ready_for_moving_pounce(ball_dx: float) -> bool:
+	if _ball_dragging or _ball_resting or not _fox_ready_to_pounce():
+		return false
+	var floor_y := _ball_floor_y(_ball_px)
+	var floor_distance := absf(_ball_screen_position.y - floor_y)
+	var floor_window := maxf(_ball_radius() * 1.35, pounce_height * _fox_pixel_scale() * 0.45)
+	var not_rising_fast := _ball_velocity.y >= -ball_rest_threshold * 2.0
+	return absf(ball_dx) <= pounce_range * 0.7 and floor_distance <= floor_window and not_rising_fast
 
 
 func _ball_can_be_forced_to_rest() -> bool:
@@ -369,6 +415,7 @@ func _begin_pounce(direction: float) -> void:
 	_pounce_peak = pounce_height * _fox_pixel_scale()
 	_fox.call("set_facing", direction)
 	_fox.call("play_pounce", pounce_duration)
+	Achievements.on_ball_chased()
 
 
 func _floor_center_y() -> float:
@@ -427,6 +474,7 @@ func _ball_local_hits(local_position: Vector2) -> bool:
 func _start_ball_drag(mouse_screen_position: Vector2) -> void:
 	_ball_dragging = true
 	_ball_resting = false
+	_player_throw_chase_timer = 0.0
 	_ball_drag_offset = _ball_screen_position - mouse_screen_position
 	_ball_velocity = Vector2.ZERO
 	if is_instance_valid(_fox):
@@ -437,6 +485,16 @@ func _release_ball_drag() -> void:
 	_ball_dragging = false
 	_ball_resting = false
 	_ball_velocity = (_mouse_velocity * ball_throw_boost).limit_length(ball_max_throw_speed)
+	_begin_player_throw_chase()
+
+
+func _begin_player_throw_chase() -> void:
+	if _activity != "break" or not _ball_active or not is_instance_valid(_fox):
+		return
+	_player_throw_chase_timer = thrown_chase_seconds
+	_chase_reached_timer = 0.0
+	if _play_state in ["none", "trot", "settle", "gap"]:
+		_begin_chase()
 
 
 func _update_ball_physics(delta: float, mouse_screen_position: Vector2) -> void:
@@ -495,17 +553,8 @@ func _ball_radius() -> float:
 func _ensure_ball_window() -> void:
 	if is_instance_valid(_ball_window):
 		return
-	var window := Window.new()
-	window.name = "FocusFoxBall"
-	window.borderless = true
-	window.always_on_top = true
-	window.transparent = true
-	window.transparent_bg = true
-	window.unresizable = true
-	window.gui_embed_subwindows = false
-	window.visible = false
+	var window := OverlayWindow.create(overlay_host, "FocusFoxBall", Vector2i(64, 64))
 	window.window_input.connect(handle_ball_input)
-	add_child(window)
 	var root := Node2D.new()
 	root.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	window.add_child(root)
@@ -541,6 +590,7 @@ func _spawn_ball() -> void:
 	_ball_dragging = false
 	_ball_active = true
 	_ball_window.show()
+	OverlayWindow.claim(_ball_window)
 	_apply_ball_passthrough()
 	_sync_ball_window()
 
@@ -682,20 +732,10 @@ func _get_fox_click_polygon() -> PackedVector2Array:
 func _create_overlay_window() -> void:
 	if is_instance_valid(_overlay_window):
 		return
-	var window := Window.new()
-	window.name = "FocusFoxOverlay"
-	window.size = _get_window_size_for_scale()
-	window.borderless = true
-	window.always_on_top = true
-	window.transparent = true
-	window.transparent_bg = true
-	window.unresizable = true
-	window.gui_embed_subwindows = false
+	var window := OverlayWindow.create(overlay_host, "FocusFoxOverlay", _get_window_size_for_scale())
 	window.position = _get_offscreen_overlay_position()
-	window.visible = false
 	window.close_requested.connect(despawn_fox)
 	window.window_input.connect(handle_overlay_input)
-	add_child(window)
 
 	var root := Node2D.new()
 	root.name = "OverlayWorld"

@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 Audio="*res://src/world/audio.gd"
+Achievements="*res://src/world/achievement_store.gd"
 
 [display]
 

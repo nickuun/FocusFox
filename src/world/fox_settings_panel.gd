@@ -6,6 +6,12 @@ class_name FoxSettingsPanel
 ## can keep adding rows without running out of vertical room.
 
 const FONT := preload("res://assets/not_sprites/pixel_operator/PixelOperator.ttf")
+const SLIDER_EMPTY_TEXTURE := preload("res://assets/settings/slider/Empty Slider.png")
+const SLIDER_FULL_TEXTURE := preload("res://assets/settings/slider/Full Slider.png")
+const SLIDER_GRABBER_TEXTURE := preload("res://assets/settings/slider/Nodge.png")
+const TOGGLE_DISABLED_TEXTURE := preload("res://assets/settings/toggle buttons/Dark Outline Disabled.png")
+const TOGGLE_ENABLED_TEXTURE := preload("res://assets/settings/toggle buttons/Dark Outline Enabled.png")
+const EXIT_BUTTON_TEXTURE := preload("res://assets/settings/exit/Exit Button.png")
 
 const PANEL_BG := Color("2e1f14")
 const PANEL_BORDER := Color("7a5230")
@@ -19,7 +25,7 @@ const RIGHT := 348.0
 const CTRL_X := 176.0
 
 # Exposed controls
-var close_button: Button
+var close_button: BaseButton
 var scale_slider: HSlider
 var opacity_slider: HSlider
 var liveliness_slider: HSlider
@@ -52,12 +58,13 @@ func _build() -> void:
 	# Fixed title bar (outside the scroll area).
 	_host = self
 	_header("Settings", 14, 30)
-	close_button = Button.new()
-	close_button.text = "X"
-	close_button.position = Vector2(310, 16)
-	close_button.size = Vector2(38, 34)
+	close_button = TextureButton.new()
+	close_button.texture_normal = EXIT_BUTTON_TEXTURE
+	close_button.texture_hover = EXIT_BUTTON_TEXTURE
+	close_button.texture_pressed = EXIT_BUTTON_TEXTURE
+	close_button.position = Vector2(306, 8)
+	close_button.size = Vector2(50, 50)
 	close_button.focus_mode = Control.FOCUS_NONE
-	_font_on(close_button, 22)
 	add_child(close_button)
 
 	# Scrolling body.
@@ -99,7 +106,7 @@ func _build() -> void:
 	long_length_slider = _hslider(346, 5.0, 45.0, 5.0, 15.0)
 
 	_header("Sound", 378)
-	mute_toggle = _toggle("Mute all sound", 408)
+	mute_toggle = _toggle("Mute all sounds", 408)
 	_row_label("Volume", 444)
 	volume_slider = _hslider(446, 0.0, 1.0, 0.05, 0.8)
 
@@ -148,14 +155,32 @@ func _row_label(text: String, y: float) -> Label:
 func _hslider(y: float, mn: float, mx: float, step: float, val: float) -> HSlider:
 	var s := HSlider.new()
 	s.position = Vector2(CTRL_X, y)
-	s.size = Vector2(RIGHT - CTRL_X, 22)
+	s.size = Vector2(RIGHT - CTRL_X, 24)
+	s.custom_minimum_size = Vector2(0, 24)
 	s.focus_mode = Control.FOCUS_NONE
 	s.min_value = mn
 	s.max_value = mx
 	s.step = step
 	s.value = val
+	s.scrollable = false
+	s.add_theme_stylebox_override("slider", _slider_box(SLIDER_EMPTY_TEXTURE))
+	s.add_theme_stylebox_override("grabber_area", _slider_box(SLIDER_FULL_TEXTURE))
+	s.add_theme_stylebox_override("grabber_area_highlight", _slider_box(SLIDER_FULL_TEXTURE))
+	s.add_theme_icon_override("grabber", SLIDER_GRABBER_TEXTURE)
+	s.add_theme_icon_override("grabber_highlight", SLIDER_GRABBER_TEXTURE)
+	s.add_theme_icon_override("grabber_disabled", SLIDER_GRABBER_TEXTURE)
 	_host.add_child(s)
 	return s
+
+
+func _slider_box(texture: Texture2D) -> StyleBoxTexture:
+	var sb := StyleBoxTexture.new()
+	sb.texture = texture
+	sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	sb.content_margin_top = texture.get_height()
+	sb.content_margin_bottom = 0
+	return sb
 
 
 func _toggle(text: String, y: float) -> CheckButton:
@@ -163,8 +188,13 @@ func _toggle(text: String, y: float) -> CheckButton:
 	t.text = text
 	t.position = Vector2(LEFT, y)
 	t.size = Vector2(RIGHT - LEFT, 32)
+	t.custom_minimum_size = Vector2(0, 32)
 	t.focus_mode = Control.FOCUS_NONE
 	t.add_theme_color_override("font_color", LABEL)
+	t.add_theme_icon_override("checked", TOGGLE_ENABLED_TEXTURE)
+	t.add_theme_icon_override("checked_disabled", TOGGLE_ENABLED_TEXTURE)
+	t.add_theme_icon_override("unchecked", TOGGLE_DISABLED_TEXTURE)
+	t.add_theme_icon_override("unchecked_disabled", TOGGLE_DISABLED_TEXTURE)
 	_font_on(t, 18)
 	_host.add_child(t)
 	return t
