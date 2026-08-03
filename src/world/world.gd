@@ -78,7 +78,8 @@ var _den: Den
 var _reset_dialog: ConfirmationDialog
 var _journal_open := false
 var _intro_running := false
-var _overlay_host: Window         # owns the fox/ball windows; see OverlayWindow
+var _launcher_parked := false           # tucked off-screen into the tray
+var _launcher_home := Vector2i.ZERO     # on-screen position to restore it to
 var _session_started_at := 0
 var _session_minutes := {"focus": 25.0, "short": 5.0, "long": 15.0}
 var _cycle_focus_count := 0  # completed focus sessions in the current Pomodoro set
@@ -99,7 +100,7 @@ func _ready() -> void:
 	_stats.load()
 	Achievements.on_first_launch()
 	_setup_launcher_window()
-	_setup_overlay_host()
+	_setup_overlay_owner()
 	_setup_save()
 	_setup_clock()
 	_setup_tray()
@@ -135,6 +136,7 @@ func _notification(what: int) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_keep_launcher_unminimized()
 	_desktop_fox.physics_step(delta)
 
 
@@ -189,13 +191,17 @@ func _setup_launcher_window() -> void:
 			DisplayServer.set_icon(icon_image)
 
 
-func _setup_overlay_host() -> void:
-	# One invisible window owns every desktop overlay, so the fox is unaffected by
-	# whatever happens to the launcher. It costs the app's one extra alt-tab entry;
-	# activating that entry opens the launcher rather than doing nothing.
-	_overlay_host = OverlayWindow.create_host(self)
-	_overlay_host.focus_entered.connect(_show_launcher)
-	_desktop_fox.overlay_host = _overlay_host
+func _setup_overlay_owner() -> void:
+	# The launcher owns every desktop overlay, which keeps the fox and the ball out
+	# of the taskbar and alt-tab and keeps the whole app down to a single entry —
+	# any other owner would need an entry of its own. The price is that the launcher
+	# can never truly minimize; see _hide_to_tray.
+	_launcher_home = get_window().position
+	_desktop_fox.overlay_owner = get_window()
+	# That single entry stays in the taskbar and alt-tab while the launcher is parked
+	# off-screen, so activating it has to bring the launcher back — otherwise clicking
+	# our own taskbar button would appear to do nothing.
+	get_window().focus_entered.connect(_on_launcher_focus_entered)
 
 
 func _setup_menu_nodes() -> void:
@@ -449,24 +455,52 @@ func _on_clock_finished() -> void:
 
 
 func _hide_to_tray() -> void:
-	# A plain minimize. Safe because the overlays are owned by the off-screen host
-	# window, not by the launcher — Windows hides a window's owned children when it
-	# is minimized, so if the launcher owned them the fox would vanish every time
-	# you tucked the launcher away. The tray icon is the way back.
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
+	# Parked off-screen rather than minimized: the launcher owns the overlay windows
+	# and Windows hides a window's owned children when it is minimized, so a real
+	# minimize would take the fox down with it. The tray icon is the way back.
+	if _launcher_parked:
+		return
+	_launcher_home = get_window().position
+	_launcher_parked = true
+	get_window().position = OverlayWindow.offscreen_point()
 	_update_tray()
 
 
 func _show_launcher() -> void:
 	if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_MINIMIZED:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	if _launcher_parked:
+		_launcher_parked = false
+		get_window().position = _launcher_home
 	get_window().move_to_foreground()
 	DisplayServer.window_request_attention()
 	_update_tray()
 
 
+func _on_launcher_focus_entered() -> void:
+	if _launcher_parked:
+		_show_launcher()
+
+
+func _keep_launcher_unminimized() -> void:
+	# Nothing in the app minimizes the launcher, but the OS still can — Win+D,
+	# show-desktop, or clicking our taskbar button while it has focus — and that
+	# would hide the fox along with it. Un-minimize immediately: while parked the
+	# launcher is invisible anyway, so the restore costs nothing on screen, and a
+	# minimize the user asked for is honoured by tucking it to the tray instead.
+	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_MINIMIZED:
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	if _launcher_parked:
+		# The restore puts it back on screen; park it again.
+		get_window().position = OverlayWindow.offscreen_point()
+	else:
+		_hide_to_tray()
+	_desktop_fox.reassert_overlays()
+
+
 func _is_launcher_open() -> bool:
-	return DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_MINIMIZED
+	return not _launcher_parked and DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_MINIMIZED
 
 
 # --- System tray -----------------------------------------------------------

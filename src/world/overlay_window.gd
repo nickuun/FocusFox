@@ -21,43 +21,23 @@ class_name OverlayWindow
 ##      owned — and each one keeps its own mouse-passthrough region, so they all
 ##      stay independently clickable.
 ##
-## The owner must be the host window from create_host(), never the launcher. See
-## create_host() for why.
-
-
-## Creates the window that owns every overlay. It is 1x1, parked off every monitor
-## and never drawn to; its only job is to be an owner that the user can't touch.
+## The owner is the launcher (the root window). That keeps the app to a single
+## taskbar/alt-tab entry, which is the whole point — an owner window that is not
+## already in the taskbar does not exist, since anything unowned and visible gets
+## an entry of its own. The catch is that Windows hides a window's owned children
+## whenever the owner is minimized, so the launcher must never actually minimize
+## while the fox is out; World parks it off-screen instead and un-minimizes it if
+## the OS minimizes it behind our back. See World._hide_to_tray.
 ##
-## Windows hides a window's owned children whenever that window is minimized. The
-## launcher therefore cannot be the owner: minimizing it to check the timer, or to
-## get it out of the way, would take the fox down with it. The host is never
-## minimized, so the fox survives anything that happens to the launcher.
-##
-## The cost is one extra taskbar/alt-tab entry, because an unowned visible window
-## always gets one — and the host has to stay unowned, otherwise a launcher
-## minimize would cascade through it to the overlays. Callers should hook its
-## focus_entered so that activating that entry opens the launcher.
-static func create_host(parent: Node) -> Window:
-	var host := Window.new()
-	host.name = "OverlayHost"
-	host.title = "Focus Fox"
-	host.size = Vector2i(1, 1)
-	host.borderless = true
-	host.transparent = true
-	host.transparent_bg = true
-	host.unresizable = true
-	host.gui_embed_subwindows = false
-	host.visible = false
-	parent.add_child(host)
-	host.position = offscreen_point()
-	host.show()
-	return host
+## Escaping that constraint entirely needs WS_EX_TOOLWINDOW, which needs native
+## code — with it the overlays would need no owner at all and this whole
+## transient/exclusive dance could go away.
 
 
 ## Creates a hidden, borderless, transparent, always-on-top overlay window that
-## carries no taskbar or alt-tab presence. `host` must be the create_host() window.
-## Call claim() after each show().
-static func create(host: Window, node_name: String, size: Vector2i) -> Window:
+## carries no taskbar or alt-tab presence. `owner_window` must be the launcher
+## (root) window. Call claim() after each show().
+static func create(owner_window: Window, node_name: String, size: Vector2i) -> Window:
 	var window := Window.new()
 	window.name = node_name
 	# Never shown to the user (owned windows are absent from the taskbar and
@@ -74,9 +54,9 @@ static func create(host: Window, node_name: String, size: Vector2i) -> Window:
 	# Never taking focus means clicking the fox doesn't pull you out of whatever
 	# you were working on — it still receives mouse events, it just won't activate.
 	window.set_flag(Window.FLAG_NO_FOCUS, true)
-	# Parenting under the host is what makes the host the transient parent, and so
+	# Parenting under the launcher is what makes it the transient parent, and so
 	# the owner, of this window.
-	host.add_child(window)
+	owner_window.add_child(window)
 	# Only valid once the window exists, i.e. after it has entered the tree.
 	window.transient = true
 	return window

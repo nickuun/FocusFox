@@ -52,9 +52,10 @@ var click_through_enabled := false
 var hover_fade_enabled := false
 var body_speed_multiplier := 1.0
 
-## The window that owns every overlay, so they stay out of the taskbar without
-## being at the mercy of the launcher being minimized. Set by World before use.
-var overlay_host: Window
+## The window that owns every overlay, so they stay out of the taskbar and
+## alt-tab. This is the launcher (root) window; see OverlayWindow. Set by World
+## before use.
+var overlay_owner: Window
 
 var _overlay_window: Window
 var _overlay_root: Node2D
@@ -553,7 +554,7 @@ func _ball_radius() -> float:
 func _ensure_ball_window() -> void:
 	if is_instance_valid(_ball_window):
 		return
-	var window := OverlayWindow.create(overlay_host, "FocusFoxBall", Vector2i(64, 64))
+	var window := OverlayWindow.create(overlay_owner, "FocusFoxBall", Vector2i(64, 64))
 	window.window_input.connect(handle_ball_input)
 	var root := Node2D.new()
 	root.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -644,6 +645,27 @@ func _sync_ball_window() -> void:
 		_ball_window.position = Vector2i((_ball_screen_position - Vector2(_ball_window.size) * 0.5).round())
 
 
+## Rebuilds the overlay OS windows and re-claims their ownership. Windows hides a
+## window's owned children while the owner is minimized and Godot never learns
+## about it, so re-showing is the only reliable way back. World calls this after it
+## un-minimizes the launcher behind the OS's back (Win+D, show-desktop). Rare
+## enough that the cost of recreating the windows doesn't matter.
+func reassert_overlays() -> void:
+	if not is_instance_valid(_fox) or not is_instance_valid(_overlay_window):
+		return
+	_overlay_window.hide()
+	_overlay_window.show()
+	OverlayWindow.claim(_overlay_window)
+	if _ball_active and is_instance_valid(_ball_window):
+		_ball_window.hide()
+		_ball_window.show()
+		OverlayWindow.claim(_ball_window)
+	# Recreated windows lose their passthrough region and position.
+	_apply_click_through_mode()
+	_sync_overlay_window()
+	_sync_ball_window()
+
+
 func reset_fox_position() -> void:
 	if not is_instance_valid(_fox):
 		return
@@ -732,7 +754,7 @@ func _get_fox_click_polygon() -> PackedVector2Array:
 func _create_overlay_window() -> void:
 	if is_instance_valid(_overlay_window):
 		return
-	var window := OverlayWindow.create(overlay_host, "FocusFoxOverlay", _get_window_size_for_scale())
+	var window := OverlayWindow.create(overlay_owner, "FocusFoxOverlay", _get_window_size_for_scale())
 	window.position = _get_offscreen_overlay_position()
 	window.close_requested.connect(despawn_fox)
 	window.window_input.connect(handle_overlay_input)
