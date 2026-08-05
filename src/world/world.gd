@@ -27,6 +27,7 @@ const DEFAULT_MINUTES := {"focus": 25, "short": 5, "long": 15}
 const CLOCK_DIAL_INTRO_SECONDS := 0.28
 const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 
+@onready var _menu_layer: CanvasLayer = $MenuLayer
 @onready var _desktop_fox: DesktopFox = $DesktopFox
 @onready var _preview_fox: RigidBody2D = $MenuLayer/MainMenu/PreviewFox
 
@@ -49,7 +50,9 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 @onready var _task_input: LineEdit = $MenuLayer/MainMenu/TaskInput
 
 @onready var _settings_icon_button: TextureButton = $MenuLayer/MainMenu/SettingsIconButton
-@onready var _settings_panel: FoxSettingsPanel = $MenuLayer/MainMenu/SettingsPanel
+## A sibling of MainMenu rather than a child of it, so the scrim can be slipped
+## between the two — see _setup_settings_scrim().
+@onready var _settings_panel: FoxSettingsPanel = $MenuLayer/SettingsPanel
 
 @onready var _main_menu: Node2D = $MenuLayer/MainMenu
 @onready var _background: Sprite2D = $MenuLayer/MainMenu/Background
@@ -60,6 +63,12 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 @onready var _journal_icon: TextureButton = $MenuLayer/JournalIcon
 @onready var _journal_panel: JournalPanel = $MenuLayer/JournalPanel
 @onready var _clock_dial: Sprite2D = $MenuLayer/ClockDial
+
+const SCRIM_SHADER := preload("res://src/world/settings_scrim.gdshader")
+## Above everything else in MenuLayer (the journal icon is the highest at 100) and
+## below the settings panel, which is lifted to 120 in world.tscn to make room.
+const SCRIM_Z := 110
+const SCRIM_FADE := 0.16
 
 const JOURNAL_ICON := preload("res://assets/main_menu/icons/journal-icon.png")
 const HOME_ICON := preload("res://assets/main_menu/icons/home-icon.png")
@@ -78,6 +87,8 @@ var _den: Den
 var _reset_dialog: ConfirmationDialog
 var _journal_open := false
 var _intro_running := false
+var _settings_scrim: ColorRect          # blurs + darkens the menu behind the settings panel
+var _scrim_tween: Tween
 var _launcher_parked := false           # tucked off-screen into the tray
 var _launcher_home := Vector2i.ZERO     # on-screen position to restore it to
 var _session_started_at := 0
@@ -104,14 +115,12 @@ func _ready() -> void:
 	_setup_save()
 	_setup_clock()
 	_setup_tray()
+	_setup_settings_scrim()
 	_setup_menu_nodes()
 	_configure_desktop_fox()
 	_load_settings()
 	_desktop_fox.initialize()
-	_preview_fox.freeze = true
-	_preview_fox.call("set_highlight", false, _desktop_fox.hover_modulate)
-	_desktop_fox.apply_cosmetics_to(_preview_fox)
-	_preview_fox.modulate.a = _desktop_fox.fox_opacity
+	_apply_cosmetics_to_previews()
 	_clock_dial_base_scale = _clock_dial.scale
 	_set_mode(Mode.HOME)
 	_refresh_ui()
@@ -165,6 +174,39 @@ func _setup_tray() -> void:
 	_tray.pause_toggle_requested.connect(_on_tray_pause)
 	_tray.fox_toggle_requested.connect(_on_tray_fox_toggle)
 	_tray.quit_requested.connect(_on_tray_quit)
+
+
+func _setup_settings_scrim() -> void:
+	# Sits in MenuLayer rather than inside MainMenu so it can cover the nodes that
+	# live outside the menu too — the clock dial and the journal icon.
+	_settings_scrim = ColorRect.new()
+	_settings_scrim.name = "SettingsScrim"
+	var mat := ShaderMaterial.new()
+	mat.shader = SCRIM_SHADER
+	_settings_scrim.material = mat
+	_settings_scrim.z_index = SCRIM_Z
+	_settings_scrim.visible = false
+	_settings_scrim.modulate.a = 0.0
+	# Swallows clicks, so the menu behind can't be poked at while settings are open.
+	_settings_scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_menu_layer.add_child(_settings_scrim)
+	_settings_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Input picking walks the tree back-to-front and ignores z_index entirely, so a
+	# full-screen blocker eats the clicks of anything that isn't after it. The panel
+	# has to be the last child of MenuLayer for its own controls to stay usable.
+	_menu_layer.move_child(_settings_panel, -1)
+
+
+func _set_scrim_visible(shown: bool) -> void:
+	if _scrim_tween != null and _scrim_tween.is_valid():
+		_scrim_tween.kill()
+	if shown:
+		_settings_scrim.visible = true
+	_scrim_tween = create_tween()
+	_scrim_tween.tween_property(_settings_scrim, "modulate:a", 1.0 if shown else 0.0, SCRIM_FADE)
+	if not shown:
+		# Keep it out of the way of input once it's faded out.
+		_scrim_tween.tween_callback(func() -> void: _settings_scrim.visible = false)
 
 
 func _setup_launcher_window() -> void:
@@ -225,6 +267,7 @@ func _setup_menu_nodes() -> void:
 	_settings_panel.long_length_slider.value_changed.connect(_on_length_changed.bind("long"))
 	_settings_panel.mute_toggle.toggled.connect(_on_mute_toggled)
 	_settings_panel.volume_slider.value_changed.connect(_on_volume_changed)
+	_settings_panel.ambience_slider.value_changed.connect(_on_ambience_changed)
 	_settings_panel.reset_data_button.pressed.connect(_on_reset_data_pressed)
 	for option in COLOUR_OPTIONS:
 		_settings_panel.colour_option.add_item(option["label"])
@@ -577,6 +620,7 @@ func _save_settings() -> void:
 	cfg.set_value("pomodoro", "long", _session_minutes["long"])
 	cfg.set_value("audio", "muted", Audio.muted)
 	cfg.set_value("audio", "volume", Audio.volume)
+	cfg.set_value("audio", "ambience", Audio.ambience_volume)
 	cfg.save(SETTINGS_PATH)
 
 
@@ -593,6 +637,7 @@ func _load_settings() -> void:
 		_session_minutes[id] = float(cfg.get_value("pomodoro", id, _session_minutes[id]))
 	Audio.set_muted(bool(cfg.get_value("audio", "muted", Audio.muted)))
 	Audio.set_volume(float(cfg.get_value("audio", "volume", Audio.volume)))
+	Audio.set_ambience_volume(float(cfg.get_value("audio", "ambience", Audio.ambience_volume)))
 
 
 func _update_fox_activity() -> void:
@@ -621,13 +666,16 @@ func _on_settings_pressed() -> void:
 	if _journal_open:
 		_set_journal_open(false)
 	Audio.play("open")
+	_settings_panel.reset_to_first_tab()
 	_settings_panel.visible = true
+	_set_scrim_visible(true)
 
 
 func _hide_settings_panel() -> void:
 	if _settings_panel.visible:
 		Audio.play("close")
 	_settings_panel.visible = false
+	_set_scrim_visible(false)
 
 
 # --- Journal ---------------------------------------------------------------
@@ -703,18 +751,11 @@ func _refresh_session_buttons() -> void:
 	_long_choice_label.text = "Long break · %dm" % int(_session_minutes["long"])
 
 
-func _refresh_settings_length_labels() -> void:
-	_settings_panel.focus_length_label.text = "Focus  %dm" % int(_session_minutes["focus"])
-	_settings_panel.short_length_label.text = "Short break  %dm" % int(_session_minutes["short"])
-	_settings_panel.long_length_label.text = "Long break  %dm" % int(_session_minutes["long"])
-
-
 func _on_length_changed(value: float, id: String) -> void:
 	if _syncing_ui:
 		return
 	_session_minutes[id] = roundf(value)
 	_refresh_session_buttons()
-	_refresh_settings_length_labels()
 	Achievements.on_setting_changed()
 	_request_save()
 
@@ -736,6 +777,14 @@ func _on_volume_changed(value: float) -> void:
 	Audio.set_volume(value)
 	if not _syncing_ui:
 		Audio.play("click")
+	Achievements.on_setting_changed()
+	_request_save()
+
+
+func _on_ambience_changed(value: float) -> void:
+	if _syncing_ui:
+		return
+	Audio.set_ambience_volume(value)
 	Achievements.on_setting_changed()
 	_request_save()
 
@@ -809,11 +858,25 @@ func _play_intro() -> void:
 	_intro_running = false
 
 
+## Both preview foxes — the one posing on the menu and the one in the settings panel's
+## preview box — wear whatever the desktop fox is wearing.
+func _apply_cosmetics_to_previews() -> void:
+	for fox in [_preview_fox, _settings_panel.preview_fox]:
+		if not is_instance_valid(fox):
+			continue
+		fox.freeze = true
+		fox.call("set_highlight", false, _desktop_fox.hover_modulate)
+		_desktop_fox.apply_cosmetics_to(fox)
+		fox.modulate.a = _desktop_fox.fox_opacity
+	# apply_cosmetics_to() changes the body scale, which the preview box divides out.
+	_settings_panel.fit_preview()
+
+
 func _on_scale_changed(value: float) -> void:
 	if _syncing_ui:
 		return
 	_desktop_fox.fox_scale = maxf(1.0, roundf(value))
-	_desktop_fox.apply_cosmetics_to(_preview_fox)
+	_apply_cosmetics_to_previews()
 	_desktop_fox.apply_visual_settings()
 	_refresh_ui()
 	Achievements.on_setting_changed()
@@ -825,7 +888,7 @@ func _on_opacity_changed(value: float) -> void:
 		return
 	_desktop_fox.fox_opacity = value
 	_desktop_fox.apply_visual_settings()
-	_preview_fox.modulate.a = value
+	_apply_cosmetics_to_previews()
 	Achievements.on_setting_changed()
 	_request_save()
 
@@ -834,7 +897,7 @@ func _on_liveliness_changed(value: float) -> void:
 	if _syncing_ui:
 		return
 	_desktop_fox.body_speed_multiplier = value
-	_desktop_fox.apply_cosmetics_to(_preview_fox)
+	_apply_cosmetics_to_previews()
 	_desktop_fox.apply_visual_settings()
 	Achievements.on_setting_changed()
 	_request_save()
@@ -844,7 +907,7 @@ func _on_colour_selected(index: int) -> void:
 	if _syncing_ui or index < 0 or index >= COLOUR_OPTIONS.size():
 		return
 	_desktop_fox.fox_palette = COLOUR_OPTIONS[index]["key"]
-	_desktop_fox.apply_cosmetics_to(_preview_fox)
+	_apply_cosmetics_to_previews()
 	_desktop_fox.apply_visual_settings()
 	Achievements.on_colour_changed(COLOUR_OPTIONS[index]["key"])
 	_request_save()
@@ -878,9 +941,8 @@ func _on_reset_all_pressed() -> void:
 	_configure_desktop_fox()
 	for id in _session_minutes:
 		_session_minutes[id] = float(DEFAULT_MINUTES[id])
-	_desktop_fox.apply_cosmetics_to(_preview_fox)
+	_apply_cosmetics_to_previews()
 	_desktop_fox.apply_visual_settings()
-	_preview_fox.modulate.a = _desktop_fox.fox_opacity
 	_refresh_ui()
 	_refresh_session_buttons()
 	_request_save()
@@ -910,7 +972,7 @@ func _refresh_ui() -> void:
 	_settings_panel.long_length_slider.value = _session_minutes["long"]
 	_settings_panel.mute_toggle.button_pressed = Audio.muted
 	_settings_panel.volume_slider.value = Audio.volume
-	_refresh_settings_length_labels()
+	_settings_panel.ambience_slider.value = Audio.ambience_volume
 	var palette_index := 0
 	for i in COLOUR_OPTIONS.size():
 		if COLOUR_OPTIONS[i]["key"] == _desktop_fox.fox_palette:

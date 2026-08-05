@@ -76,5 +76,9 @@ func set_muted(value: bool) -> void:
 
 func set_volume(value: float) -> void:
 	volume = clampf(value, 0.0, 1.0)
+
+
+func set_ambience_volume(value: float) -> void:
+	ambience_volume = clampf(value, 0.0, 1.0)
 	if _ambient.playing:
 		_ambient.volume_db = linear_to_db(clampf(ambience_volume, 0.0001, 1.0))
