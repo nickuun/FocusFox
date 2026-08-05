@@ -63,6 +63,8 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 @onready var _journal_icon: TextureButton = $MenuLayer/JournalIcon
 @onready var _journal_panel: JournalPanel = $MenuLayer/JournalPanel
 @onready var _clock_dial: Sprite2D = $MenuLayer/ClockDial
+## Slides in over the button row, so it and the buttons are mutually exclusive.
+@onready var _den_inventory: DenInventory = $MenuLayer/DenInventory
 
 const SCRIM_SHADER := preload("res://src/world/settings_scrim.gdshader")
 ## Above everything else in MenuLayer (the journal icon is the highest at 100) and
@@ -292,7 +294,20 @@ func _setup_den() -> void:
 	_den = Den.new()
 	_den.name = "Den"
 	_main_menu.add_child(_den)
+	# The drawer is where finds come from and where they go back to, so the two
+	# only ever talk through these three wires.
+	_den.store_zone = _den_inventory.contains_point
+	_den.placement_changed.connect(_refresh_den_inventory)
+	_den_inventory.place_requested.connect(_on_den_place_requested)
 	_den.refresh(_stats.total_focus(), false)
+
+
+func _refresh_den_inventory() -> void:
+	_den_inventory.refresh(_den.unlocked_entries())
+
+
+func _on_den_place_requested(id: String, at: Vector2) -> void:
+	_den.place(id, at)
 
 
 func _configure_desktop_fox() -> void:
@@ -484,7 +499,7 @@ func _on_clock_finished() -> void:
 	Audio.play("complete")
 	_refresh_stats_bar()
 	if _journal_open:
-		_journal_panel.refresh(_stats)
+		_journal_panel.refresh(_stats, _den)
 	if _den != null:
 		_den.refresh(_stats.total_focus(), true)
 	_minimize_token += 1
@@ -665,6 +680,7 @@ func _on_settings_pressed() -> void:
 		return
 	if _journal_open:
 		_set_journal_open(false)
+	_den_inventory.set_open(false)
 	Audio.play("open")
 	_settings_panel.reset_to_first_tab()
 	_settings_panel.visible = true
@@ -691,7 +707,12 @@ func _set_journal_open(open: bool) -> void:
 	Audio.play("open" if open else "close")
 	if open:
 		_hide_settings_panel()
-		_journal_panel.refresh(_stats)
+		_den_inventory.set_open(false)
+		_journal_panel.refresh(_stats, _den)
+	# The journal covers the whole window and sits above the drawer, so the drawer
+	# has to go away entirely — left visible its pull tab would still take clicks
+	# from behind the journal.
+	_den_inventory.visible = not open
 	_journal_panel.visible = open
 	_journal_icon.texture_normal = HOME_ICON if open else JOURNAL_ICON
 
@@ -804,13 +825,14 @@ func _do_reset_data() -> void:
 	_last_completed = ""
 	_current_task = ""
 	_task_input.text = ""
+	_den_inventory.set_open(false)
 	if _den != null:
 		_den.reset_layout()
 		_den.refresh(0.0, false)
 	_on_reset_all_pressed()  # fox cosmetics + session lengths back to defaults (+ saves)
 	_refresh_stats_bar()
 	if _journal_open:
-		_journal_panel.refresh(_stats)
+		_journal_panel.refresh(_stats, _den)
 	Audio.play("complete")
 
 
@@ -825,12 +847,16 @@ func _play_intro() -> void:
 			continue
 		fade_targets.append(child)
 	fade_targets.append(_journal_icon)
+	fade_targets.append(_den_inventory)
 
 	# Remember each node's resting alpha (the preview fox carries its opacity).
 	var rest := {}
 	for n in fade_targets:
 		rest[n] = (n as CanvasItem).modulate.a
 		(n as CanvasItem).modulate.a = 0.0
+	# A transparent Control still answers the mouse, so the drawer's pull tab has
+	# to be gone rather than merely invisible until the menu has arrived.
+	_den_inventory.visible = false
 
 	var title_scale: Vector2 = _title.scale
 	_title.modulate.a = 0.0
@@ -850,6 +876,7 @@ func _play_intro() -> void:
 	_title.visible = false
 
 	# Phase 3 — the rest of the menu blooms in (title stays hidden).
+	_den_inventory.visible = true
 	var t3 := create_tween().set_parallel(true)
 	for n in fade_targets:
 		t3.tween_property(n, "modulate:a", rest[n], 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)

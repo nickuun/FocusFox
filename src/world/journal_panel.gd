@@ -19,13 +19,6 @@ const RUST := Color("b6502e")
 const BLUE := Color("3f6ea3")
 
 const DAY_NAMES := ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-const DEN_FINDS := [
-	"a lamp", "a soft rug", "a bookshelf", "a cozy blanket",
-	"a potted fern", "a little painting", "a warm cushion", "a tiny clock",
-]
-## A den find every this many minutes of focus (session length is configurable,
-## so we reward time spent, not session count).
-const DEN_STEP_MIN := 60
 
 var _subtitle: Label
 var _today_tasks_lbl: Label
@@ -128,7 +121,9 @@ func _build_den() -> void:
 	_den_bar.position = Vector2(24, 78)
 	_den_bar.size = Vector2(620, 22)
 	_den_bar.min_value = 0
-	_den_bar.max_value = DEN_STEP_MIN
+	# The real span is the gap between the last find and the next, which varies —
+	# refresh() sets it from the den's catalog.
+	_den_bar.max_value = 60
 	_den_bar.show_percentage = false
 	_den_bar.add_theme_stylebox_override("background", _stylebox(INSET_BG, CARD_BORDER, 1, 11))
 	_den_bar.add_theme_stylebox_override("fill", _stylebox(GREEN, GREEN, 0, 11))
@@ -137,8 +132,37 @@ func _build_den() -> void:
 	_den_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 
-## Refreshes every dynamic number from the store.
-func refresh(stats: StatsStore) -> void:
+## The find the den says is next, and how far along the run up to it we are. The
+## bar spans the gap between the previous find and this one, so an uneven catalog
+## still reads as steady progress rather than a bar that jumps about.
+func _refresh_den(total_focus: float, den: Den) -> void:
+	if den == null:
+		_den_text.text = ""
+		_den_bar.value = 0
+		_den_count.text = ""
+		return
+
+	var found := "%d of %d found" % [den.found_count(), den.catalog_size()]
+	var next := den.next_find(total_focus)
+	if next.is_empty():
+		_den_text.text = "Your den is full — every find has made it home."
+		_den_bar.max_value = 1
+		_den_bar.value = 1
+		_den_count.text = found
+		return
+
+	var remaining := int(next["remaining"])
+	_den_text.text = "Focus for %d more %s to add %s to your den." % [
+		remaining, _plural(remaining, "minute", "minutes"), str(next["name"])
+	]
+	_den_bar.max_value = int(next["window"])
+	_den_bar.value = int(next["done"])
+	_den_count.text = "%d / %d min · %s" % [int(next["done"]), int(next["window"]), found]
+
+
+## Refreshes every dynamic number from the store. `den` owns the find catalog, so
+## the "Next Den Find" card asks it what's coming rather than keeping its own list.
+func refresh(stats: StatsStore, den: Den = null) -> void:
 	var total_focus := stats.total_focus()
 	_subtitle.text = "You and your fox have focused for %s together." % _long_duration(total_focus)
 
@@ -167,13 +191,7 @@ func refresh(stats: StatsStore) -> void:
 	_at_longest.text = "%d" % stats.longest_streak
 	_at_breaks.text = "%d" % stats.total_breaks()
 
-	var focus_min := int(total_focus / 60.0)
-	var in_cycle := focus_min % DEN_STEP_MIN
-	var remaining := DEN_STEP_MIN - in_cycle
-	var item: String = DEN_FINDS[(focus_min / DEN_STEP_MIN) % DEN_FINDS.size()]
-	_den_text.text = "Focus for %d more %s to add %s to your den." % [remaining, _plural(remaining, "minute", "minutes"), item]
-	_den_bar.value = in_cycle
-	_den_count.text = "%d / %d min" % [in_cycle, DEN_STEP_MIN]
+	_refresh_den(total_focus, den)
 
 	var tasks := stats.today_tasks()
 	if tasks.is_empty():

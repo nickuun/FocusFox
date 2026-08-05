@@ -17,6 +17,9 @@ class_name ThrowableProp
 @export var shadow_lift_range := 220.0
 
 signal grabbed
+## The moment the mouse lets go, before the prop has finished flying. The den
+## listens for this to catch a find dropped back onto its drawer.
+signal released
 signal settled
 
 @onready var _area: Area2D = $Area2D
@@ -121,7 +124,11 @@ func _on_area_input(_viewport: Node, event: InputEvent, _shape_idx: int) -> void
 		get_viewport().set_input_as_handled()
 
 
-func _unhandled_input(event: InputEvent) -> void:
+## Ahead of the GUI on purpose: once a drag is underway the release has to land
+## here wherever the cursor happens to be. Let it fall through to _unhandled_input
+## and letting go over a panel — the den's drawer, say — would be swallowed by it
+## and the prop would stay stuck to the mouse.
+func _input(event: InputEvent) -> void:
 	if not _dragging:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
@@ -141,3 +148,15 @@ func _end_drag() -> void:
 	_dragging = false
 	_resting = false
 	_velocity = (_mouse_velocity * throw_boost).limit_length(max_throw_speed)
+	released.emit()
+
+
+## Re-homes the prop: it comes to rest exactly here, and here is the floor it
+## falls back to if it's thrown from now on. The den's drawer uses this so you can
+## put a find wherever you like instead of on the shelf it was authored at — a
+## plain throw still drops back to wherever it was last put down.
+func rest_at(at: Vector2) -> void:
+	position = at
+	_velocity = Vector2.ZERO
+	_compute_bounds()
+	_resting = true

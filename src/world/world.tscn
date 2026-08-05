@@ -20,6 +20,7 @@
 [ext_resource type="Script" uid="uid://dy1rnck8yapd1" path="res://src/world/throwable_prop.gd" id="22_throw"]
 [ext_resource type="Script" uid="uid://don5ko6d0bn48" path="res://src/world/journal_panel.gd" id="23_journal"]
 [ext_resource type="Script" path="res://src/world/achievement_toast.gd" id="26_toast"]
+[ext_resource type="Script" path="res://src/world/den_inventory.gd" id="27_deninv"]
 [ext_resource type="Shader" uid="uid://b4qdxfhr5vp2s" path="res://src/world/clock_dial.gdshader" id="24_clockshader"]
 [ext_resource type="Texture2D" uid="uid://bk85h07bs5usl" path="res://assets/main_menu/clock/Clock_No Fox_Empty.png" id="25_clockempty"]
 
@@ -349,9 +350,9 @@ vertical_alignment = 1
 
 [node name="VersionLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=1372439118]
 z_index = 60
-offset_left = 800.0
+offset_left = 760.0
 offset_top = 504.0
-offset_right = 940.0
+offset_right = 895.0
 offset_bottom = 532.0
 theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
 theme_override_fonts/font = ExtResource("17_font")
@@ -487,3 +488,9 @@ texture_filter = 1
 material = SubResource("ShaderMaterial_clockdial")
 position = Vector2(479, 285)
 texture = ExtResource("25_clockempty")
+
+[node name="DenInventory" type="Control" parent="MenuLayer" unique_id=598295921]
+z_index = 70
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("27_deninv")
