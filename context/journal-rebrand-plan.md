@@ -139,44 +139,61 @@ switch, ruled placeholder pages render, and stepping the week back twice shows
 
 ---
 
-### ▶ Phase 3 — Logbook page — **NEXT**
+### ✅ Phase 3 — Logbook page — **DONE**
 
-The left page's ruled lines are the whole point of this page, and they already tile
-correctly — the placeholder proves it. **No new art needed.**
+No new art was needed, as expected.
 
-**1. Row layout.** `_rule()` already returns the baseline, so rows land on lines
-exactly. 12 rows at `RULE_PITCH = 26` fills the left page. Each row:
-`09:41 · Focus 25m · "wire up the journal"`, with a small paw glyph for focus and a
-dimmer mark for breaks. `PawIcon` is procedural and scales to any size, so a 14px
-bullet costs nothing.
+**The interaction model — the gap that needed filling.** Two writers, cleanly split:
 
-**2. Day selector** in the large panel's baked ‹ › header on the right page — same
-pattern as the week stepper that's already working, but stepping `day_events(key)`.
-Clamped to `first_active_day()` so it can't walk into empty history.
+- **The fox writes the left page.** One ruled row per completed session:
+  `09:41 · Focus 19m · "settings panel pass"`. Paw bullet for focus, orange dot for
+  breaks. It's built entirely from the event log, so it fills itself as a by-product of
+  using the timer. **The launcher's existing "What are you focusing on?" input is the
+  whole labelling mechanism** — it already rode along with `record_focus`, it just had
+  nowhere to be seen. No new input was needed for the log itself, and the log is never
+  editable: a record you can rewrite isn't a record.
+- **The player writes one line per day.** A `Day note` field on the right page,
+  prompted "How did today go?". Deliberately retrospective — the task input says what
+  you meant to do, this says how it went — and writable on *any* past day, because
+  catching up on a journal is normal and being locked out of yesterday isn't. Saves on
+  Enter, on focus loss, on turning the page, and on closing the journal. Styled with no
+  box: invisible until focused, then underlined, because a boxed input on painted paper
+  looks bolted on.
 
-**3. Right page** below the selector: that day's score stamp area, its three goal
-numbers, and its task list. Reuses the Today page's `_goal_row()` verbatim.
+**Also built:** day stepping via the baked ‹ › that jumps to the previous/next *logged*
+day rather than crawling the calendar one blank day at a time; a per-day score and
+sessions/focus/breaks panel; a "What you worked on" panel; `open_day(key)` for Phase 4's
+month grid to call.
 
-**4. Overflow.** More than 12 events in a day needs paging, not scrolling — a scrollbar
-inside a painted book looks wrong. A "+3 more" line on the last rule, and the ‹ › header
-gains a page indicator when a day overflows.
+**Keyboard is scoped.** While the note has focus, `Q`/`E`/arrows are text input, not page
+navigation, and `Esc` drops out of the field rather than closing the journal mid-sentence.
 
-**5. Two empty states, not one.** `day()` and `day_events()` disagree for days recorded
-before the event log existed: the day has totals but no rows. So:
-- no sessions at all → "This page is still blank. Your fox is waiting."
-- sessions but no rows → "3 sessions, 1h 20m — recorded before the logbook was kept."
+**Both empty states shipped, and both were checked in the app.** The pre-log state was
+verified by actually stripping one day's events and opening it, not by reasoning about
+it — a day with totals but no rows says "1 session and 29m focused — recorded before the
+fox kept a logbook", and keeps showing its real totals on the right so nothing reads as
+lost. That state is the entire pre-existing history, so it isn't an edge case.
 
-That second state is the entire pre-existing history, so it isn't an edge case.
+**Two bugs found by looking at the screen:**
+1. Past days said "The day is still young." `_tier_text()` now takes `is_today`.
+2. "What you worked on" said "Nothing recorded" on every past day while the rows beside
+   it listed tasks — the day aggregate's `tasks` array is only written for the current
+   day. Now derived from the events, with the aggregate as the fallback for pre-log days.
 
-### Phase 4 — History page (straight after)
+### ▶ Phase 4 — History page — **NEXT**
 
 Month grid, ‹ › stepping months, clamped to `first_active_day()`. `month_activity()`
 already returns the flat 42-cell array and `month_summary()` the totals beneath it.
-Cell click jumps to Logbook for that day — the cross-link that makes History feel alive.
-Longest streak and total breaks land here, from the All Time panel that couldn't hold
-five columns.
+`open_day(key)` already exists, so a cell click can jump straight into the Logbook —
+that cross-link is what makes History feel alive rather than decorative.
 
-**This one does want a sprite** — see #1 in the shopping list below.
+Grid maths: the large panel's body is 312×144, so a 7×6 grid of 40×22 cells fits with
+room for a weekday header row. Cells carry a paw when active, a gold ring on today, and
+dim when out of month. Longest streak and total breaks land here too, from the All Time
+panel that couldn't hold five columns.
+
+**This one does want a sprite** — see #1 in the shopping list below. It works without it
+(StyleBox cells), it just won't match the painted panels.
 
 ### Phase 2 — Today page
 
@@ -264,9 +281,9 @@ style better than a sprite).
 
 1. ~~Phase 0 data layer~~ — **done**.
 2. ~~Phase 1 shell + panel helpers + Today page~~ — **done**.
-3. **Phase 3 Logbook, then Phase 4 History** — next. Logbook needs no new art at all;
-   History wants the day cell (#1).
-4. Re-export at 2× (#2) — drop-in, no code change, biggest remaining visual win.
-5. Den art (#4, #5) → Phase 5. Chip glyph (#1b) + badges (#6) → Phase 6.
+3. ~~Phase 3 Logbook~~ — **done**.
+4. **Phase 4 History** — next. Works without art; the day cell (#1) makes it match.
+5. Re-export at 2× (#2) — drop-in, no code change, biggest remaining visual win.
+6. Den art (#4, #5) → Phase 5. Chip glyph (#1b) + badges (#6) → Phase 6.
 
-Logbook is not blocked on anything.
+History is not blocked on anything.

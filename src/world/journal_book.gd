@@ -73,6 +73,13 @@ const ARROW_RIGHT := Rect2(264, 6, 36, 32)
 const RULE_PITCH := 26.0
 
 const DAY_INITIALS := ["M", "T", "W", "T", "F", "S", "S"]
+const WEEKDAYS := ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const MONTHS := ["", "January", "February", "March", "April", "May", "June",
+	"July", "August", "September", "October", "November", "December"]
+
+## How many event rows fit on the left page's rules. A day with more than this is
+## rare enough that a summary line beats building pagination for it.
+const LOG_ROWS := 12
 
 var _current := Page.TODAY
 var _week_offset := 0
@@ -96,6 +103,21 @@ var _find_bar: Panel
 var _find_fill: Panel
 var _find_count: Label
 var _totals: Array[Label] = []
+
+# Logbook page widgets
+var _log_day := ""
+var _log_title: Label
+var _log_subtitle: Label
+var _log_rows: Array = []
+var _log_overflow: Label
+var _log_empty: Label
+var _log_date: Label
+var _log_score: Label
+var _log_score_tier: Label
+var _log_stats: Array[Label] = []
+var _log_note: LineEdit
+var _log_note_hint: Label
+var _log_tasks: Label
 
 var _stats: StatsStore
 var _den: Den
@@ -140,7 +162,8 @@ func _build() -> void:
 		_pages.append(page)
 
 	_build_today(_pages[Page.TODAY])
-	for i in [Page.LOGBOOK, Page.HISTORY, Page.DEN, Page.ACHIEVEMENTS]:
+	_build_logbook(_pages[Page.LOGBOOK])
+	for i in [Page.HISTORY, Page.DEN, Page.ACHIEVEMENTS]:
 		_build_placeholder(_pages[i], PAGE_NAMES[i])
 
 
@@ -174,6 +197,9 @@ func _on_tab_hover(index: int, entered: bool) -> void:
 # --- Page switching ----------------------------------------------------------
 
 func _show_page(page: int, animate: bool) -> void:
+	# Turning the page away from a half-written note should keep it, not bin it.
+	if _current == Page.LOGBOOK and page != Page.LOGBOOK and _log_note != null:
+		_save_note()
 	_current = page
 	for i in _tabs.size():
 		var active := i == page
@@ -197,8 +223,25 @@ func _show_page(page: int, animate: bool) -> void:
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
+## Closing the journal is the other way to leave a half-written note behind, and
+## world.gd closes it by flipping `visible` rather than calling anything here.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED and not visible and _log_note != null:
+		_save_note()
+		_log_note.release_focus()
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not visible or not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	# While the day note has focus, Q and E are letters and the arrows move the caret.
+	# Escape still gets through, but it drops out of the field first rather than
+	# closing the whole journal on the player mid-sentence.
+	if _log_note != null and _log_note.has_focus():
+		if event.keycode == KEY_ESCAPE:
+			_save_note()
+			_log_note.release_focus()
+			get_viewport().set_input_as_handled()
 		return
 	match event.keycode:
 		KEY_ESCAPE:
@@ -280,8 +323,8 @@ func _build_week_panel(page: Control) -> void:
 		PANEL_LARGE.get_size(), PANEL_LARGE, PANEL_LARGE_MARGINS)
 
 	_week_title = _lbl(panel, "This Week", 52, 12, 208, 24, 18, INK, HORIZONTAL_ALIGNMENT_CENTER)
-	_arrow_button(panel, ARROW_LEFT, -1)
-	_arrow_button(panel, ARROW_RIGHT, 1)
+	_arrow_button(panel, ARROW_LEFT, -1, _step_week)
+	_arrow_button(panel, ARROW_RIGHT, 1, _step_week)
 
 	var col := (PANEL_LARGE.get_width() - 24) / 7.0
 	for i in 7:
@@ -334,7 +377,8 @@ func _build_totals_panel(page: Control) -> void:
 		_lbl(panel, labels[i], x, 62, col, 20, 13, INK_SOFT, HORIZONTAL_ALIGNMENT_CENTER)
 
 
-func _arrow_button(panel: Control, rect: Rect2, step: int) -> void:
+## An invisible hit area over one of the ‹ › glyphs baked into a panel's header.
+func _arrow_button(panel: Control, rect: Rect2, step: int, handler: Callable) -> void:
 	var btn := Control.new()
 	btn.position = rect.position
 	btn.size = rect.size
@@ -342,8 +386,19 @@ func _arrow_button(panel: Control, rect: Rect2, step: int) -> void:
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	btn.gui_input.connect(func(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			_step_week(step))
+			handler.call(step))
 	panel.add_child(btn)
+
+
+## A small filled circle, for the break bullet in the logbook.
+func _dot(parent: Control, at: Vector2, radius: float, colour: Color) -> Panel:
+	var dot := Panel.new()
+	dot.position = at
+	dot.size = Vector2(radius * 2, radius * 2)
+	dot.add_theme_stylebox_override("panel", _flat(colour, int(radius)))
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(dot)
+	return dot
 
 
 ## Walks the week strip back and forth. Forward stops at the current week and back
@@ -362,6 +417,235 @@ func _step_week(step: int) -> void:
 	_week_offset = next
 	Audio.play("open", 1.2)
 	_refresh_week()
+
+
+# --- Logbook page ------------------------------------------------------------
+#
+# The left page is the fox's record and is never edited: one ruled row per completed
+# session, written from the event log. The player already says what a session is for
+# — the launcher's "What are you focusing on?" input rides along with the session and
+# becomes that row's label — so the log fills itself as a by-product of using the
+# timer rather than being another thing to keep up with.
+#
+# The right page carries the one thing the player writes: a single note per day. It's
+# retrospective on purpose, and it can be written on any past day, because catching up
+# on a journal is normal and being locked out of yesterday is not.
+
+func _build_logbook(page: Control) -> void:
+	var l := LEFT_PAGE.position
+
+	_log_title = _lbl(page, "Logbook", l.x + 14, l.y + 8, LEFT_PAGE.size.x - 28, 34, 26, INK)
+	_log_subtitle = _lbl(page, "", l.x + 14, l.y + 40, LEFT_PAGE.size.x - 28, 22, 14, INK_SOFT)
+	_rule(page, l.x + 14, l.y + 62, LEFT_PAGE.size.x - 28)
+
+	for i in LOG_ROWS:
+		var y := l.y + 72 + RULE_PITCH * i
+		_rule(page, l.x + 14, y + 21, LEFT_PAGE.size.x - 28)
+		var row := {}
+		# Focus rows get a paw; breaks get a small hollow mark, so the two read apart
+		# at a glance without needing a second sprite.
+		var paw := PawIcon.new()
+		paw.paw_color = PAW
+		paw.size = Vector2(15, 15)
+		paw.position = Vector2(l.x + 16, y + 3)
+		paw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		page.add_child(paw)
+		row["paw"] = paw
+		row["dot"] = _dot(page, Vector2(l.x + 21, y + 8), 5, ORANGE)
+		row["time"] = _lbl(page, "", l.x + 38, y + 1, 52, 20, 14, INK_SOFT)
+		row["kind"] = _lbl(page, "", l.x + 92, y + 1, 78, 20, 14, INK)
+		row["task"] = _lbl(page, "", l.x + 172, y + 1, 154, 20, 14, INK_SOFT)
+		row["task"].clip_text = true
+		_log_rows.append(row)
+
+	_log_overflow = _lbl(page, "", l.x + 38, l.y + 72 + RULE_PITCH * LOG_ROWS, 280, 22, 13, INK_FAINT)
+	_log_empty = _lbl(page, "", l.x + 24, l.y + 150, LEFT_PAGE.size.x - 48, 90, 15, INK_FAINT,
+		HORIZONTAL_ALIGNMENT_CENTER)
+	_log_empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	_build_log_summary(page)
+	_build_log_note(page)
+	_build_log_tasks(page)
+
+
+func _build_log_summary(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 8),
+		PANEL_LARGE.get_size(), PANEL_LARGE, PANEL_LARGE_MARGINS)
+	_log_date = _lbl(panel, "", 52, 12, 208, 24, 17, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	_arrow_button(panel, ARROW_LEFT, -1, _step_day)
+	_arrow_button(panel, ARROW_RIGHT, 1, _step_day)
+
+	_log_score = _lbl(panel, "0", 16, 54, 96, 44, 36, GREEN, HORIZONTAL_ALIGNMENT_CENTER)
+	_lbl(panel, "score", 16, 96, 96, 20, 13, INK_SOFT, HORIZONTAL_ALIGNMENT_CENTER)
+	_log_score_tier = _lbl(panel, "", 12, 148, PANEL_LARGE.get_width() - 24, 22, 13, INK_SOFT,
+		HORIZONTAL_ALIGNMENT_CENTER)
+
+	var labels := ["sessions", "focused", "breaks"]
+	for i in 3:
+		var y := 54 + 32 * i
+		_log_stats.append(_lbl(panel, "0", 124, y, 76, 24, 17, INK, HORIZONTAL_ALIGNMENT_RIGHT))
+		_lbl(panel, labels[i], 208, y + 2, 92, 22, 13, INK_SOFT)
+
+
+func _build_log_note(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 212),
+		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
+	_lbl(panel, "Day note", 16, 5, 160, 22, 15, INK)
+
+	_log_note = LineEdit.new()
+	_log_note.position = Vector2(16, 34)
+	_log_note.size = Vector2(PANEL_MEDIUM.get_width() - 32, 26)
+	_log_note.placeholder_text = "How did today go?"
+	_log_note.max_length = 140
+	_log_note.add_theme_font_override("font", FONT)
+	_log_note.add_theme_font_size_override("font_size", 14)
+	_log_note.add_theme_color_override("font_color", INK)
+	_log_note.add_theme_color_override("font_placeholder_color", INK_FAINT)
+	_log_note.add_theme_color_override("caret_color", INK)
+	# The book is already a painted surface; a boxed input on top of it looks bolted
+	# on, so the field is invisible until it has focus and then just underlines.
+	_log_note.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	_log_note.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	_log_note.text_submitted.connect(func(_t: String) -> void:
+		_save_note()
+		_log_note.release_focus())
+	_log_note.focus_exited.connect(_save_note)
+	panel.add_child(_log_note)
+
+	_rule(panel, 16, 58, PANEL_MEDIUM.get_width() - 32)
+	_log_note_hint = _lbl(panel, "", 16, 64, PANEL_MEDIUM.get_width() - 32, 20, 12, INK_FAINT)
+
+
+func _build_log_tasks(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 320),
+		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
+	_lbl(panel, "What you worked on", 16, 5, 220, 22, 15, INK)
+	_log_tasks = _lbl(panel, "", 16, 32, PANEL_MEDIUM.get_width() - 32, 52, 13, INK_SOFT)
+	_log_tasks.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+
+func _save_note() -> void:
+	if _stats == null or _log_day == "":
+		return
+	if _stats.day_note(_log_day) == _log_note.text.strip_edges():
+		return
+	_stats.set_day_note(_log_day, _log_note.text)
+	_refresh_note_hint()
+
+
+## Steps to the previous or next day the journal has anything for, skipping the blank
+## stretches in between. Stops rather than wrapping, so the ends of history feel like
+## ends.
+func _step_day(step: int) -> void:
+	if _stats == null:
+		return
+	_save_note()
+	var next := _stats.adjacent_logged_day(_log_day, step)
+	if next == "":
+		return
+	_log_day = next
+	Audio.play("open", 1.2)
+	_refresh_logbook()
+
+
+## Opens the logbook on a specific day. Phase 4's month grid calls this so clicking a
+## cell in History lands on that day's page.
+func open_day(key: String) -> void:
+	_log_day = key
+	_show_page(Page.LOGBOOK, true)
+
+
+func _refresh_logbook() -> void:
+	if _log_day == "":
+		_log_day = _stats.today_key()
+	var key := _log_day
+	var d := _stats.day(key)
+	var evs := _stats.day_events(key)
+	var score: Dictionary = _stats.day_score(key)
+	var is_today := key == _stats.today_key()
+
+	_log_subtitle.text = _long_date(key)
+	_log_date.text = "Today" if is_today else _short_date(key)
+
+	var sessions := int(d.get("sessions", 0))
+	var breaks := int(d.get("breaks", 0))
+
+	for i in LOG_ROWS:
+		var row: Dictionary = _log_rows[i]
+		var has := i < evs.size()
+		(row["paw"] as PawIcon).visible = false
+		(row["dot"] as Panel).visible = false
+		(row["time"] as Label).visible = has
+		(row["kind"] as Label).visible = has
+		(row["task"] as Label).visible = has
+		if not has:
+			continue
+		var ev: Dictionary = evs[i]
+		var focus := str(ev.get("kind", "focus")) == "focus"
+		(row["paw"] as PawIcon).visible = focus
+		(row["dot"] as Panel).visible = not focus
+		(row["time"] as Label).text = _clock_time(int(ev.get("ts", 0)))
+		(row["kind"] as Label).text = "%s %s" % [_kind_name(str(ev.get("kind", "focus"))),
+			_short_duration(float(ev.get("seconds", 0.0)))]
+		(row["kind"] as Label).add_theme_color_override("font_color", INK if focus else ORANGE)
+		var task := str(ev.get("task", ""))
+		(row["task"] as Label).text = "" if task == "" else "\"%s\"" % task
+
+	var extra := evs.size() - LOG_ROWS
+	_log_overflow.text = "" if extra <= 0 else "+%d more %s that day." % [
+		extra, "session" if extra == 1 else "sessions"]
+
+	# Two different kinds of nothing. A day recorded before the event log existed has
+	# real totals but no rows, and telling the player their history is "blank" when
+	# they know they worked would read as the journal having lost it.
+	if not evs.is_empty():
+		_log_empty.text = ""
+	elif sessions > 0 or breaks > 0:
+		_log_empty.text = "%d %s and %s focused — recorded before the fox kept a logbook, so there are no times to show." % [
+			sessions, "session" if sessions == 1 else "sessions",
+			_short_duration(float(d.get("focus", 0.0)))]
+	elif is_today:
+		_log_empty.text = "Nothing written yet today.\nStart a session and your fox will fill this page in."
+	else:
+		_log_empty.text = "This page is still blank.\nYour fox was resting."
+
+	_log_score.text = "%d" % int(score["score"])
+	_log_score.add_theme_color_override("font_color", _tier_colour(str(score["tier"])))
+	_log_score_tier.text = _tier_text(str(score["tier"]), bool(score["needs_rest"]), is_today)
+	_log_stats[0].text = "%d" % sessions
+	_log_stats[1].text = _short_duration(float(d.get("focus", 0.0)))
+	_log_stats[2].text = "%d" % breaks
+
+	_log_note.text = _stats.day_note(key)
+	_log_note.placeholder_text = "How did today go?" if is_today else "Anything to add about this day?"
+	_refresh_note_hint()
+
+	# Preferred from the events, because those carry a label per session for every day.
+	# The day aggregate's `tasks` array is only written for the current day, so relying
+	# on it left every past page claiming nothing was worked on while the rows beside
+	# it listed the tasks. It's still the fallback for days older than the event log.
+	var tasks := []
+	for ev in evs:
+		var t := str(ev.get("task", ""))
+		if t != "" and not tasks.has(t):
+			tasks.append(t)
+	if tasks.is_empty():
+		for t in d.get("tasks", []):
+			if not tasks.has(t):
+				tasks.append(t)
+	_log_tasks.text = "Nothing recorded." if tasks.is_empty() else " · ".join(tasks)
+
+
+func _refresh_note_hint() -> void:
+	var has_prev := _stats.adjacent_logged_day(_log_day, -1) != ""
+	var has_next := _stats.adjacent_logged_day(_log_day, 1) != ""
+	if _log_note.text.strip_edges() == "":
+		_log_note_hint.text = "Click the line to write. Enter saves."
+	elif has_prev or has_next:
+		# PixelOperator has no ‹ › glyphs — they fall back to a mismatched face.
+		_log_note_hint.text = "Saved. Use the arrows to read other days."
+	else:
+		_log_note_hint.text = "Saved."
 
 
 # --- Placeholder pages -------------------------------------------------------
@@ -389,9 +673,11 @@ func refresh(stats: StatsStore, den: Den = null) -> void:
 
 
 func _refresh_current() -> void:
-	if _stats == null or _current != Page.TODAY:
+	if _stats == null:
 		return
-	_refresh_today()
+	match _current:
+		Page.TODAY: _refresh_today()
+		Page.LOGBOOK: _refresh_logbook()
 
 
 func _refresh_today() -> void:
@@ -543,14 +829,50 @@ func _tier_colour(tier: String) -> Color:
 		_: return INK_SOFT
 
 
-func _tier_text(tier: String, needs_rest: bool) -> String:
+## `is_today` matters for the untiered case only: a day that scored nothing is still
+## young if it's today and was simply a quiet one if it isn't.
+func _tier_text(tier: String, needs_rest: bool, is_today := true) -> String:
 	if needs_rest:
 		return "Remember to rest."
 	match tier:
 		"gold": return "Gold day. Outstanding."
 		"silver": return "Silver day. Goal met."
 		"bronze": return "Bronze day. Good going."
-		_: return "The day is still young."
+		_: return "The day is still young." if is_today else "A quiet day."
+
+
+func _kind_name(kind: String) -> String:
+	match kind:
+		"short": return "Break"
+		"long": return "Long break"
+		_: return "Focus"
+
+
+func _clock_time(ts: int) -> String:
+	var t := Time.get_datetime_dict_from_unix_time(ts)
+	return "%02d:%02d" % [t.hour, t.minute]
+
+
+## "Friday 7 August" — the heading on the written page.
+func _long_date(key: String) -> String:
+	var d := _key_to_dict(key)
+	var weekday := int(Time.get_datetime_dict_from_unix_time(
+		int(Time.get_unix_time_from_datetime_dict(d))).weekday)
+	return "%s %d %s" % [WEEKDAYS[weekday], int(d["day"]), MONTHS[int(d["month"])]]
+
+
+## "7 Aug" — the compact form for the panel header, which is only 208px wide.
+func _short_date(key: String) -> String:
+	var d := _key_to_dict(key)
+	return "%d %s" % [int(d["day"]), MONTHS[int(d["month"])].substr(0, 3)]
+
+
+static func _key_to_dict(key: String) -> Dictionary:
+	var parts := key.split("-")
+	return {
+		"year": int(parts[0]), "month": int(parts[1]), "day": int(parts[2]),
+		"hour": 12, "minute": 0, "second": 0,
+	}
 
 
 func _short_duration(seconds: float) -> String:

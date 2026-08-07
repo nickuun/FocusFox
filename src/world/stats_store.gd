@@ -198,6 +198,59 @@ func day_score(key: String) -> Dictionary:
 	}
 
 
+## The player's own line about a day. Everything else in the journal is written by
+## the fox from what the timer saw; this is the one thing the player writes, and it's
+## deliberately retrospective — the task input before a session says what you meant to
+## do, this says how it went.
+func day_note(key: String) -> String:
+	return str(day(key).get("note", ""))
+
+
+func set_day_note(key: String, text: String) -> void:
+	var trimmed := text.strip_edges()
+	if trimmed == "" and not days.has(key):
+		return  # Don't conjure a day entry just to store an empty note in it.
+	var e := _entry(key)
+	if trimmed == "":
+		e.erase("note")
+	else:
+		e["note"] = trimmed.left(140)
+	save()
+
+
+## Every day the journal has anything to show for, oldest first — a session, an event
+## or a note. The logbook steps through these rather than through the calendar, so
+## ‹ › never walks the player across a fortnight of blank pages one click at a time.
+func logged_days() -> Array:
+	var keys := {}
+	for k in days:
+		var d: Dictionary = days[k]
+		if int(d.get("sessions", 0)) > 0 or int(d.get("breaks", 0)) > 0 or str(d.get("note", "")) != "":
+			keys[k] = true
+	for ev in events:
+		keys[_key_from_unix(float(ev.get("ts", 0)))] = true
+	var out := keys.keys()
+	out.sort()
+	return out
+
+
+## The next logged day from `key` in the given direction, or "" if there isn't one.
+## `key` itself need not be a logged day — History can hand us any cell.
+func adjacent_logged_day(key: String, step: int) -> String:
+	var all := logged_days()
+	if all.is_empty():
+		return ""
+	if step < 0:
+		for i in range(all.size() - 1, -1, -1):
+			if str(all[i]) < key:
+				return str(all[i])
+		return ""
+	for k in all:
+		if str(k) > key:
+			return str(k)
+	return ""
+
+
 ## The earliest day with a recorded session, or "" if nothing has been recorded.
 ## Bounds the ‹ › navigation on the History and Logbook pages so the player can't
 ## page back forever through empty months.
