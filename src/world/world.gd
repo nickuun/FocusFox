@@ -1,7 +1,18 @@
 extends Node2D
 
 @export_group("Launcher")
-@export var launcher_window_size := Vector2i(960, 540)
+## The design space, 1:1 with the art. Everything in world.tscn and in the panels
+## built in code is laid out in these coordinates, unresampled; the window is a
+## whole multiple of it and the engine's canvas_items stretch does the scaling.
+## Keep in sync with display/window/size/viewport_* in project.godot.
+const DESIGN_SIZE := Vector2i(960, 540)
+## Screen pixels per design pixel.
+##
+## 2, not 1, because the launcher renders in physical pixels (allow_hidpi is on) —
+## so on a desktop scaled past 100% a 1x launcher comes out smaller than every
+## other window on screen rather than merely small. Trimmed at runtime on a screen
+## that can't fit it; see _launcher_size_for_screen().
+@export_range(1, 4) var launcher_scale := 2
 @export var minimize_delay_after_start := 1.5
 
 enum Mode { HOME, CHOOSE, RUNNING }
@@ -223,16 +234,32 @@ func _setup_launcher_window() -> void:
 	window.transparent_bg = false
 	window.unresizable = false
 	window.gui_embed_subwindows = false
-	window.size = launcher_window_size
+	var size := _launcher_size_for_screen()
+	window.size = size
 
 	var usable_rect := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
-	window.position = usable_rect.position + (usable_rect.size - launcher_window_size) / 2
+	window.position = usable_rect.position + (usable_rect.size - size) / 2
 
 	# Use the fox headshot as the window (title bar + taskbar) icon too.
 	if DisplayServer.get_name() != "headless":
 		var icon_image := SystemTray.ICON.get_image()
 		if icon_image != null:
 			DisplayServer.set_icon(icon_image)
+
+
+## The largest whole multiple of the design size that still fits the screen, capped
+## at launcher_scale. Whole multiples only: this is pixel art drawn 1:1 with the
+## design space, so a fractional scale resamples every sprite and the crisp edges go
+## soft. Falling back rather than clipping matters on a 1366x768 laptop or a 1080p
+## monitor with a taskbar, where a 2x launcher does not fit.
+##
+## Only the window size is set here. The render scale follows from it on its own —
+## project.godot puts the root window in canvas_items stretch with integer scaling,
+## so the engine divides window size by design size and lands on the same multiple.
+func _launcher_size_for_screen() -> Vector2i:
+	var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen()).size
+	var fits := mini(usable.x / DESIGN_SIZE.x, usable.y / DESIGN_SIZE.y)
+	return DESIGN_SIZE * clampi(fits, 1, launcher_scale)
 
 
 func _setup_overlay_owner() -> void:
