@@ -22,6 +22,9 @@ const FOX_FRAME := preload("res://assets/journal/journal ui/Main Page/fox_frame.
 const PANEL_LARGE := preload("res://assets/journal/journal ui/Main Page/day_tab.png")
 const PANEL_MEDIUM := preload("res://assets/journal/journal ui/Main Page/medium_tab.png")
 const RULE := preload("res://assets/journal/journal ui/Main Page/tilable_line.png")
+## Generated rather than drawn — see tools/make_day_cell.py. Deliberately near-neutral
+## so the per-state tints below multiply cleanly instead of coming out muddy.
+const DAY_CELL := preload("res://assets/journal/journal ui/Main Page/day_cell.png")
 
 const TAB_ART := [
 	preload("res://assets/journal/journal ui/Today Log_Tab.png"),
@@ -43,6 +46,7 @@ const PAW := Color("8a5630")
 const GREEN := Color("4a8f3c")
 const ORANGE := Color("cf7a2e")
 const RUST := Color("b6502e")
+const BLUE := Color("3f6ea3")
 const TRACK := Color(0.72, 0.64, 0.53, 0.55)
 
 # --- Geometry, measured off the plate ---------------------------------------------
@@ -81,6 +85,17 @@ const MONTHS := ["", "January", "February", "March", "April", "May", "June",
 ## rare enough that a summary line beats building pagination for it.
 const LOG_ROWS := 12
 
+## Month grid. 6 rows x 7 columns is the fixed shape month_activity() returns, and
+## 312px of left page divides into seven 44.6px columns with the 34px cell centred.
+const GRID_COLS := 7
+const GRID_ROWS := 6
+const GRID_PITCH_Y := 40.0
+## Cell tints. The source cell is pale and near-neutral, so these multiply onto it.
+const CELL_PLAIN := Color(1, 1, 1)
+const CELL_ACTIVE := Color(0.60, 0.81, 0.56)
+const CELL_TODAY := Color(0.95, 0.77, 0.40)
+const CELL_OUTSIDE := Color(1, 1, 1, 0.28)
+
 var _current := Page.TODAY
 var _week_offset := 0
 var _page_tween: Tween
@@ -118,6 +133,16 @@ var _log_stats: Array[Label] = []
 var _log_note: LineEdit
 var _log_note_hint: Label
 var _log_tasks: Label
+
+# History page widgets
+var _hist_year := 0
+var _hist_month := 0
+var _hist_subtitle: Label
+var _hist_cells: Array = []
+var _hist_month_label: Label
+var _hist_summary: Array[Label] = []
+var _hist_best: Label
+var _hist_extra: Array[Label] = []
 
 var _stats: StatsStore
 var _den: Den
@@ -163,7 +188,8 @@ func _build() -> void:
 
 	_build_today(_pages[Page.TODAY])
 	_build_logbook(_pages[Page.LOGBOOK])
-	for i in [Page.HISTORY, Page.DEN, Page.ACHIEVEMENTS]:
+	_build_history(_pages[Page.HISTORY])
+	for i in [Page.DEN, Page.ACHIEVEMENTS]:
 		_build_placeholder(_pages[i], PAGE_NAMES[i])
 
 
@@ -648,6 +674,200 @@ func _refresh_note_hint() -> void:
 		_log_note_hint.text = "Saved."
 
 
+# --- History page ------------------------------------------------------------
+#
+# The month grid takes the whole left page rather than sitting in a panel, because a
+# 34px square cell needs the room and a calendar squeezed into a 144px panel body
+# stops being readable. The large panel on the right keeps its usual job: its baked
+# ‹ › header is the navigator, exactly as it is on the Logbook, so "the arrows in the
+# top-right panel step whatever this page is about" holds on every page.
+#
+# Cells are tinted, not badged. A paw plus a date in 34px comes out as mush, and the
+# paw motif already carries the Today page's week strip — here legibility wins.
+
+func _build_history(page: Control) -> void:
+	var l := LEFT_PAGE.position
+
+	_lbl(page, "History", l.x + 14, l.y + 8, LEFT_PAGE.size.x - 28, 34, 26, INK)
+	_hist_subtitle = _lbl(page, "", l.x + 14, l.y + 40, LEFT_PAGE.size.x - 28, 22, 14, INK_SOFT)
+	_rule(page, l.x + 14, l.y + 62, LEFT_PAGE.size.x - 28)
+
+	var col_w := (LEFT_PAGE.size.x - 28) / float(GRID_COLS)
+	var grid_x := l.x + 14
+	var grid_y := l.y + 100
+
+	for c in GRID_COLS:
+		_lbl(page, DAY_INITIALS[c], grid_x + col_w * c, l.y + 74, col_w, 20, 14, INK_FAINT,
+			HORIZONTAL_ALIGNMENT_CENTER)
+
+	for i in GRID_ROWS * GRID_COLS:
+		var cx := grid_x + col_w * (i % GRID_COLS) + (col_w - DAY_CELL.get_width()) * 0.5
+		var cy := grid_y + GRID_PITCH_Y * (i / GRID_COLS)
+
+		var cell := TextureRect.new()
+		cell.texture = DAY_CELL
+		cell.position = Vector2(cx, cy)
+		cell.size = DAY_CELL.get_size()
+		cell.mouse_filter = Control.MOUSE_FILTER_STOP
+		page.add_child(cell)
+
+		var num := _lbl(cell, "", 0, 8, DAY_CELL.get_width(), 20, 14, INK, HORIZONTAL_ALIGNMENT_CENTER)
+		cell.gui_input.connect(_on_cell_input.bind(i))
+		_hist_cells.append({"cell": cell, "num": num, "key": "", "clickable": false})
+
+	_lbl(page, "Click a day to read its page.", l.x + 14, l.y + 350,
+		LEFT_PAGE.size.x - 28, 22, 13, INK_FAINT, HORIZONTAL_ALIGNMENT_CENTER)
+
+	_build_history_summary(page)
+	_build_history_extras(page)
+
+
+func _build_history_summary(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 8),
+		PANEL_LARGE.get_size(), PANEL_LARGE, PANEL_LARGE_MARGINS)
+	_hist_month_label = _lbl(panel, "", 52, 12, 208, 24, 17, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	_arrow_button(panel, ARROW_LEFT, -1, _step_month)
+	_arrow_button(panel, ARROW_RIGHT, 1, _step_month)
+
+	var labels := ["sessions", "focused", "days active", "breaks"]
+	for i in labels.size():
+		var y := 52 + 24 * i
+		_hist_summary.append(_lbl(panel, "0", 16, y, 96, 22, 16, INK, HORIZONTAL_ALIGNMENT_RIGHT))
+		_lbl(panel, labels[i], 120, y + 1, 120, 22, 13, INK_SOFT)
+
+	_rule(panel, 16, 152, PANEL_LARGE.get_width() - 32)
+	_hist_best = _lbl(panel, "", 16, 158, PANEL_LARGE.get_width() - 32, 22, 13, INK_SOFT)
+
+
+## The two all-time totals that wouldn't fit the Today page's three-column panel.
+func _build_history_extras(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 212),
+		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
+	_lbl(panel, "All Time", 16, 5, 160, 22, 15, INK)
+	var labels := ["longest streak", "breaks taken"]
+	var colours := [BLUE, INK]
+	var col := (PANEL_MEDIUM.get_width() - 24) / 2.0
+	for i in 2:
+		var x := 12 + col * i
+		_hist_extra.append(_lbl(panel, "0", x, 32, col, 30, 22, colours[i], HORIZONTAL_ALIGNMENT_CENTER))
+		_lbl(panel, labels[i], x, 62, col, 20, 13, INK_SOFT, HORIZONTAL_ALIGNMENT_CENTER)
+
+	var trail := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 320),
+		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
+	_lbl(trail, "Pawprint trails", 16, 5, 220, 22, 15, INK)
+	var trail_labels := ["current", "best ever"]
+	var tcol := (PANEL_MEDIUM.get_width() - 24) / 2.0
+	for i in 2:
+		var x := 12 + tcol * i
+		_hist_extra.append(_lbl(trail, "0", x, 32, tcol, 30, 22, RUST, HORIZONTAL_ALIGNMENT_CENTER))
+		_lbl(trail, trail_labels[i], x, 62, tcol, 20, 13, INK_SOFT, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+func _on_cell_input(event: InputEvent, index: int) -> void:
+	if not (event is InputEventMouseButton) or event.button_index != MOUSE_BUTTON_LEFT or not event.pressed:
+		return
+	var c: Dictionary = _hist_cells[index]
+	if not bool(c["clickable"]):
+		return
+	open_day(str(c["key"]))
+
+
+## Steps whole months, stopping at the month holding the first recorded session and at
+## the current month. Walking into empty years in either direction is just a way to get
+## lost in a book that's meant to be a record of something.
+func _step_month(step: int) -> void:
+	if _stats == null:
+		return
+	var y := _hist_year
+	var m := _hist_month + step
+	if m < 1:
+		m = 12
+		y -= 1
+	elif m > 12:
+		m = 1
+		y += 1
+
+	var now := Time.get_date_dict_from_system()
+	if y > int(now.year) or (y == int(now.year) and m > int(now.month)):
+		return
+	var first := _stats.first_active_day()
+	if first != "":
+		var fd := _key_to_dict(first)
+		if y < int(fd["year"]) or (y == int(fd["year"]) and m < int(fd["month"])):
+			return
+
+	_hist_year = y
+	_hist_month = m
+	Audio.play("open", 1.2)
+	_refresh_history()
+
+
+func _refresh_history() -> void:
+	if _hist_month == 0:
+		var now := Time.get_date_dict_from_system()
+		_hist_year = int(now.year)
+		_hist_month = int(now.month)
+
+	var name_ := "%s %d" % [MONTHS[_hist_month], _hist_year]
+	_hist_subtitle.text = name_
+	_hist_month_label.text = name_
+
+	var cells := _stats.month_activity(_hist_year, _hist_month)
+	for i in _hist_cells.size():
+		var c: Dictionary = _hist_cells[i]
+		var d: Dictionary = cells[i]
+		var cell: TextureRect = c["cell"]
+		var num: Label = c["num"]
+		var inside := bool(d["in_month"])
+
+		num.text = str(int(d["day"]))
+		c["key"] = str(d["key"])
+		# Future days can't have a page worth reading, so they aren't clickable and
+		# don't advertise a tooltip.
+		c["clickable"] = inside and not bool(d["future"])
+
+		if not inside:
+			cell.modulate = CELL_OUTSIDE
+			num.add_theme_color_override("font_color", INK_FAINT)
+			cell.tooltip_text = ""
+		elif bool(d["today"]):
+			cell.modulate = CELL_TODAY
+			num.add_theme_color_override("font_color", INK)
+			cell.tooltip_text = "Today — %s" % _cell_tip(d)
+		elif bool(d["active"]):
+			cell.modulate = CELL_ACTIVE
+			num.add_theme_color_override("font_color", INK)
+			cell.tooltip_text = _cell_tip(d)
+		else:
+			cell.modulate = CELL_PLAIN
+			num.add_theme_color_override("font_color", INK_FAINT if bool(d["future"]) else INK_SOFT)
+			cell.tooltip_text = "" if bool(d["future"]) else "Nothing recorded"
+		cell.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if bool(c["clickable"]) \
+			else Control.CURSOR_ARROW
+
+	var sum := _stats.month_summary(_hist_year, _hist_month)
+	_hist_summary[0].text = "%d" % int(sum["sessions"])
+	_hist_summary[1].text = _short_duration(float(sum["focus"]))
+	_hist_summary[2].text = "%d" % int(sum["active_days"])
+	_hist_summary[3].text = "%d" % int(sum["breaks"])
+	var best := str(sum["best_day"])
+	_hist_best.text = "No sessions this month." if best == "" \
+		else "Best day: %s, %s focused." % [_short_date(best), _short_duration(float(sum["best_focus"]))]
+
+	_hist_extra[0].text = "%d" % _stats.longest_streak
+	_hist_extra[1].text = "%d" % _stats.total_breaks()
+	_hist_extra[2].text = "%d" % _stats.current_trail()
+	_hist_extra[3].text = "%d" % _stats.best_trail()
+
+
+func _cell_tip(d: Dictionary) -> String:
+	var sessions := int(d["sessions"])
+	if sessions <= 0:
+		return "Nothing recorded"
+	return "%d %s, %s focused" % [sessions, "session" if sessions == 1 else "sessions",
+		_short_duration(float(d["focus"]))]
+
+
 # --- Placeholder pages -------------------------------------------------------
 
 ## Pages 2-5 land in later phases. They still get the book's furniture so switching
@@ -678,6 +898,7 @@ func _refresh_current() -> void:
 	match _current:
 		Page.TODAY: _refresh_today()
 		Page.LOGBOOK: _refresh_logbook()
+		Page.HISTORY: _refresh_history()
 
 
 func _refresh_today() -> void:

@@ -180,39 +180,37 @@ lost. That state is the entire pre-existing history, so it isn't an edge case.
    it listed tasks — the day aggregate's `tasks` array is only written for the current
    day. Now derived from the events, with the aggregate as the fallback for pre-log days.
 
-### ▶ Phase 4 — History page — **NEXT**
+### ✅ Phase 4 — History page — **DONE**
 
-Month grid, ‹ › stepping months, clamped to `first_active_day()`. `month_activity()`
-already returns the flat 42-cell array and `month_summary()` the totals beneath it.
-`open_day(key)` already exists, so a cell click can jump straight into the Logbook —
-that cross-link is what makes History feel alive rather than decorative.
+**The day cell is generated, not drawn** — `tools/make_day_cell.py` writes
+`day_cell.png` (34×34), colours sampled from `day_tab.png` so it belongs to the painted
+panels. Drawn at 8× and downsampled, with a smooth vertical highlight falloff rather
+than a highlight rounded-rect: the first attempt left a visible seam where the highlight
+ended, and the book art has no hard internal edges. Kept pale and near-neutral so the
+per-state tints multiply cleanly instead of coming out muddy.
 
-Grid maths: the large panel's body is 312×144, so a 7×6 grid of 40×22 cells fits with
-room for a weekday header row. Cells carry a paw when active, a gold ring on today, and
-dim when out of month. Longest streak and total breaks land here too, from the All Time
-panel that couldn't hold five columns.
+**Layout decision:** the grid takes the whole left page rather than sitting in a panel.
+A 7×6 grid of 34px squares wants 312×240; squeezed into the panel's 144px body the cells
+would have been 40×22 and stopped being readable. The large right panel keeps its usual
+job — **its baked ‹ › header is the navigator on every page**, stepping the day on
+Logbook and the month here. That reads as a pattern rather than a compromise.
 
-**This one does want a sprite** — see #1 in the shopping list below. It works without it
-(StyleBox cells), it just won't match the painted panels.
+**Cells are tinted, not badged.** A paw plus a date inside 34px comes out as mush, and
+the paw motif already carries the Today page's week strip. Neutral for a quiet day, green
+for active, gold for today, faded for out-of-month. Every in-month past day gets a hover
+tooltip with its numbers and calls `open_day()` on click. Future days are neither
+clickable nor tooltipped — there's nothing to read.
 
-### Phase 2 — Today page
+The right page also carries the four totals that wouldn't fit elsewhere: longest streak
+and breaks taken, evicted from the Today page's three-column panel, plus current and best
+pawprint trail.
 
-Left page: title, polaroid, greeting, three goal bars on ruled lines, today's tasks,
-score stamp in the lower-right corner.
-Right page: week paw strip in a `day_tab` panel, next-find progress in a `medium_tab`.
-
-### Phase 3 — Logbook page
-
-Left page's ruled lines are the point — one event per line,
-`09:41 · Focus 25m · "wire up the journal"`, laid at the tile pitch so text sits on the
-lines. Day stepper uses `day_tab`'s baked ‹ › header on the right page.
-Empty state: "This page is still blank. Your fox is waiting."
-
-### Phase 4 — History page
-
-Month grid gets a panel sized to it (~7×6 cells at 40×34 ≈ 280×204 plus chrome) rather
-than a fixed well, with the ‹ › header stepping months. Month summary and all-time
-totals below. Clicking a cell jumps to Logbook for that day.
+**Verified in the app against the probe data:** August 2026 renders with the 1st on
+Saturday and today (7th) in gold; July with the 1st on Wednesday and 11 active days;
+summaries match `month_summary()` exactly (July: 12 sessions, 4h 33m, best 20 Jul).
+Clicking 20 July jumped to the Logbook on "Monday 20 July" — which it was. Stepping ‹
+three times past the earliest recorded month stayed on July rather than walking back
+into empty years.
 
 ### Phase 5 — Den page
 
@@ -231,7 +229,7 @@ have `texture: ""` and can never be earned.
 
 | # | Asset | Size | Why |
 |---|---|---|---|
-| 1 | **Day cell for the month grid** | 34×34 | The one asset Phase 4 actually wants. **One** pale rounded cell in the panel's cream — I'll tint it green for an active day and gold for today rather than needing three files. Without it the grid falls back to StyleBox rectangles, which will look flat next to the painted panels. |
+| ~~1~~ | ~~Day cell~~ | 34×34 | **Done, generated in code** — `tools/make_day_cell.py`. Re-run it to change the look; the constants at the top are the whole design. |
 | 1b | **Achievements chip glyph** | 45×50 | `Achievements_Tab.png` is now a knife-and-fork, which reads as food or feeding, not achievements. Either a trophy/medal/star in the same chalky white, or tell me the fifth page is something else — see open question 1. |
 | 2 | **Everything at 2×** — plate, panels, tabs, frame, title, line | 2× each | The art is painterly, not pixel art. At 960 native on the new 2× window every soft edge becomes a 2×2 block. Re-export at 2×, draw into the same 960×540 rects, and it rasterises 1:1 with device pixels. Biggest visual win on the list and it needs no code change. |
 | 3 | Close chip | 45×50 | Still no X anywhere. Optional — see Q2. |
@@ -282,8 +280,15 @@ style better than a sprite).
 1. ~~Phase 0 data layer~~ — **done**.
 2. ~~Phase 1 shell + panel helpers + Today page~~ — **done**.
 3. ~~Phase 3 Logbook~~ — **done**.
-4. **Phase 4 History** — next. Works without art; the day cell (#1) makes it match.
-5. Re-export at 2× (#2) — drop-in, no code change, biggest remaining visual win.
-6. Den art (#4, #5) → Phase 5. Chip glyph (#1b) + badges (#6) → Phase 6.
+4. ~~Phase 4 History~~ — **done**, day cell generated in code.
+5. **Re-export at 2× (#2)** — drop-in, no code change, biggest remaining visual win, and
+   it needs nothing from me. Worth doing before the last two pages so they're drawn
+   against the final fidelity.
+6. **Phase 6 Achievements** — 41 defs already exist in `achievement_store.gd`, so the
+   page can ship with the generic locked badge and one bespoke icon
+   (`Welcome_Home,_Fox.png`) and fill in over time. Do this before Phase 5.
+7. **Phase 5 Den** — genuinely blocked on art. 7 of 9 `den_catalog.gd` entries have
+   `texture: ""` and can never be earned, so the page would show a ladder of nothing.
 
-History is not blocked on anything.
+The order flips from the original plan: Achievements has data and needs one generated
+placeholder badge; the Den has neither art nor anything to show without it.
