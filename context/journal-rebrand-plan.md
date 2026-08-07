@@ -212,6 +212,49 @@ Clicking 20 July jumped to the Logbook on "Monday 20 July" — which it was. Ste
 three times past the earliest recorded month stayed on July rather than walking back
 into empty years.
 
+### ✅ Phase 6 — Achievements page — **DONE**
+
+**Grouping became data.** The seven categories in `achievement_store.gd` were only
+comments, so nothing could read them. `GROUPS` now lists ids per category and
+`groups()` validates it — warns if a group exceeds the page's row width, lists an
+unknown id, repeats one, or leaves a definition ungrouped. That last one matters: an
+ungrouped achievement would be silently invisible on the page, and a warning at boot
+beats discovering it months later. The 41 definitions fall out as 6+6+6+5+6+6+6, which
+is exactly six columns by seven rows.
+
+**All 41 badges are on the page at once**, one group per row. An achievements screen you
+have to scroll or page through stops working as a "what's left?" glance. Labels don't fit
+at 48px, so the grid carries only colour and state and the right panel is the reader —
+click a badge or step it with the header arrows and it explains itself.
+
+**Badge art generated, and `make_day_cell.py` generalised into
+`tools/make_journal_art.py`.** Both the day cell and the badge are plaques of the same
+family, so they now share one drawing routine and differ only in size, radius and bevel
+strength. The two rules that make tinting work are documented in that file, because both
+are easy to break by eye: the source must stay pale and near-neutral (modulate
+multiplies, so a saturated source muddies every tint), and it must have no hard internal
+edges (the book art is painterly; a crisp highlight boundary reads as foreign).
+
+**Art falls back twice**: a bespoke icon at `assets/achievements/<id>.png`, then the
+label-derived name the one existing icon already uses (`Welcome_Home,_Fox.png`), then the
+group-tinted plaque with a paw. So bespoke icons can be dropped in one at a time,
+forever, with no code change — and the existing one already shows up.
+
+**Secrets stay secret.** That's what the `hidden` flag was for and nothing used it. An
+unearned secret shows "Secret / Something your fox hasn't shown you yet" behind a "?"
+badge; an unearned ordinary one shows its full description, because you should know what
+to aim for. A separate panel counts secrets found without naming them.
+
+**Verified in the app** against the real save file (16 of 41 earned, including two
+secrets and the one with bespoke art): every row's earned/locked pattern matches the
+config exactly, the Streaks row correctly shows five slots not six, the bespoke fox icon
+renders, both locked states read correctly, and the header arrows step the selection.
+
+**Known gap, left deliberately:** achievements with a `threshold` don't show progress
+toward it ("25 / 50 sessions"). Doing it properly means a `progress(id)` method on
+`AchievementStore`, since the counters are private there and the journal shouldn't
+reimplement the thresholds. Worth doing, but it belongs in the store, not here.
+
 ### Phase 5 — Den page
 
 Real ladder from `den_catalog.gd`. Blocked on art (see below) — 7 of 9 catalog entries
@@ -281,14 +324,15 @@ style better than a sprite).
 2. ~~Phase 1 shell + panel helpers + Today page~~ — **done**.
 3. ~~Phase 3 Logbook~~ — **done**.
 4. ~~Phase 4 History~~ — **done**, day cell generated in code.
-5. **Re-export at 2× (#2)** — drop-in, no code change, biggest remaining visual win, and
-   it needs nothing from me. Worth doing before the last two pages so they're drawn
-   against the final fidelity.
-6. **Phase 6 Achievements** — 41 defs already exist in `achievement_store.gd`, so the
-   page can ship with the generic locked badge and one bespoke icon
-   (`Welcome_Home,_Fox.png`) and fill in over time. Do this before Phase 5.
-7. **Phase 5 Den** — genuinely blocked on art. 7 of 9 `den_catalog.gd` entries have
-   `texture: ""` and can never be earned, so the page would show a ladder of nothing.
+5. ~~Phase 6 Achievements~~ — **done** (taken before Phase 5; it had data, the Den
+   doesn't).
+6. **Re-export at 2× (#2)** — drop-in, no code change, biggest remaining visual win, and
+   it needs nothing from me.
+7. **Phase 5 Den** — the last page, and **genuinely blocked on art**. 7 of 9
+   `den_catalog.gd` entries have `texture: ""` and can never be earned, so the page would
+   render a ladder of nothing. This is the one art ask I can't generate around: they're
+   characterful objects that appear in the room and get flung about, not UI primitives.
+8. Then Phase 7 polish (leaves, sparkles, ribbon bookmark, page-curl click).
 
-The order flips from the original plan: Achievements has data and needs one generated
-placeholder badge; the Den has neither art nor anything to show without it.
+Four of the five pages are live. The Den is the only one left, and it needs sprites
+before it's worth building.

@@ -1,6 +1,6 @@
 extends Node
 
-## AchievementStore — central hub for all 36 Focus Fox achievements.
+## AchievementStore — central hub for all 41 Focus Fox achievements.
 ##
 ## Owns definitions, per-achievement counters, persistence, and the Steam
 ## abstraction layer. Nothing outside this file ever calls Steam directly;
@@ -76,6 +76,64 @@ const DEFS: Dictionary = {
 	"just_checking_in":      { "label": "Just Checking In",        "desc": "Open the app, pet the fox, then close without starting a session.", "hidden": true },
 	"still_counts":          { "label": "Still Counts",            "desc": "Complete a very short focus session.",                   "hidden": true  },
 }
+
+# ---------------------------------------------------------------------------
+# Grouping
+#
+# The categories above were only comments, so nothing could read them. This makes
+# them data for the journal's Achievements page, which lays out one category per row.
+#
+# Six per group is the page's row width — a group larger than that would be clipped,
+# which is what groups() checks for along with every id being listed exactly once.
+# ---------------------------------------------------------------------------
+const MAX_PER_GROUP := 6
+
+const GROUPS: Array = [
+	{"name": "First Steps", "ids": [
+		"welcome_home_fox", "ready_to_focus", "tiny_victory", "break_time",
+		"proper_rest", "see_you_soon"]},
+	{"name": "Session Milestones", "ids": [
+		"one_paw_forward", "finding_your_rhythm", "fox_flow", "den_discipline",
+		"deep_work_denizen", "legend_of_the_little_fox"]},
+	{"name": "Time Spent", "ids": [
+		"five_good_minutes", "classic_pomodoro", "deep_focus",
+		"marathon_nap_supervisor", "an_hour_well_spent", "a_workday_of_fox_time"]},
+	{"name": "Streaks", "ids": [
+		"back_tomorrow", "tiny_habit", "week_of_whiskers", "the_fox_remembers",
+		"monthly_den_guest"]},
+	{"name": "Fox Friend", "ids": [
+		"boop", "certified_fox_friend", "ball_is_life", "fetch_enthusiast",
+		"sleepy_little_helper", "do_not_disturb"]},
+	{"name": "Making It Yours", "ids": [
+		"new_coat", "fashion_fox", "comfy_setup", "bring_fox_home",
+		"perfect_little_desk", "interior_foxcorator"]},
+	{"name": "Secrets", "ids": [
+		"you_did_enough_today", "night_owl", "early_bird", "zoomies",
+		"just_checking_in", "still_counts"]},
+]
+
+
+## GROUPS, checked against DEFS. Warns rather than fails so a half-finished
+## achievement can't stop the game booting, but the warning means the journal is
+## about to render something wrong — an unlisted achievement is invisible on the page.
+static func groups() -> Array:
+	var seen := {}
+	for group in GROUPS:
+		var ids: Array = group["ids"]
+		if ids.size() > MAX_PER_GROUP:
+			push_warning("Achievements: group '%s' has %d entries; the journal shows %d per row." % [
+				group["name"], ids.size(), MAX_PER_GROUP])
+		for id in ids:
+			if not DEFS.has(id):
+				push_warning("Achievements: group '%s' lists unknown id '%s'." % [group["name"], id])
+			elif seen.has(id):
+				push_warning("Achievements: '%s' is listed in more than one group." % id)
+			seen[id] = true
+	for id in DEFS:
+		if not seen.has(id):
+			push_warning("Achievements: '%s' is in no group, so the journal won't show it." % id)
+	return GROUPS
+
 
 # Speed threshold (screen pixels/sec) that triggers "Zoomies"
 const ZOOMIES_SPEED_THRESHOLD := 1400.0

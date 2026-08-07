@@ -25,6 +25,7 @@ const RULE := preload("res://assets/journal/journal ui/Main Page/tilable_line.pn
 ## Generated rather than drawn — see tools/make_day_cell.py. Deliberately near-neutral
 ## so the per-state tints below multiply cleanly instead of coming out muddy.
 const DAY_CELL := preload("res://assets/journal/journal ui/Main Page/day_cell.png")
+const BADGE := preload("res://assets/journal/journal ui/Main Page/badge.png")
 
 const TAB_ART := [
 	preload("res://assets/journal/journal ui/Today Log_Tab.png"),
@@ -96,6 +97,23 @@ const CELL_ACTIVE := Color(0.60, 0.81, 0.56)
 const CELL_TODAY := Color(0.95, 0.77, 0.40)
 const CELL_OUTSIDE := Color(1, 1, 1, 0.28)
 
+## Achievement grid: one AchievementStore group per row, six slots wide, which is
+## exactly the shape the 41 definitions fall into.
+const BADGE_COLS := 6
+const BADGE_PITCH := 52.0
+## One tint per group, in GROUPS order. Distinct enough to tell rows apart at a
+## glance, all within the book's warm range.
+const GROUP_TINTS := [
+	Color(0.60, 0.81, 0.56),  # First Steps
+	Color(0.88, 0.63, 0.31),  # Session Milestones
+	Color(0.47, 0.63, 0.82),  # Time Spent
+	Color(0.78, 0.43, 0.31),  # Streaks
+	Color(0.88, 0.75, 0.37),  # Fox Friend
+	Color(0.67, 0.57, 0.76),  # Making It Yours
+	Color(0.65, 0.65, 0.67),  # Secrets
+]
+const BADGE_LOCKED := Color(0.66, 0.63, 0.60, 0.55)
+
 var _current := Page.TODAY
 var _week_offset := 0
 var _page_tween: Tween
@@ -144,6 +162,24 @@ var _hist_summary: Array[Label] = []
 var _hist_best: Label
 var _hist_extra: Array[Label] = []
 
+# Achievements page widgets
+var _ach_order: Array = []      # flat list of ids, grid order
+var _ach_group_of := {}         # id -> group index
+var _ach_slots: Array = []
+var _ach_selected := ""
+var _ach_group_label: Label
+var _ach_group_progress: Label
+var _ach_detail_badge: TextureRect
+var _ach_detail_icon: TextureRect
+var _ach_detail_mark: Label
+var _ach_detail_name: Label
+var _ach_detail_desc: Label
+var _ach_detail_state: Label
+var _ach_count: Label
+var _ach_bar_track: Panel
+var _ach_bar_fill: Panel
+var _ach_secrets: Label
+
 var _stats: StatsStore
 var _den: Den
 
@@ -189,8 +225,8 @@ func _build() -> void:
 	_build_today(_pages[Page.TODAY])
 	_build_logbook(_pages[Page.LOGBOOK])
 	_build_history(_pages[Page.HISTORY])
-	for i in [Page.DEN, Page.ACHIEVEMENTS]:
-		_build_placeholder(_pages[i], PAGE_NAMES[i])
+	_build_achievements(_pages[Page.ACHIEVEMENTS])
+	_build_placeholder(_pages[Page.DEN], PAGE_NAMES[Page.DEN])
 
 
 func _build_tabs() -> void:
@@ -868,6 +904,274 @@ func _cell_tip(d: Dictionary) -> String:
 		_short_duration(float(d["focus"]))]
 
 
+# --- Achievements page -------------------------------------------------------
+#
+# All 41 badges are on the page at once, one AchievementStore group per row, because
+# an achievements screen you have to scroll or page through stops working as a
+# "what's left?" glance. Labels don't fit at 48px, so the badge grid carries only
+# colour and state, and the panel on the right is the reader: click or step a badge
+# and it explains itself.
+#
+# Badge art is looked up per achievement and falls back twice — a bespoke icon if one
+# exists, otherwise the group-tinted plaque. That means bespoke icons can be dropped in
+# one at a time, forever, with no code change.
+
+func _build_achievements(page: Control) -> void:
+	var l := LEFT_PAGE.position
+	var groups: Array = Achievements.groups()
+
+	_lbl(page, "Achievements", l.x + 14, l.y + 6, LEFT_PAGE.size.x - 28, 34, 26, INK)
+	_rule(page, l.x + 14, l.y + 44, LEFT_PAGE.size.x - 28)
+
+	# Centre the 6-wide grid in the page's 312px of usable width.
+	var content := BADGE.get_width() + BADGE_PITCH * (BADGE_COLS - 1)
+	var grid_x := l.x + 14 + (LEFT_PAGE.size.x - 28 - content) * 0.5
+	var grid_y := l.y + 56
+
+	for g in groups.size():
+		var ids: Array = groups[g]["ids"]
+		for c in BADGE_COLS:
+			var slot := Control.new()
+			slot.position = Vector2(grid_x + BADGE_PITCH * c, grid_y + BADGE_PITCH * g)
+			slot.size = BADGE.get_size()
+			slot.mouse_filter = Control.MOUSE_FILTER_STOP
+			slot.visible = c < ids.size()
+			page.add_child(slot)
+
+			var plate := TextureRect.new()
+			plate.texture = BADGE
+			plate.size = BADGE.get_size()
+			plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			slot.add_child(plate)
+
+			# Bespoke art when it exists, drawn inside the plaque's bevel.
+			var icon := TextureRect.new()
+			icon.position = Vector2(6, 6)
+			icon.size = Vector2(36, 36)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_SCALE
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			slot.add_child(icon)
+
+			# The generic stand-in: a paw once earned, a question mark for an unearned
+			# secret, nothing for something merely not done yet.
+			var paw := PawIcon.new()
+			paw.paw_color = Color(1, 1, 1, 0.82)
+			paw.position = Vector2(13, 13)
+			paw.size = Vector2(22, 22)
+			paw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			slot.add_child(paw)
+
+			var mark := _lbl(slot, "?", 0, 12, BADGE.get_width(), 26, 20, Color(1, 1, 1, 0.7),
+				HORIZONTAL_ALIGNMENT_CENTER)
+
+			if c >= ids.size():
+				_ach_slots.append({})
+				continue
+
+			var id := str(ids[c])
+			_ach_order.append(id)
+			_ach_group_of[id] = g
+			slot.gui_input.connect(_on_badge_input.bind(id))
+			_ach_slots.append({
+				"slot": slot, "plate": plate, "icon": icon, "paw": paw, "mark": mark, "id": id,
+			})
+
+	_build_achievement_detail(page)
+	_build_achievement_progress(page)
+
+
+func _build_achievement_detail(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 8),
+		PANEL_LARGE.get_size(), PANEL_LARGE, PANEL_LARGE_MARGINS)
+	_ach_group_label = _lbl(panel, "", 52, 12, 208, 24, 17, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	_arrow_button(panel, ARROW_LEFT, -1, _step_achievement)
+	_arrow_button(panel, ARROW_RIGHT, 1, _step_achievement)
+
+	_ach_detail_badge = TextureRect.new()
+	_ach_detail_badge.texture = BADGE
+	_ach_detail_badge.position = Vector2(16, 54)
+	_ach_detail_badge.size = BADGE.get_size()
+	_ach_detail_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(_ach_detail_badge)
+
+	_ach_detail_icon = TextureRect.new()
+	_ach_detail_icon.position = Vector2(6, 6)
+	_ach_detail_icon.size = Vector2(36, 36)
+	_ach_detail_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_ach_detail_icon.stretch_mode = TextureRect.STRETCH_SCALE
+	_ach_detail_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ach_detail_badge.add_child(_ach_detail_icon)
+
+	_ach_detail_mark = _lbl(_ach_detail_badge, "?", 0, 12, BADGE.get_width(), 26, 20,
+		Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_CENTER)
+
+	_ach_detail_name = _lbl(panel, "", 76, 52, 220, 24, 17, INK)
+	_ach_detail_desc = _lbl(panel, "", 76, 78, 222, 46, 13, INK_SOFT)
+	_ach_detail_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Most descriptions are one line, which left the panel with a band of dead air.
+	# The selection's own group is the useful thing to put there.
+	_ach_group_progress = _lbl(panel, "", 16, 126, PANEL_LARGE.get_width() - 32, 20, 13, INK_FAINT)
+	_rule(panel, 16, 146, PANEL_LARGE.get_width() - 32)
+	_ach_detail_state = _lbl(panel, "", 16, 152, PANEL_LARGE.get_width() - 32, 22, 13, INK_SOFT)
+
+
+func _build_achievement_progress(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 212),
+		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
+	_lbl(panel, "Found", 16, 5, 160, 22, 15, INK)
+	_ach_count = _lbl(panel, "", 16, 32, PANEL_MEDIUM.get_width() - 32, 22, 14, INK)
+	_ach_bar_track = Panel.new()
+	_ach_bar_track.position = Vector2(16, 58)
+	_ach_bar_track.size = Vector2(PANEL_MEDIUM.get_width() - 32, 12)
+	_ach_bar_track.add_theme_stylebox_override("panel", _flat(TRACK, 6))
+	_ach_bar_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(_ach_bar_track)
+	_ach_bar_fill = Panel.new()
+	_ach_bar_fill.position = _ach_bar_track.position
+	_ach_bar_fill.size = Vector2(0, 12)
+	_ach_bar_fill.add_theme_stylebox_override("panel", _flat(GREEN, 6))
+	_ach_bar_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(_ach_bar_fill)
+
+	var secrets := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 320),
+		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
+	_lbl(secrets, "Secrets", 16, 5, 160, 22, 15, INK)
+	_ach_secrets = _lbl(secrets, "", 16, 32, PANEL_MEDIUM.get_width() - 32, 52, 13, INK_SOFT)
+	_ach_secrets.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+
+func _on_badge_input(event: InputEvent, id: String) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_ach_selected = id
+		Audio.play("open", 1.25)
+		_refresh_achievements()
+
+
+func _step_achievement(step: int) -> void:
+	if _ach_order.is_empty():
+		return
+	var i := _ach_order.find(_ach_selected)
+	if i < 0:
+		i = 0
+	_ach_selected = str(_ach_order[wrapi(i + step, 0, _ach_order.size())])
+	Audio.play("open", 1.25)
+	_refresh_achievements()
+
+
+## A bespoke icon for one achievement, or null to fall back to the tinted plaque.
+## Two naming conventions are accepted: `<id>.png` for anything added from now on, and
+## the label-derived `<Label with spaces as underscores>.png` that the one existing
+## icon already uses.
+func _achievement_icon(id: String, def: Dictionary) -> Texture2D:
+	var by_id := "res://assets/achievements/%s.png" % id
+	if ResourceLoader.exists(by_id):
+		return load(by_id)
+	var by_label := "res://assets/achievements/%s.png" % str(def.get("label", "")).replace(" ", "_")
+	if ResourceLoader.exists(by_label):
+		return load(by_label)
+	return null
+
+
+func _refresh_achievements() -> void:
+	if _ach_selected == "" and not _ach_order.is_empty():
+		_ach_selected = str(_ach_order[0])
+
+	for entry in _ach_slots:
+		if entry.is_empty():
+			continue
+		var id: String = entry["id"]
+		var def: Dictionary = Achievements.DEFS[id]
+		var earned: bool = Achievements.is_earned(id)
+		var hidden := bool(def.get("hidden", false))
+		var group: int = _ach_group_of[id]
+
+		var plate: TextureRect = entry["plate"]
+		plate.modulate = GROUP_TINTS[group] if earned else BADGE_LOCKED
+
+		var icon: Texture2D = _achievement_icon(id, def) if earned else null
+		(entry["icon"] as TextureRect).texture = icon
+		(entry["icon"] as TextureRect).visible = icon != null
+		(entry["paw"] as PawIcon).visible = earned and icon == null
+		(entry["mark"] as Label).visible = not earned and hidden
+
+		# A slot pops out slightly when it's the one being read, so the grid and the
+		# panel are visibly connected.
+		var slot: Control = entry["slot"]
+		var chosen := id == _ach_selected
+		slot.scale = Vector2(1.08, 1.08) if chosen else Vector2.ONE
+		slot.pivot_offset = BADGE.get_size() * 0.5
+		slot.tooltip_text = _badge_tooltip(id, def, earned, hidden)
+
+	_refresh_achievement_detail()
+
+	var total: int = Achievements.DEFS.size()
+	var found: int = Achievements.earned_count()
+	_ach_count.text = "%d of %d found." % [found, total]
+	_ach_bar_fill.size.x = _ach_bar_track.size.x * (float(found) / float(maxi(1, total)))
+
+	var secret_total := 0
+	var secret_found := 0
+	for id in Achievements.DEFS:
+		if bool(Achievements.DEFS[id].get("hidden", false)):
+			secret_total += 1
+			if Achievements.is_earned(id):
+				secret_found += 1
+	_ach_secrets.text = "%d of %d found. The rest stay hidden until your fox stumbles into them." % [
+		secret_found, secret_total]
+
+
+func _refresh_achievement_detail() -> void:
+	if _ach_selected == "" or not Achievements.DEFS.has(_ach_selected):
+		return
+	var id := _ach_selected
+	var def: Dictionary = Achievements.DEFS[id]
+	var earned: bool = Achievements.is_earned(id)
+	var hidden := bool(def.get("hidden", false))
+	var group: int = _ach_group_of[id]
+
+	var group_name := str(Achievements.GROUPS[group]["name"])
+	_ach_group_label.text = group_name
+	_ach_detail_badge.modulate = GROUP_TINTS[group] if earned else BADGE_LOCKED
+
+	var group_ids: Array = Achievements.GROUPS[group]["ids"]
+	var group_found := 0
+	for gid in group_ids:
+		if Achievements.is_earned(gid):
+			group_found += 1
+	_ach_group_progress.text = "%s — %d of %d found." % [group_name, group_found, group_ids.size()]
+
+	var icon: Texture2D = _achievement_icon(id, def) if earned else null
+	_ach_detail_icon.texture = icon
+	_ach_detail_icon.visible = icon != null
+	_ach_detail_mark.visible = not earned and hidden
+
+	# An unearned secret keeps its secret. An unearned ordinary one shows what to aim
+	# for — that's the difference the `hidden` flag is for.
+	if earned or not hidden:
+		_ach_detail_name.text = str(def["label"])
+		_ach_detail_desc.text = str(def["desc"])
+	else:
+		_ach_detail_name.text = "Secret"
+		_ach_detail_desc.text = "Something your fox hasn't shown you yet."
+
+	_ach_detail_name.add_theme_color_override("font_color", INK if earned else INK_SOFT)
+	if earned:
+		_ach_detail_state.text = "Earned."
+		_ach_detail_state.add_theme_color_override("font_color", GREEN)
+	else:
+		_ach_detail_state.text = "Not yet earned."
+		_ach_detail_state.add_theme_color_override("font_color", INK_FAINT)
+
+
+func _badge_tooltip(id: String, def: Dictionary, earned: bool, hidden: bool) -> String:
+	if earned:
+		return str(def["label"])
+	if hidden:
+		return "Secret"
+	return "%s — not yet earned" % str(def["label"])
+
+
 # --- Placeholder pages -------------------------------------------------------
 
 ## Pages 2-5 land in later phases. They still get the book's furniture so switching
@@ -899,6 +1203,7 @@ func _refresh_current() -> void:
 		Page.TODAY: _refresh_today()
 		Page.LOGBOOK: _refresh_logbook()
 		Page.HISTORY: _refresh_history()
+		Page.ACHIEVEMENTS: _refresh_achievements()
 
 
 func _refresh_today() -> void:
