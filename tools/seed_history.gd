@@ -25,6 +25,12 @@ const DAY := 86400
 
 const TODAY_TASKS := ["inventory drawer", "den sprites", "journal polish"]
 
+## Task labels for the seeded logbook rows, so the page has something to read.
+const SEED_TASKS := [
+	"inventory drawer", "den sprites", "journal polish", "wire up the calendar",
+	"fox idle animation", "settings panel pass", "achievement icons", "bug triage",
+]
+
 
 func _init() -> void:
 	# Fixed seed so re-running gives the same history rather than a new one.
@@ -40,6 +46,11 @@ func _init() -> void:
 		days[key] = {"sessions": 0, "focus": 0.0, "breaks": 0}
 
 	var total_min := 0
+	# Collected alongside the aggregates and handed to the store at the end. The
+	# journal's Logbook and History pages read events, not day totals, so a seeded
+	# history without these looks active on the week strip and completely blank the
+	# moment you open the day it points at.
+	var log_ := []
 
 	# Every day on the list gets a session of its own first. StatsStore only counts
 	# a day as active if it recorded a focus session, so days left with nothing but
@@ -47,13 +58,13 @@ func _init() -> void:
 	# however many days came out of the draw, so the budget always stretches.
 	var share := maxi(10, int(float(TARGET_FOCUS_MIN) / float(keys.size()) * 0.75))
 	for key in keys:
-		total_min += _add_session(days, key, mini(randi_range(share, share + 10), TARGET_FOCUS_MIN - total_min))
+		total_min += _add_session(days, log_, key, mini(randi_range(share, share + 10), TARGET_FOCUS_MIN - total_min))
 
 	# Whatever's left of the budget goes on second and third sessions at random,
 	# which is what makes the per-day counts uneven the way real use is.
 	while total_min < TARGET_FOCUS_MIN:
 		var length := mini(randi_range(EXTRA_SESSION_MIN.x, EXTRA_SESSION_MIN.y), TARGET_FOCUS_MIN - total_min)
-		total_min += _add_session(days, keys[randi() % keys.size()], length)
+		total_min += _add_session(days, log_, keys[randi() % keys.size()], length)
 
 	# A break or two on most days, and today's task list so that row isn't blank.
 	var breaks := 0
@@ -61,11 +72,21 @@ func _init() -> void:
 		var b := randi_range(0, 2)
 		days[key]["breaks"] = b
 		breaks += b
+		for i in b:
+			var kind := "long" if i > 0 and randf() < 0.35 else "short"
+			log_.append({
+				"ts": _day_start(key) + randi_range(10, 17) * 3600 + randi_range(0, 59) * 60,
+				"kind": kind,
+				"seconds": (15.0 if kind == "long" else 5.0) * 60.0,
+				"task": "",
+			})
 	var today := _key(now)
 	if days.has(today):
 		days[today]["tasks"] = TODAY_TASKS.duplicate()
 
+	log_.sort_custom(func(a, b): return int(a["ts"]) < int(b["ts"]))
 	stats.days = days
+	stats.events = log_
 	stats.longest_streak = 7
 	stats.current_streak = 3
 	stats.last_session_end = now - 2700  # 45 min ago, so the streak grace has lapsed
@@ -97,21 +118,39 @@ func _pick_active_days(now: int) -> Array:
 	return keys
 
 
-## Records one focus session on `key` and returns the minutes actually added, so
-## the caller can keep a running total. Zero-length sessions are skipped, which is
-## what stops the budget clamp from adding an empty one at the very end.
-func _add_session(days: Dictionary, key: String, minutes: int) -> int:
+## Records one focus session on `key` — both the day aggregate and the logbook row —
+## and returns the minutes actually added, so the caller can keep a running total.
+## Zero-length sessions are skipped, which is what stops the budget clamp from adding
+## an empty one at the very end.
+func _add_session(days: Dictionary, log_: Array, key: String, minutes: int) -> int:
 	if minutes <= 0:
 		return 0
 	var e: Dictionary = days[key]
 	e["sessions"] = int(e["sessions"]) + 1
 	e["focus"] = float(e["focus"]) + float(minutes) * 60.0
+	# Scattered across a plausible working day so the logbook reads like a day rather
+	# than a stack of sessions all starting at midnight.
+	log_.append({
+		"ts": _day_start(key) + randi_range(8, 18) * 3600 + randi_range(0, 59) * 60,
+		"kind": "focus",
+		"seconds": float(minutes) * 60.0,
+		"task": SEED_TASKS[randi() % SEED_TASKS.size()],
+	})
 	return minutes
 
 
 func _key(ts: int) -> String:
 	var d := Time.get_date_dict_from_unix_time(ts)
 	return "%04d-%02d-%02d" % [d.year, d.month, d.day]
+
+
+## Midnight on a "YYYY-MM-DD" key, as unix seconds.
+func _day_start(key: String) -> int:
+	var parts := key.split("-")
+	return int(Time.get_unix_time_from_datetime_dict({
+		"year": int(parts[0]), "month": int(parts[1]), "day": int(parts[2]),
+		"hour": 0, "minute": 0, "second": 0,
+	}))
 
 
 ## Keeps a copy of the history from before seeding ever ran. Deliberately refuses
@@ -143,6 +182,11 @@ func _report(stats: StatsStore, total_min: int, breaks: int, backed_up: bool) ->
 		stats.days.size(), stats.total_sessions(), total_min / 60, total_min % 60, breaks,
 	])
 	print("  trail today: %d days, best trail: %d" % [stats.current_trail(), stats.best_trail()])
+	print("  %d logbook events, earliest day %s" % [stats.events.size(), stats.first_active_day()])
+	var score: Dictionary = stats.day_score(stats.today_key())
+	print("  today scores %d (%s) against a goal of %d sessions / %d min" % [
+		score["score"], score["tier"], stats.goal_sessions, stats.goal_focus_min,
+	])
 
 	# What the den will actually do with this, so it's obvious when a find is held
 	# up by a missing sprite rather than by focus time.

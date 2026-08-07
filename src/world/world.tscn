@@ -18,7 +18,7 @@
 [ext_resource type="Texture2D" uid="uid://d33vvsfm4cqdi" path="res://assets/main_menu/default_button - hovered.png" id="20_btnhover"]
 [ext_resource type="Texture2D" uid="uid://cf40wpmgb761b" path="res://assets/main_menu/icons/settings/highlighted-gear-icon.png" id="21_gearhi"]
 [ext_resource type="Script" uid="uid://dy1rnck8yapd1" path="res://src/world/throwable_prop.gd" id="22_throw"]
-[ext_resource type="Script" uid="uid://don5ko6d0bn48" path="res://src/world/journal_panel.gd" id="23_journal"]
+[ext_resource type="Script" path="res://src/world/journal_book.gd" id="23_journal"]
 [ext_resource type="Script" path="res://src/world/achievement_toast.gd" id="26_toast"]
 [ext_resource type="Script" path="res://src/world/den_inventory.gd" id="27_deninv"]
 [ext_resource type="Shader" uid="uid://b4qdxfhr5vp2s" path="res://src/world/clock_dial.gdshader" id="24_clockshader"]
@@ -466,7 +466,7 @@ placeholder_text = "What are you focusing on? (optional)"
 alignment = 1
 max_length = 80
 
-[node name="JournalPanel" type="Control" parent="MenuLayer" unique_id=598295920]
+[node name="JournalBook" type="Control" parent="MenuLayer" unique_id=598295920]
 visible = false
 z_index = 80
 layout_mode = 3

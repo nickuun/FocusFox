@@ -72,7 +72,7 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 @onready var _stats_week_value: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/WeekValue
 @onready var _stats_total_header: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/TotalHeader
 @onready var _journal_icon: TextureButton = $MenuLayer/JournalIcon
-@onready var _journal_panel: JournalPanel = $MenuLayer/JournalPanel
+@onready var _journal_panel: JournalBook = $MenuLayer/JournalBook
 @onready var _clock_dial: Sprite2D = $MenuLayer/ClockDial
 ## Slides in over the button row, so it and the buttons are mutually exclusive.
 @onready var _den_inventory: DenInventory = $MenuLayer/DenInventory
@@ -287,6 +287,7 @@ func _setup_menu_nodes() -> void:
 	_settings_icon_button.pressed.connect(_on_settings_pressed)
 	_settings_panel.close_button.pressed.connect(_hide_settings_panel)
 	_journal_icon.pressed.connect(_on_journal_pressed)
+	_journal_panel.close_requested.connect(_set_journal_open.bind(false))
 	_settings_panel.scale_slider.value_changed.connect(_on_scale_changed)
 	_settings_panel.opacity_slider.value_changed.connect(_on_opacity_changed)
 	_settings_panel.liveliness_slider.value_changed.connect(_on_liveliness_changed)
@@ -508,7 +509,7 @@ func _on_clock_finished() -> void:
 	var id := _clock.session_id
 	var encouragement := ""
 	if _is_break(id):
-		_stats.record_break(_session_started_at)
+		_stats.record_break(_clock.total_seconds, _session_started_at, id)
 		_last_completed = id
 		if id == "long":
 			_cycle_focus_count = 0

@@ -1,0 +1,569 @@
+extends Control
+class_name JournalBook
+
+## The "Fox Journal" — a full-window open book with an edge rail of tabs switching
+## between pages. Replaces the flat card layout of the old JournalPanel.
+##
+## Everything is laid out in absolute design-space pixels, 1:1 with the art, the same
+## convention the settings panel uses. The launcher renders this 960×540 space at an
+## integer multiple, so these coordinates stay valid at any window scale.
+##
+## The book plate is bare art — cover, gutter, rings, bookmarks and nothing else. All
+## furniture (panels, rules, polaroid, title) is composed on top from separate pieces,
+## so each page lays out whatever it needs rather than inheriting one fixed set of wells.
+
+signal close_requested
+
+const FONT := preload("res://assets/not_sprites/pixel_operator/PixelOperator.ttf")
+
+const PLATE := preload("res://assets/journal/journal ui/Main Page/Journal_Today_Page.png")
+const TITLE_ART := preload("res://assets/journal/journal ui/Main Page/Fox_Journal-title.png")
+const FOX_FRAME := preload("res://assets/journal/journal ui/Main Page/fox_frame.png")
+const PANEL_LARGE := preload("res://assets/journal/journal ui/Main Page/day_tab.png")
+const PANEL_MEDIUM := preload("res://assets/journal/journal ui/Main Page/medium_tab.png")
+const RULE := preload("res://assets/journal/journal ui/Main Page/tilable_line.png")
+
+const TAB_ART := [
+	preload("res://assets/journal/journal ui/Today Log_Tab.png"),
+	preload("res://assets/journal/journal ui/Journal_Extra_Tab.png"),
+	preload("res://assets/journal/journal ui/Calendar_Tab.png"),
+	preload("res://assets/journal/journal ui/Journal_Upgrades_Tab.png"),
+	preload("res://assets/journal/journal ui/Achievements_Tab.png"),
+]
+
+enum Page { TODAY, LOGBOOK, HISTORY, DEN, ACHIEVEMENTS }
+
+const PAGE_NAMES := ["Today", "Logbook", "History", "Den", "Achievements"]
+
+# --- Palette, sampled from the book art so text sits in it rather than on it ------
+const INK := Color(0.30, 0.19, 0.11)
+const INK_SOFT := Color(0.30, 0.19, 0.11, 0.70)
+const INK_FAINT := Color(0.30, 0.19, 0.11, 0.38)
+const PAW := Color("8a5630")
+const GREEN := Color("4a8f3c")
+const ORANGE := Color("cf7a2e")
+const RUST := Color("b6502e")
+const TRACK := Color(0.72, 0.64, 0.53, 0.55)
+
+# --- Geometry, measured off the plate ---------------------------------------------
+## The cream areas of the two pages. Nothing should be drawn outside these — the
+## surrounding pixels are cover, gutter shadow and the page-curl.
+const LEFT_PAGE := Rect2(112, 47, 340, 433)
+const RIGHT_PAGE := Rect2(512, 50, 333, 428)
+
+## Tab rail. The chips poke out of the book's left edge; the active one slides a
+## little further out and brightens, which is why no second sprite is needed.
+const TAB_X := 66.0
+const TAB_Y0 := 80.0
+const TAB_PITCH := 57.0
+const TAB_OUT := 6.0
+const TAB_HOVER_OUT := 2.0
+
+## NinePatch margins for the two panel sprites. Left/right match the slice kit's
+## 32px corner; bottom matches its 27px; top is set to clear the baked header so the
+## ‹ › arrows and the sub-header pill are never stretched.
+const PANEL_LARGE_MARGINS := Vector4(32, 46, 32, 27)   # l, t, r, b
+const PANEL_MEDIUM_MARGINS := Vector4(32, 32, 32, 27)
+
+## The ‹ › glyphs baked into the large panel's header, in panel-local coordinates.
+## Buttons are placed over them rather than drawn.
+const ARROW_LEFT := Rect2(12, 6, 36, 32)
+const ARROW_RIGHT := Rect2(264, 6, 36, 32)
+
+const RULE_PITCH := 26.0
+
+const DAY_INITIALS := ["M", "T", "W", "T", "F", "S", "S"]
+
+var _current := Page.TODAY
+var _week_offset := 0
+var _page_tween: Tween
+
+var _tabs: Array[TextureRect] = []
+var _pages: Array[Control] = []
+
+# Today page widgets
+var _score_value: Label
+var _score_tier: Label
+var _greeting: Label
+var _goal_rows: Array = []
+var _tasks: Label
+var _week_title: Label
+var _week_paws: Array[PawIcon] = []
+var _week_days: Array[Label] = []
+var _week_footer: Label
+var _find_text: Label
+var _find_bar: Panel
+var _find_fill: Panel
+var _find_count: Label
+var _totals: Array[Label] = []
+
+var _stats: StatsStore
+var _den: Den
+
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	_build()
+	_show_page(Page.TODAY, false)
+
+
+func _build() -> void:
+	# The plate is a book on a transparent surround, so without this the launcher —
+	# stats bar, credits, wooden floor — shows through around the covers. Kept inside
+	# the book rather than reusing the settings scrim so the journal icon, which sits
+	# above this node, stays lit and clickable as the way back out.
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.16, 0.10, 0.07, 0.62)
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(backdrop)
+
+	var plate := TextureRect.new()
+	plate.texture = PLATE
+	plate.position = Vector2.ZERO
+	plate.size = Vector2(960, 540)
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(plate)
+
+	_build_tabs()
+
+	for i in PAGE_NAMES.size():
+		var page := Control.new()
+		page.name = PAGE_NAMES[i]
+		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Pages squash about the gutter when turning, so the animation reads as the
+		# spread's halves folding rather than a box shrinking off-centre.
+		page.pivot_offset = Vector2(480, 270)
+		add_child(page)
+		_pages.append(page)
+
+	_build_today(_pages[Page.TODAY])
+	for i in [Page.LOGBOOK, Page.HISTORY, Page.DEN, Page.ACHIEVEMENTS]:
+		_build_placeholder(_pages[i], PAGE_NAMES[i])
+
+
+func _build_tabs() -> void:
+	for i in TAB_ART.size():
+		var tab := TextureRect.new()
+		tab.texture = TAB_ART[i]
+		tab.position = Vector2(TAB_X, TAB_Y0 + TAB_PITCH * i)
+		tab.size = TAB_ART[i].get_size()
+		tab.mouse_filter = Control.MOUSE_FILTER_STOP
+		tab.tooltip_text = PAGE_NAMES[i]
+		tab.gui_input.connect(_on_tab_input.bind(i))
+		tab.mouse_entered.connect(_on_tab_hover.bind(i, true))
+		tab.mouse_exited.connect(_on_tab_hover.bind(i, false))
+		add_child(tab)
+		_tabs.append(tab)
+
+
+func _on_tab_input(event: InputEvent, index: int) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if index != _current:
+			_show_page(index, true)
+
+
+func _on_tab_hover(index: int, entered: bool) -> void:
+	if index == _current:
+		return
+	_tabs[index].position.x = TAB_X - (TAB_HOVER_OUT if entered else 0.0)
+
+
+# --- Page switching ----------------------------------------------------------
+
+func _show_page(page: int, animate: bool) -> void:
+	_current = page
+	for i in _tabs.size():
+		var active := i == page
+		_tabs[i].position.x = TAB_X - (TAB_OUT if active else 0.0)
+		_tabs[i].modulate = Color.WHITE if active else Color(0.88, 0.88, 0.88)
+	for i in _pages.size():
+		_pages[i].visible = i == page
+	_refresh_current()
+
+	if not animate:
+		_pages[page].scale = Vector2.ONE
+		return
+
+	Audio.play("open", 1.12)
+	if _page_tween != null and _page_tween.is_valid():
+		_page_tween.kill()
+	var target := _pages[page]
+	target.scale = Vector2(0.0, 1.0)
+	_page_tween = create_tween()
+	_page_tween.tween_property(target, "scale", Vector2.ONE, 0.22) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not visible or not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	match event.keycode:
+		KEY_ESCAPE:
+			close_requested.emit()
+			get_viewport().set_input_as_handled()
+		KEY_E, KEY_RIGHT:
+			_show_page((_current + 1) % _pages.size(), true)
+			get_viewport().set_input_as_handled()
+		KEY_Q, KEY_LEFT:
+			_show_page((_current + _pages.size() - 1) % _pages.size(), true)
+			get_viewport().set_input_as_handled()
+
+
+# --- Today page --------------------------------------------------------------
+
+func _build_today(page: Control) -> void:
+	var l := LEFT_PAGE.position
+
+	var title := TextureRect.new()
+	title.texture = TITLE_ART
+	title.position = l + Vector2(14, 7)
+	title.size = TITLE_ART.get_size()
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(title)
+	_rule(page, l.x + 14, l.y + 47, LEFT_PAGE.size.x - 28)
+
+	var frame := TextureRect.new()
+	frame.texture = FOX_FRAME
+	frame.position = l + Vector2(14, 59)
+	frame.size = FOX_FRAME.get_size()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(frame)
+
+	# Score, sitting beside the polaroid where the mockup put the headline numbers.
+	_lbl(page, "Today's score", l.x + 140, l.y + 65, 186, 20, 15, INK_SOFT)
+	_score_value = _lbl(page, "0", l.x + 140, l.y + 86, 186, 42, 38, GREEN)
+	_score_tier = _lbl(page, "", l.x + 140, l.y + 128, 186, 22, 15, INK_SOFT)
+
+	_greeting = _lbl(page, "", l.x + 14, l.y + 177, LEFT_PAGE.size.x - 28, 46, 15, INK)
+	_greeting.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	_lbl(page, "Daily goals", l.x + 14, l.y + 229, 200, 22, 17, INK)
+	var bar_y := [255.0, 297.0, 339.0]
+	var specs := [["Focus sessions", GREEN], ["Time focused", GREEN], ["Breaks taken", ORANGE]]
+	for i in specs.size():
+		_goal_rows.append(_goal_row(page, l.x + 14, l.y + bar_y[i], LEFT_PAGE.size.x - 28,
+			str(specs[i][0]), specs[i][1]))
+
+	_rule(page, l.x + 14, l.y + 383, LEFT_PAGE.size.x - 28)
+	_tasks = _lbl(page, "", l.x + 14, l.y + 391, LEFT_PAGE.size.x - 28, 40, 14, INK_SOFT)
+	_tasks.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	_build_week_panel(page)
+	_build_find_panel(page)
+	_build_totals_panel(page)
+
+
+## Label above, track and fill below, value right-aligned on the label's line.
+func _goal_row(page: Control, x: float, y: float, w: float, label: String, colour: Color) -> Dictionary:
+	_lbl(page, label, x, y, w - 90, 20, 14, INK_SOFT)
+	var value := _lbl(page, "0 / 0", x + w - 110, y, 110, 20, 14, INK, HORIZONTAL_ALIGNMENT_RIGHT)
+	var track := Panel.new()
+	track.position = Vector2(x, y + 21)
+	track.size = Vector2(w, 12)
+	track.add_theme_stylebox_override("panel", _flat(TRACK, 6))
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(track)
+	var fill := Panel.new()
+	fill.position = Vector2(x, y + 21)
+	fill.size = Vector2(0, 12)
+	fill.add_theme_stylebox_override("panel", _flat(colour, 6))
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(fill)
+	return {"value": value, "fill": fill, "width": w}
+
+
+func _build_week_panel(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 8),
+		PANEL_LARGE.get_size(), PANEL_LARGE, PANEL_LARGE_MARGINS)
+
+	_week_title = _lbl(panel, "This Week", 52, 12, 208, 24, 18, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	_arrow_button(panel, ARROW_LEFT, -1)
+	_arrow_button(panel, ARROW_RIGHT, 1)
+
+	var col := (PANEL_LARGE.get_width() - 24) / 7.0
+	for i in 7:
+		var cx := 12 + col * (i + 0.5)
+		_week_days.append(_lbl(panel, DAY_INITIALS[i], cx - 20, 56, 40, 20, 15, INK_SOFT, HORIZONTAL_ALIGNMENT_CENTER))
+		var paw := PawIcon.new()
+		paw.paw_color = PAW
+		paw.size = Vector2(34, 34)
+		paw.position = Vector2(cx - 17, 78)
+		paw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(paw)
+		_week_paws.append(paw)
+
+	_week_footer = _lbl(panel, "", 12, 126, PANEL_LARGE.get_width() - 24, 40, 14, INK_SOFT, HORIZONTAL_ALIGNMENT_CENTER)
+	_week_footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+
+func _build_find_panel(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 212),
+		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
+	_lbl(panel, "Next Den Find", 16, 5, 160, 22, 15, INK)
+	_find_text = _lbl(panel, "", 16, 34, PANEL_MEDIUM.get_width() - 32, 20, 14, INK)
+	_find_bar = Panel.new()
+	_find_bar.position = Vector2(16, 60)
+	_find_bar.size = Vector2(180, 12)
+	_find_bar.add_theme_stylebox_override("panel", _flat(TRACK, 6))
+	_find_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(_find_bar)
+	_find_fill = Panel.new()
+	_find_fill.position = Vector2(16, 60)
+	_find_fill.size = Vector2(0, 12)
+	_find_fill.add_theme_stylebox_override("panel", _flat(RUST, 6))
+	_find_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(_find_fill)
+	_find_count = _lbl(panel, "", 204, 56, 94, 20, 13, INK_SOFT, HORIZONTAL_ALIGNMENT_RIGHT)
+
+
+func _build_totals_panel(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 320),
+		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
+	_lbl(panel, "All Time", 16, 5, 160, 22, 15, INK)
+	# Three columns rather than the old five: 313px can hold three readable numbers,
+	# and the remaining two totals belong on the History page where there's room.
+	var labels := ["sessions", "focused", "best trail"]
+	var colours := [GREEN, GREEN, RUST]
+	var col := (PANEL_MEDIUM.get_width() - 24) / 3.0
+	for i in 3:
+		var x := 12 + col * i
+		_totals.append(_lbl(panel, "0", x, 32, col, 30, 24, colours[i], HORIZONTAL_ALIGNMENT_CENTER))
+		_lbl(panel, labels[i], x, 62, col, 20, 13, INK_SOFT, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+func _arrow_button(panel: Control, rect: Rect2, step: int) -> void:
+	var btn := Control.new()
+	btn.position = rect.position
+	btn.size = rect.size
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			_step_week(step))
+	panel.add_child(btn)
+
+
+## Walks the week strip back and forth. Forward stops at the current week and back
+## stops at the week holding the first recorded session, so ‹ › never leads into
+## empty history.
+func _step_week(step: int) -> void:
+	var next := _week_offset + step
+	if next > 0:
+		return
+	if step < 0 and _stats != null:
+		var first := _stats.first_active_day()
+		if first != "":
+			var week := _stats.week_activity(next)
+			if str(week[6]["key"]) < first:
+				return
+	_week_offset = next
+	Audio.play("open", 1.2)
+	_refresh_week()
+
+
+# --- Placeholder pages -------------------------------------------------------
+
+## Pages 2-5 land in later phases. They still get the book's furniture so switching
+## to one looks deliberate rather than broken.
+func _build_placeholder(page: Control, name_: String) -> void:
+	var l := LEFT_PAGE.position
+	_lbl(page, name_, l.x + 14, l.y + 10, LEFT_PAGE.size.x - 28, 34, 26, INK)
+	_rule(page, l.x + 14, l.y + 47, LEFT_PAGE.size.x - 28)
+	for i in 12:
+		_rule(page, l.x + 14, l.y + 80 + RULE_PITCH * i, LEFT_PAGE.size.x - 28)
+	var note := _lbl(page, "This page is still blank.\nYour fox is waiting.",
+		RIGHT_PAGE.position.x, RIGHT_PAGE.position.y + 180, RIGHT_PAGE.size.x, 60,
+		15, INK_FAINT, HORIZONTAL_ALIGNMENT_CENTER)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+
+# --- Refresh -----------------------------------------------------------------
+
+func refresh(stats: StatsStore, den: Den = null) -> void:
+	_stats = stats
+	_den = den
+	_refresh_current()
+
+
+func _refresh_current() -> void:
+	if _stats == null or _current != Page.TODAY:
+		return
+	_refresh_today()
+
+
+func _refresh_today() -> void:
+	var total_focus := _stats.total_focus()
+	var key := _stats.today_key()
+	var today := _stats.day(key)
+	var score: Dictionary = _stats.day_score(key)
+
+	_score_value.text = "%d" % int(score["score"])
+	_score_value.add_theme_color_override("font_color", _tier_colour(str(score["tier"])))
+	_score_tier.text = _tier_text(str(score["tier"]), bool(score["needs_rest"]))
+
+	_greeting.text = "You and your fox have focused for %s together." % _long_duration(total_focus)
+
+	var sessions := int(today.get("sessions", 0))
+	var focus_min := int(round(float(today.get("focus", 0.0)) / 60.0))
+	var breaks := int(today.get("breaks", 0))
+	# Breaks have no configured target — three a day is a gentle suggestion, not a goal.
+	_set_goal(_goal_rows[0], sessions, _stats.goal_sessions, "%d / %d")
+	_set_goal(_goal_rows[1], focus_min, _stats.goal_focus_min, "%dm / %dm")
+	_set_goal(_goal_rows[2], breaks, 3, "%d / %d")
+
+	var tasks := _stats.today_tasks()
+	_tasks.text = "" if tasks.is_empty() else "Today's focus: " + " · ".join(tasks.slice(maxi(0, tasks.size() - 4)))
+
+	_refresh_week()
+	_refresh_find(total_focus)
+
+	_totals[0].text = "%d" % _stats.total_sessions()
+	_totals[1].text = _short_duration(total_focus)
+	_totals[2].text = "%d" % _stats.best_trail()
+
+
+func _set_goal(row: Dictionary, value: int, goal: int, format: String) -> void:
+	(row["value"] as Label).text = format % [value, goal]
+	var pct := clampf(float(value) / maxf(1.0, float(goal)), 0.0, 1.0)
+	(row["fill"] as Panel).size.x = float(row["width"]) * pct
+
+
+func _refresh_week() -> void:
+	if _stats == null:
+		return
+	var week := _stats.week_activity(_week_offset)
+	for i in 7:
+		var d: Dictionary = week[i]
+		_week_paws[i].active = bool(d["active"])
+		_week_days[i].modulate.a = 0.45 if bool(d["future"]) else 1.0
+		_week_days[i].add_theme_color_override("font_color", INK if bool(d["today"]) else INK_SOFT)
+
+	if _week_offset == 0:
+		_week_title.text = "This Week"
+		var trail := _stats.current_trail()
+		_week_footer.text = "No trail yet — start a session to leave a pawprint." if trail <= 0 \
+			else "%d-day pawprint trail. Keep going!" % trail
+	else:
+		var ago := -_week_offset
+		_week_title.text = "Last Week" if ago == 1 else "%d Weeks Ago" % ago
+		var active := 0
+		var focus := 0.0
+		for d in week:
+			if bool(d["active"]):
+				active += 1
+			focus += float(d["focus"])
+		_week_footer.text = "%d active %s · %s focused." % [
+			active, "day" if active == 1 else "days", _short_duration(focus)]
+
+
+func _refresh_find(total_focus: float) -> void:
+	if _den == null:
+		_find_text.text = ""
+		_find_fill.size.x = 0
+		_find_count.text = ""
+		return
+	var found := "%d of %d" % [_den.found_count(), _den.catalog_size()]
+	var next := _den.next_find(total_focus)
+	if next.is_empty():
+		_find_text.text = "Your den is full — every find has made it home."
+		_find_fill.size.x = _find_bar.size.x
+		_find_count.text = found
+		return
+	var remaining := int(next["remaining"])
+	_find_text.text = "%d more %s for %s." % [
+		remaining, "minute" if remaining == 1 else "minutes", str(next["name"])]
+	var window := maxf(1.0, float(next["window"]))
+	_find_fill.size.x = _find_bar.size.x * clampf(float(next["done"]) / window, 0.0, 1.0)
+	_find_count.text = found
+
+
+# --- Builders ----------------------------------------------------------------
+
+## A light panel from one of the two assembled sprites, stretched by nine-patch so
+## the painted border and the baked header survive any size.
+func _panel(parent: Control, at: Vector2, panel_size: Vector2, tex: Texture2D, margins: Vector4) -> Control:
+	var np := NinePatchRect.new()
+	np.texture = tex
+	np.position = at
+	np.size = panel_size
+	np.patch_margin_left = int(margins.x)
+	np.patch_margin_top = int(margins.y)
+	np.patch_margin_right = int(margins.z)
+	np.patch_margin_bottom = int(margins.w)
+	np.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(np)
+	return np
+
+
+## One ruled line, tiled to `width`. Returns its baseline y so callers can sit text
+## on the line rather than guess at it.
+func _rule(parent: Control, x: float, y: float, width: float) -> float:
+	var line := TextureRect.new()
+	line.texture = RULE
+	line.stretch_mode = TextureRect.STRETCH_TILE
+	line.position = Vector2(x, y)
+	line.size = Vector2(width, RULE.get_height())
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(line)
+	return y + RULE.get_height()
+
+
+func _lbl(parent: Control, text: String, x: float, y: float, w: float, h: float,
+		fsize: int, colour: Color, halign := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.position = Vector2(x, y)
+	lbl.size = Vector2(w, h)
+	lbl.add_theme_font_override("font", FONT)
+	lbl.add_theme_font_size_override("font_size", fsize)
+	lbl.add_theme_color_override("font_color", colour)
+	lbl.horizontal_alignment = halign
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(lbl)
+	return lbl
+
+
+func _flat(fill: Color, radius: int) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fill
+	sb.set_corner_radius_all(radius)
+	return sb
+
+
+# --- Formatting --------------------------------------------------------------
+
+func _tier_colour(tier: String) -> Color:
+	match tier:
+		"gold": return Color("d9a12b")
+		"silver": return Color("8fa0ab")
+		"bronze": return Color("b0703a")
+		_: return INK_SOFT
+
+
+func _tier_text(tier: String, needs_rest: bool) -> String:
+	if needs_rest:
+		return "Remember to rest."
+	match tier:
+		"gold": return "Gold day. Outstanding."
+		"silver": return "Silver day. Goal met."
+		"bronze": return "Bronze day. Good going."
+		_: return "The day is still young."
+
+
+func _short_duration(seconds: float) -> String:
+	var mins := int(round(seconds / 60.0))
+	if mins < 60:
+		return "%dm" % mins
+	return "%dh %dm" % [mins / 60, mins % 60]
+
+
+func _long_duration(seconds: float) -> String:
+	var mins := int(round(seconds / 60.0))
+	if mins < 1:
+		return "no time at all yet"
+	if mins < 60:
+		return "%d %s" % [mins, "minute" if mins == 1 else "minutes"]
+	return "%dh %dm" % [mins / 60, mins % 60]
