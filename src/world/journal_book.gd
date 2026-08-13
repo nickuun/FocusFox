@@ -180,6 +180,9 @@ var _hist_extra: Array[Label] = []
 # Today page's fox photo
 var _fox_photo: AnimatedSprite2D
 var _fox_idle_timer: Timer
+## True during the return half of a mood, so animation_finished can tell the two ends
+## apart — it fires at the start of the animation as well when playing backwards.
+var _fox_reversing := false
 
 # Den page widgets
 var _den_selected := 0
@@ -385,6 +388,7 @@ func _build_today(page: Control) -> void:
 	_fox_photo.sprite_frames = _build_fox_frames()
 	_fox_photo.centered = false
 	_fox_photo.position = l + Vector2(14, 59)
+	_fox_photo.animation_finished.connect(_on_fox_anim_finished)
 	page.add_child(_fox_photo)
 	_fox_photo.animation = "sway"
 
@@ -441,15 +445,31 @@ func _build_fox_frames() -> SpriteFrames:
 	return frames
 
 
+## Plays a mood out and then back in again, and holds there. Both animations were drawn
+## with their last frame identical to their first, so each pass is already a round trip
+## and the reverse reads as a second, mirrored beat rather than a return to rest. The
+## one frame the turnaround repeats is that shared rest pose, which is the least
+## noticeable place in the whole animation to sit on for an extra 80ms.
 func _play_fox(anim: String) -> void:
 	if _fox_photo == null or _fox_photo.sprite_frames == null:
 		return
 	if not _fox_photo.sprite_frames.has_animation(anim):
 		return
+	_fox_reversing = false
 	_fox_photo.animation = anim
 	_fox_photo.frame = 0
 	_fox_photo.play(anim)
-	_restart_fox_idle()
+
+
+func _on_fox_anim_finished() -> void:
+	if _fox_reversing:
+		# Home again. The gap to the next ambient sway is measured from here rather than
+		# from the start, so the two can never overlap however long a mood runs.
+		_fox_reversing = false
+		_restart_fox_idle()
+		return
+	_fox_reversing = true
+	_fox_photo.play_backwards(_fox_photo.animation)
 
 
 ## Only stirs while the Today page is actually being looked at — the photo isn't on any
