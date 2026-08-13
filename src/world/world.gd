@@ -15,7 +15,10 @@ const DESIGN_SIZE := Vector2i(960, 540)
 @export_range(1, 4) var launcher_scale := 2
 @export var minimize_delay_after_start := 1.5
 
-enum Mode { HOME, CHOOSE, RUNNING }
+## HOME / CHOOSE / RUNNING are the session flow. DEN is a side room off it: the menu
+## chrome clears out and what's left is the fox's room and the drawer of things to put
+## in it. You come back to whichever of the other three you left — see _set_den_open.
+enum Mode { HOME, CHOOSE, RUNNING, DEN }
 
 const COLOUR_OPTIONS := [
 	{"key": "default", "label": "Classic"},
@@ -72,6 +75,15 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 @onready var _stats_week_value: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/WeekValue
 @onready var _stats_total_header: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/TotalHeader
 @onready var _journal_icon: TextureButton = $MenuLayer/JournalIcon
+@onready var _den_icon: TextureButton = $MenuLayer/DenIcon
+## The menu's authored desk plant. Not a find — it was always in the room — but it's
+## furniture, so it dims with the rest of the furniture rather than staying vivid
+## beside a faded lamp.
+@onready var _desk_plant: Node2D = $MenuLayer/MainMenu/Planet
+@onready var _stats_panel: Sprite2D = $MenuLayer/MainMenu/MainmenuStatsPanel
+@onready var _version_labels: Array[Label] = [
+	$MenuLayer/MainMenu/VersionLabel, $MenuLayer/MainMenu/VersionLabel2,
+]
 @onready var _journal_panel: JournalBook = $MenuLayer/JournalBook
 @onready var _clock_dial: Sprite2D = $MenuLayer/ClockDial
 ## Slides in over the button row, so it and the buttons are mutually exclusive.
@@ -85,6 +97,16 @@ const SCRIM_FADE := 0.16
 
 const JOURNAL_ICON := preload("res://assets/main_menu/icons/journal-icon.png")
 const HOME_ICON := preload("res://assets/main_menu/icons/home-icon.png")
+## PLACEHOLDER. customize.png is a leftover purple planet from the planetoid days —
+## the right name, the wrong picture. Wants a den glyph in the journal icon's warm
+## painted hand; swapping the file is the whole change.
+const DEN_ICON := preload("res://assets/main_menu/icons/customize.png")
+
+## What the den fades to when the launcher has something else to say. The room is the
+## backdrop to the whole menu rather than a screen of its own, so it stays on show —
+## but a lamp at full strength competes with the status line and the task field.
+const DEN_DIM := 0.6
+const DEN_DIM_FADE := 0.22
 const BTN_NORMAL := preload("res://assets/main_menu/default_button.png")
 const BTN_HILITE := preload("res://assets/main_menu/default_button - hovered.png")
 
@@ -99,6 +121,10 @@ var _stats: StatsStore
 var _den: Den
 var _reset_dialog: ConfirmationDialog
 var _journal_open := false
+## The mode den mode was entered from, restored on the way out — so ducking into the
+## den mid-session gives you your timer back rather than dumping you at the main menu.
+var _mode_before_den := Mode.HOME
+var _den_dim_tween: Tween
 var _intro_running := false
 var _settings_scrim: ColorRect          # blurs + darkens the menu behind the settings panel
 var _scrim_tween: Tween
@@ -160,6 +186,17 @@ func _notification(what: int) -> void:
 func _physics_process(delta: float) -> void:
 	_keep_launcher_unminimized()
 	_desktop_fox.physics_step(delta)
+
+
+## Escape leaves the den. The journal runs its own Escape handler and is deeper in the
+## tree, so it gets first refusal — but it only acts while it's visible, and the two
+## are mutually exclusive, so they can't both answer.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if event.keycode == KEY_ESCAPE and _mode == Mode.DEN:
+		_set_den_open(false)
+		get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -287,6 +324,7 @@ func _setup_menu_nodes() -> void:
 	_settings_icon_button.pressed.connect(_on_settings_pressed)
 	_settings_panel.close_button.pressed.connect(_hide_settings_panel)
 	_journal_icon.pressed.connect(_on_journal_pressed)
+	_den_icon.pressed.connect(_on_den_icon_pressed)
 	_journal_panel.close_requested.connect(_set_journal_open.bind(false))
 	_settings_panel.scale_slider.value_changed.connect(_on_scale_changed)
 	_settings_panel.opacity_slider.value_changed.connect(_on_opacity_changed)
@@ -356,10 +394,21 @@ func _set_mode(mode: Mode) -> void:
 	var home := mode == Mode.HOME
 	var choose := mode == Mode.CHOOSE
 	var running := mode == Mode.RUNNING
+	var den := mode == Mode.DEN
 
-	_preview_fox.visible = home and not _desktop_fox.is_spawned()
+	# The room keeps its resident: a fox that's out on the desktop isn't home to be
+	# seen, but otherwise it sits in the den you're arranging around it.
+	_preview_fox.visible = (home or den) and not _desktop_fox.is_spawned()
 	_start_button.visible = home
 	_quit_button.visible = home
+
+	# Everything that isn't the room itself gets out of the way.
+	_stats_panel.visible = not den
+	_settings_icon_button.visible = not den
+	for label in _version_labels:
+		label.visible = not den
+	_den_icon.texture_normal = HOME_ICON if den else DEN_ICON
+	_apply_den_dim(home or den)
 
 	_short_button.visible = choose
 	_focus_button.visible = choose
@@ -380,9 +429,63 @@ func _set_mode(mode: Mode) -> void:
 	_bring_home_button.visible = choose or running
 	if choose:
 		_apply_recommendation()
+	if den:
+		# The drawer is where finds come from, so arriving with it shut would mean
+		# every visit starts with the same click.
+		_den_inventory.set_open(true)
 	_update_tray()
 	_update_fox_activity()
 	_update_ambient()
+
+
+## Full strength when the room is the thing you're looking at, faded back when the
+## launcher has a session to talk about. Null-guarded because _set_mode runs once in
+## _ready before the den is built.
+func _apply_den_dim(full: bool) -> void:
+	if _den == null:
+		return
+	var target := 1.0 if full else DEN_DIM
+	if is_equal_approx(_den.modulate.a, target):
+		return
+	if _den_dim_tween != null and _den_dim_tween.is_valid():
+		_den_dim_tween.kill()
+	_den_dim_tween = create_tween().set_parallel(true)
+	for furniture: CanvasItem in [_den, _desk_plant]:
+		_den_dim_tween.tween_property(furniture, "modulate:a", target, DEN_DIM_FADE) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+# --- Den mode --------------------------------------------------------------
+
+func _on_den_icon_pressed() -> void:
+	if _intro_running:
+		return
+	_set_den_open(_mode != Mode.DEN)
+
+
+func _set_den_open(open: bool) -> void:
+	if open == (_mode == Mode.DEN):
+		return
+	Audio.play("open" if open else "close")
+	if open:
+		# The den, the journal and the settings panel each want the whole window.
+		_hide_settings_panel()
+		if _journal_open:
+			_set_journal_open(false)
+		_mode_before_den = _mode
+		_set_mode(Mode.DEN)
+	else:
+		_den_inventory.set_open(false)
+		_set_mode(_mode_before_den)
+
+
+## Anything that decides the mode for itself — a session ending, the fox coming home —
+## outranks den mode. Called before those set their own mode, so leaving the den later
+## doesn't rewind to a mode that has since moved on.
+func _leave_den_for(mode: Mode) -> void:
+	_mode_before_den = mode
+	if _mode == Mode.DEN:
+		_den_inventory.set_open(false)
 
 
 func _update_ambient() -> void:
@@ -436,7 +539,10 @@ func _queue_minimize() -> void:
 	_minimize_token += 1
 	var token := _minimize_token
 	await get_tree().create_timer(minimize_delay_after_start).timeout
-	# Only tuck the launcher away if the session is still the one we queued for.
+	# Only tuck the launcher away if the session is still the one we queued for. The
+	# mode test also covers ducking into the den inside the delay: den mode isn't
+	# RUNNING, so the park quietly cancels itself rather than parking the window out
+	# from under someone mid-rearrange.
 	if token == _minimize_token and _mode == Mode.RUNNING and _clock.is_running() and not _clock.is_paused():
 		_hide_to_tray()
 
@@ -536,6 +642,8 @@ func _on_clock_finished() -> void:
 		_desktop_fox.celebrate()
 	# _set_mode(CHOOSE) applies the next-move recommendation + status text,
 	# then we overwrite it with a warm encouragement for this completion moment.
+	# A finished session outranks decorating, so this pulls out of the den too.
+	_leave_den_for(Mode.CHOOSE)
 	_set_mode(Mode.CHOOSE)
 	_status_label.text = encouragement
 
@@ -708,6 +816,8 @@ func _on_settings_pressed() -> void:
 		return
 	if _journal_open:
 		_set_journal_open(false)
+	if _mode == Mode.DEN:
+		_set_den_open(false)
 	_den_inventory.set_open(false)
 	Audio.play("open")
 	_settings_panel.reset_to_first_tab()
@@ -735,6 +845,9 @@ func _set_journal_open(open: bool) -> void:
 	Audio.play("open" if open else "close")
 	if open:
 		_hide_settings_panel()
+		# Safe to call back into: leaving den mode never touches the journal.
+		if _mode == Mode.DEN:
+			_set_den_open(false)
 		_den_inventory.set_open(false)
 		_journal_panel.refresh(_stats, _den)
 	# The journal covers the whole window and sits above the drawer, so the drawer
@@ -875,6 +988,7 @@ func _play_intro() -> void:
 			continue
 		fade_targets.append(child)
 	fade_targets.append(_journal_icon)
+	fade_targets.append(_den_icon)
 	fade_targets.append(_den_inventory)
 
 	# Remember each node's resting alpha (the preview fox carries its opacity).
@@ -1003,14 +1117,22 @@ func _on_reset_all_pressed() -> void:
 	_request_save()
 
 
+## The fox coming or going doesn't interrupt decorating — it only changes the mode you
+## come back out to. Being thrown out of the den because the fox went home would be a
+## strange thing to have happen while you're mid-rearrange.
 func _on_fox_spawned_changed(active: bool) -> void:
 	if active:
-		if _mode == Mode.HOME:
+		if _mode == Mode.DEN:
+			_mode_before_den = Mode.CHOOSE
+		elif _mode == Mode.HOME:
 			_set_mode(Mode.CHOOSE)
 			_status_label.text = "What are you settling into?"
 	else:
 		_clock.stop()
-		_set_mode(Mode.HOME)
+		if _mode == Mode.DEN:
+			_mode_before_den = Mode.HOME
+		else:
+			_set_mode(Mode.HOME)
 	_refresh_ui()
 
 

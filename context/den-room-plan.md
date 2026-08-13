@@ -189,9 +189,14 @@ Mostly delivered. What's left:
 2. **A contact shadow.** ~64 × 20, soft black ellipse on transparent, one file reused by
    every find. Nothing the fox brings home currently casts a shadow (see Phase 3) and
    this is the highest-impact sprite left in the pass.
-3. **More finds.** Nine now fill ~40% of the floor. The room is built for roughly 18 —
+3. **A den icon**, 43×46 to match every other icon in `assets/main_menu/icons/`, in the
+   journal icon's warm painted hand. Den mode currently borrows `customize.png` — the
+   right name, but the art is a leftover purple planet from the planetoid days and it
+   looks it. Swapping the file is the whole change.
+
+4. **More finds.** Nine now fill ~40% of the floor. The room is built for roughly 18 —
    no rush, the ladder is meant to unspool over patches.
-4. **Shelves are done** — two are baked into the wall, and they become surfaces for
+5. **Shelves are done** — two are baked into the wall, and they become surfaces for
    free in Phase 5.
 
 One constraint to know: **3904 is just under the 4096 texture limit** GL Compatibility
@@ -545,7 +550,7 @@ home." Free before launch, expensive after.
 
 | | | Est. | |
 |---|---|---|---|
-| 1 | Den mode + entry icon + fade rule | half a day | |
+| 1 | Den mode + entry icon + fade rule | half a day | **done** |
 | 2a | Swap the background in, re-key the constants, `LAYOUT_VERSION` 3 | 2 hours | **done** |
 | 2b | `Room` restructure, coordinate fixes, panning, auto-pan | 1–1.5 days | |
 | 3 | Contact shadows, z-order depth | half a day | **done** (tint skipped, see below) |
