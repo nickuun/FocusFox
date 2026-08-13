@@ -363,9 +363,18 @@ func _setup_den() -> void:
 	# The drawer is where finds come from and where they go back to, so the two
 	# only ever talk through these three wires.
 	_den.store_zone = _den_inventory.contains_point
-	_den.placement_changed.connect(_refresh_den_inventory)
+	_den.placement_changed.connect(_on_den_placement_changed)
 	_den_inventory.place_requested.connect(_on_den_place_requested)
 	_den.refresh(_stats.total_focus(), false)
+
+
+## Both readers of what's out in the room: the drawer's dimmed icons, and the journal's
+## Den page, which can be the very thing that changed it (its Tidy Up button) and would
+## otherwise sit there describing the room as it was.
+func _on_den_placement_changed() -> void:
+	_refresh_den_inventory()
+	if _journal_open:
+		_journal_panel.refresh(_stats, _den)
 
 
 func _refresh_den_inventory() -> void:

@@ -207,6 +207,57 @@ func found_count() -> int:
 	return _earned.size()
 
 
+## How many of those are out in the room rather than sitting in the drawer.
+func placed_count() -> int:
+	var out := 0
+	for id in _earned:
+		if _placed.get(id, false):
+			out += 1
+	return out
+
+
+## The whole catalog with this den's state folded in, for the journal's Den page to
+## draw a rung per find: {id, name, unlock_min, texture, earned, placed, remaining}.
+##
+## Every entry, not just the earned ones — a ladder you can only see the climbed rungs
+## of doesn't tell you there's anything left to climb. `remaining` is minutes still to
+## go, 0 once the threshold is passed.
+func ladder(focus_seconds: float) -> Array:
+	var focus_min := int(focus_seconds / 60.0)
+	var out := []
+	for item in ITEMS:
+		var id: String = item["id"]
+		var at := int(item["unlock_min"])
+		out.append({
+			"id": id,
+			"name": str(item.get("name", "a find")),
+			"unlock_min": at,
+			"texture": _texture_for(item),
+			"earned": bool(_earned.get(id, false)),
+			"placed": is_placed(id),
+			"remaining": maxi(0, at - focus_min),
+		})
+	return out
+
+
+## Puts everything that's out back where it was authored to stand. Deliberately not
+## reset_layout(), which also wipes _earned — wiring a tidy-up button to that would
+## delete the den rather than straighten it.
+func restore_defaults() -> void:
+	_positions.clear()
+	for item in ITEMS:
+		var id: String = item["id"]
+		if not _items.has(id):
+			continue
+		var wall := DenCatalog.is_wall(item)
+		var default_y: float = float(item.get("default_y", FLOOR_Y)) if wall else FLOOR_Y
+		var spot := Vector2(float(item["default_x"]), default_y)
+		_positions[id] = spot
+		(_items[id] as Node2D).call("drop_at", spot)
+	_save()
+	placement_changed.emit()
+
+
 ## Puts a find out in the room at `at`, moving it if it's already out. It rests
 ## exactly there — the drawer is how you choose where things live.
 func place(id: String, at: Vector2) -> void:

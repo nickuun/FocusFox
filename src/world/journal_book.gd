@@ -86,6 +86,11 @@ const MONTHS := ["", "January", "February", "March", "April", "May", "June",
 ## rare enough that a summary line beats building pagination for it.
 const LOG_ROWS := 12
 
+## Rungs of the den ladder per page. Twelve fits the same ruled area the logbook uses;
+## the catalog is nine today, so this is one page with room to grow — and when it isn't,
+## stepping the selection past the last rung turns the page on its own.
+const DEN_ROWS := 12
+
 ## Month grid. 6 rows x 7 columns is the fixed shape month_activity() returns, and
 ## 312px of left page divides into seven 44.6px columns with the 34px cell centred.
 const GRID_COLS := 7
@@ -131,10 +136,7 @@ var _week_title: Label
 var _week_paws: Array[PawIcon] = []
 var _week_days: Array[Label] = []
 var _week_footer: Label
-var _find_text: Label
-var _find_bar: Panel
-var _find_fill: Panel
-var _find_count: Label
+var _find_widgets := {}
 var _totals: Array[Label] = []
 
 # Logbook page widgets
@@ -161,6 +163,21 @@ var _hist_month_label: Label
 var _hist_summary: Array[Label] = []
 var _hist_best: Label
 var _hist_extra: Array[Label] = []
+
+# Den page widgets
+var _den_selected := 0
+var _den_rows: Array = []
+var _den_subtitle: Label
+var _den_empty: Label
+var _den_find_widgets := {}
+var _den_detail_title: Label
+var _den_detail_art: TextureRect
+var _den_detail_name: Label
+var _den_detail_when: Label
+var _den_detail_where: Label
+var _den_room_text: Label
+var _den_tidy_button: Panel
+var _den_tidy_hint: Label
 
 # Achievements page widgets
 var _ach_order: Array = []      # flat list of ids, grid order
@@ -226,7 +243,7 @@ func _build() -> void:
 	_build_logbook(_pages[Page.LOGBOOK])
 	_build_history(_pages[Page.HISTORY])
 	_build_achievements(_pages[Page.ACHIEVEMENTS])
-	_build_placeholder(_pages[Page.DEN], PAGE_NAMES[Page.DEN])
+	_build_den(_pages[Page.DEN])
 
 
 func _build_tabs() -> void:
@@ -357,7 +374,8 @@ func _build_today(page: Control) -> void:
 	_tasks.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	_build_week_panel(page)
-	_build_find_panel(page)
+	_find_widgets = _build_find_panel(page,
+		Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 212))
 	_build_totals_panel(page)
 
 
@@ -404,24 +422,26 @@ func _build_week_panel(page: Control) -> void:
 	_week_footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 
-func _build_find_panel(page: Control) -> void:
-	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 212),
-		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
+## The "what's the fox bringing home next" panel. Built by both the Today page and the
+## Den page, so it's one panel described once and filled by _fill_find_panel().
+func _build_find_panel(page: Control, at: Vector2) -> Dictionary:
+	var panel := _panel(page, at, PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
 	_lbl(panel, "Next Den Find", 16, 5, 160, 22, 15, INK)
-	_find_text = _lbl(panel, "", 16, 34, PANEL_MEDIUM.get_width() - 32, 20, 14, INK)
-	_find_bar = Panel.new()
-	_find_bar.position = Vector2(16, 60)
-	_find_bar.size = Vector2(180, 12)
-	_find_bar.add_theme_stylebox_override("panel", _flat(TRACK, 6))
-	_find_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(_find_bar)
-	_find_fill = Panel.new()
-	_find_fill.position = Vector2(16, 60)
-	_find_fill.size = Vector2(0, 12)
-	_find_fill.add_theme_stylebox_override("panel", _flat(RUST, 6))
-	_find_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(_find_fill)
-	_find_count = _lbl(panel, "", 204, 56, 94, 20, 13, INK_SOFT, HORIZONTAL_ALIGNMENT_RIGHT)
+	var text := _lbl(panel, "", 16, 34, PANEL_MEDIUM.get_width() - 32, 20, 14, INK)
+	var bar := Panel.new()
+	bar.position = Vector2(16, 60)
+	bar.size = Vector2(180, 12)
+	bar.add_theme_stylebox_override("panel", _flat(TRACK, 6))
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(bar)
+	var fill := Panel.new()
+	fill.position = Vector2(16, 60)
+	fill.size = Vector2(0, 12)
+	fill.add_theme_stylebox_override("panel", _flat(RUST, 6))
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(fill)
+	var count := _lbl(panel, "", 204, 56, 94, 20, 13, INK_SOFT, HORIZONTAL_ALIGNMENT_RIGHT)
+	return {"text": text, "bar": bar, "fill": fill, "count": count}
 
 
 func _build_totals_panel(page: Control) -> void:
@@ -1172,20 +1192,246 @@ func _badge_tooltip(id: String, def: Dictionary, earned: bool, hidden: bool) -> 
 	return "%s — not yet earned" % str(def["label"])
 
 
-# --- Placeholder pages -------------------------------------------------------
+# --- Den page ----------------------------------------------------------------
+#
+# The left page is the whole find ladder, earned rungs and unearned alike, because a
+# ladder you can only see the climbed part of doesn't tell you there's more to climb.
+# The right page reads whichever rung is selected, the same grid-and-reader shape the
+# Achievements page uses — and for the same reason: a row 26px tall can carry a name
+# and a state and nothing else, so the detail has to live somewhere with room.
+#
+# Selection drives the page rather than the other way round. The ‹ › in the reader's
+# header step through every find in catalog order and the ladder follows, which means
+# a catalog past one page needs no paging control of its own.
 
-## Pages 2-5 land in later phases. They still get the book's furniture so switching
-## to one looks deliberate rather than broken.
-func _build_placeholder(page: Control, name_: String) -> void:
+func _build_den(page: Control) -> void:
 	var l := LEFT_PAGE.position
-	_lbl(page, name_, l.x + 14, l.y + 10, LEFT_PAGE.size.x - 28, 34, 26, INK)
-	_rule(page, l.x + 14, l.y + 47, LEFT_PAGE.size.x - 28)
-	for i in 12:
-		_rule(page, l.x + 14, l.y + 80 + RULE_PITCH * i, LEFT_PAGE.size.x - 28)
-	var note := _lbl(page, "This page is still blank.\nYour fox is waiting.",
-		RIGHT_PAGE.position.x, RIGHT_PAGE.position.y + 180, RIGHT_PAGE.size.x, 60,
-		15, INK_FAINT, HORIZONTAL_ALIGNMENT_CENTER)
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	_lbl(page, "Den", l.x + 14, l.y + 6, LEFT_PAGE.size.x - 28, 34, 26, INK)
+	_den_subtitle = _lbl(page, "", l.x + 14, l.y + 40, LEFT_PAGE.size.x - 28, 22, 14, INK_SOFT)
+	_rule(page, l.x + 14, l.y + 62, LEFT_PAGE.size.x - 28)
+
+	for i in DEN_ROWS:
+		var y := l.y + 72 + RULE_PITCH * i
+		_rule(page, l.x + 14, y + 21, LEFT_PAGE.size.x - 28)
+
+		var row := Control.new()
+		row.position = Vector2(l.x + 14, y)
+		row.size = Vector2(LEFT_PAGE.size.x - 28, RULE_PITCH - 2)
+		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		page.add_child(row)
+
+		# No icon on the rung, deliberately. A row is 26px tall, and the catalog runs to
+		# a 150x200 bookshelf — fitting that into ~20px needs a tenth scale, which on
+		# nearest-filtered pixel art is mush. The names are short and the detail panel
+		# carries the art at a size it survives.
+		_den_rows.append({
+			"root": row,
+			"mark": _dot(row, Vector2(2, 9), 4, PAW),
+			"name": _lbl(row, "", 24, 1, 176, 20, 14, INK),
+			"state": _lbl(row, "", 200, 1, 112, 20, 13, INK_SOFT, HORIZONTAL_ALIGNMENT_RIGHT),
+		})
+		row.gui_input.connect(_on_den_row_input.bind(i))
+
+	_den_empty = _lbl(page, "", l.x + 24, l.y + 150, LEFT_PAGE.size.x - 48, 90, 15, INK_FAINT,
+		HORIZONTAL_ALIGNMENT_CENTER)
+	_den_empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	_build_den_detail(page)
+	_den_find_widgets = _build_find_panel(page,
+		Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 212))
+	_build_den_room_panel(page)
+
+
+func _build_den_detail(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 8),
+		PANEL_LARGE.get_size(), PANEL_LARGE, PANEL_LARGE_MARGINS)
+	_den_detail_title = _lbl(panel, "", 52, 12, 208, 24, 17, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	_arrow_button(panel, ARROW_LEFT, -1, _step_den_find)
+	_arrow_button(panel, ARROW_RIGHT, 1, _step_den_find)
+
+	# The art sits in a fixed box and is only ever shrunk by a tidy fraction, never
+	# fitted exactly — see _den_art_size().
+	_den_detail_art = TextureRect.new()
+	_den_detail_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_den_detail_art.stretch_mode = TextureRect.STRETCH_SCALE
+	_den_detail_art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_den_detail_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(_den_detail_art)
+
+	_den_detail_name = _lbl(panel, "", 130, 52, 168, 24, 17, INK)
+	_den_detail_when = _lbl(panel, "", 130, 78, 168, 40, 13, INK_SOFT)
+	_den_detail_when.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_rule(panel, 16, 146, PANEL_LARGE.get_width() - 32)
+	_den_detail_where = _lbl(panel, "", 16, 152, PANEL_LARGE.get_width() - 32, 22, 13, INK_SOFT)
+
+
+func _build_den_room_panel(page: Control) -> void:
+	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 320),
+		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
+	_lbl(panel, "The Room", 16, 5, 160, 22, 15, INK)
+	_den_room_text = _lbl(panel, "", 16, 34, PANEL_MEDIUM.get_width() - 32, 20, 13, INK_SOFT)
+
+	_den_tidy_button = Panel.new()
+	_den_tidy_button.position = Vector2(16, 58)
+	_den_tidy_button.size = Vector2(110, 24)
+	_den_tidy_button.add_theme_stylebox_override("panel", _flat(PAW, 6))
+	_den_tidy_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	_den_tidy_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_den_tidy_button.gui_input.connect(_on_tidy_input)
+	panel.add_child(_den_tidy_button)
+	_lbl(_den_tidy_button, "Tidy up", 0, 2, 110, 20, 14, Color(1, 0.97, 0.92),
+		HORIZONTAL_ALIGNMENT_CENTER)
+	_den_tidy_hint = _lbl(panel, "", 134, 60, PANEL_MEDIUM.get_width() - 150, 20, 12, INK_FAINT)
+
+
+## Which slice of the ladder is on screen — the page holding the selection, so
+## stepping past the end of one turns to the next.
+func _den_page() -> int:
+	return _den_selected / DEN_ROWS
+
+
+func _on_den_row_input(event: InputEvent, row: int) -> void:
+	if not (event is InputEventMouseButton) or event.button_index != MOUSE_BUTTON_LEFT \
+			or not event.pressed:
+		return
+	var index := _den_page() * DEN_ROWS + row
+	if _den == null or index >= _den.catalog_size():
+		return
+	_den_selected = index
+	Audio.play("open", 1.25)
+	_refresh_den()
+
+
+func _step_den_find(step: int) -> void:
+	if _den == null or _den.catalog_size() == 0:
+		return
+	_den_selected = wrapi(_den_selected + step, 0, _den.catalog_size())
+	Audio.play("open", 1.25)
+	_refresh_den()
+
+
+func _on_tidy_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton) or event.button_index != MOUSE_BUTTON_LEFT \
+			or not event.pressed:
+		return
+	if _den == null:
+		return
+	_den.restore_defaults()
+	Audio.play("drop")
+	_den_tidy_hint.text = "Everything's back where it started."
+
+
+## Pixel art shrunk by an arbitrary factor drops rows unevenly, so the detail art picks
+## the largest tidy fraction that fits its box — the same rule, and the same ratios, the
+## drawer's cells use.
+func _den_art_size(tex: Texture2D, box: float) -> Vector2:
+	var src := tex.get_size()
+	var longest := maxf(src.x, src.y)
+	if longest <= 0.0:
+		return Vector2(box, box)
+	for r in DenInventory.ICON_RATIOS:
+		if longest * r <= box:
+			return src * r
+	return src * (box / longest)
+
+
+func _refresh_den() -> void:
+	if _den == null or _stats == null:
+		return
+	# Transient confirmation, so any refresh at all clears it.
+	_den_tidy_hint.text = ""
+	var entries: Array = _den.ladder(_stats.total_focus())
+	_den_selected = clampi(_den_selected, 0, maxi(0, entries.size() - 1))
+
+	# Just the count here — how it splits between room and drawer is the Room panel's
+	# line, and saying it twice on one spread reads as a mistake.
+	var found := _den.found_count()
+	_den_subtitle.text = "%d of %d found" % [found, entries.size()]
+	_den_empty.text = "" if found > 0 else \
+		"Nothing yet. Your fox brings something home for every half hour you focus."
+
+	var start := _den_page() * DEN_ROWS
+	for i in _den_rows.size():
+		_paint_den_row(_den_rows[i], entries, start + i)
+
+	_refresh_den_detail(entries)
+	_fill_find_panel(_den_find_widgets, _stats.total_focus())
+
+	var out := _den.placed_count()
+	_den_room_text.text = "%d %s out on display, %d in the drawer." % [
+		out, "find" if out == 1 else "finds", maxi(0, found - out)]
+
+
+func _paint_den_row(row: Dictionary, entries: Array, index: int) -> void:
+	var root: Control = row["root"]
+	if index >= entries.size():
+		root.visible = false
+		return
+	root.visible = true
+
+	var e: Dictionary = entries[index]
+	var earned: bool = e["earned"]
+
+	(row["name"] as Label).text = str(e["name"])
+	(row["name"] as Label).add_theme_color_override("font_color", INK if earned else INK_FAINT)
+	(row["mark"] as Panel).visible = index == _den_selected
+
+	var state: Label = row["state"]
+	if not earned:
+		state.text = _threshold_text(int(e["unlock_min"]))
+		state.add_theme_color_override("font_color", INK_FAINT)
+	elif bool(e["placed"]):
+		state.text = "in the room"
+		state.add_theme_color_override("font_color", GREEN)
+	else:
+		state.text = "in the drawer"
+		state.add_theme_color_override("font_color", INK_SOFT)
+	root.tooltip_text = str(e["name"])
+
+
+func _refresh_den_detail(entries: Array) -> void:
+	if entries.is_empty():
+		return
+	var e: Dictionary = entries[_den_selected]
+	var earned: bool = e["earned"]
+	var tex := e["texture"] as Texture2D
+
+	_den_detail_title.text = "Find %d of %d" % [_den_selected + 1, entries.size()]
+
+	# Centred in a 96px box so a 34px clock and a 150x200 bookshelf both sit squarely
+	# rather than one hugging a corner.
+	_den_detail_art.visible = earned and tex != null
+	if _den_detail_art.visible:
+		_den_detail_art.texture = tex
+		_den_detail_art.size = _den_art_size(tex, 90.0)
+		_den_detail_art.position = Vector2(16, 54) + (Vector2(96, 96) - _den_detail_art.size) * 0.5
+
+	_den_detail_name.text = str(e["name"]) if earned else "Not home yet"
+	_den_detail_name.add_theme_color_override("font_color", INK if earned else INK_SOFT)
+
+	var at := int(e["unlock_min"])
+	if earned:
+		_den_detail_when.text = "Came home at %s of focus." % _threshold_text(at)
+		_den_detail_where.text = "In the room." if bool(e["placed"]) else "In the drawer."
+		_den_detail_where.add_theme_color_override("font_color",
+			GREEN if bool(e["placed"]) else INK_SOFT)
+	else:
+		var remaining := int(e["remaining"])
+		_den_detail_when.text = "Arrives at %s of focus." % _threshold_text(at)
+		_den_detail_where.text = "%d %s to go." % [
+			remaining, "minute" if remaining == 1 else "minutes"]
+		_den_detail_where.add_theme_color_override("font_color", INK_FAINT)
+
+
+## "30m" / "3h" / "1h 30m" — thresholds are round numbers, so the common case is a
+## whole number of hours and printing "180m" for it reads as a stopwatch.
+func _threshold_text(minutes: int) -> String:
+	if minutes < 60:
+		return "%dm" % minutes
+	if minutes % 60 == 0:
+		return "%dh" % (minutes / 60)
+	return "%dh %dm" % [minutes / 60, minutes % 60]
 
 
 # --- Refresh -----------------------------------------------------------------
@@ -1203,6 +1449,7 @@ func _refresh_current() -> void:
 		Page.TODAY: _refresh_today()
 		Page.LOGBOOK: _refresh_logbook()
 		Page.HISTORY: _refresh_history()
+		Page.DEN: _refresh_den()
 		Page.ACHIEVEMENTS: _refresh_achievements()
 
 
@@ -1230,7 +1477,7 @@ func _refresh_today() -> void:
 	_tasks.text = "" if tasks.is_empty() else "Today's focus: " + " · ".join(tasks.slice(maxi(0, tasks.size() - 4)))
 
 	_refresh_week()
-	_refresh_find(total_focus)
+	_fill_find_panel(_find_widgets, total_focus)
 
 	_totals[0].text = "%d" % _stats.total_sessions()
 	_totals[1].text = _short_duration(total_focus)
@@ -1271,25 +1518,29 @@ func _refresh_week() -> void:
 			active, "day" if active == 1 else "days", _short_duration(focus)]
 
 
-func _refresh_find(total_focus: float) -> void:
+func _fill_find_panel(w: Dictionary, total_focus: float) -> void:
+	var text: Label = w["text"]
+	var bar: Panel = w["bar"]
+	var fill: Panel = w["fill"]
+	var count: Label = w["count"]
 	if _den == null:
-		_find_text.text = ""
-		_find_fill.size.x = 0
-		_find_count.text = ""
+		text.text = ""
+		fill.size.x = 0
+		count.text = ""
 		return
 	var found := "%d of %d" % [_den.found_count(), _den.catalog_size()]
 	var next := _den.next_find(total_focus)
 	if next.is_empty():
-		_find_text.text = "Your den is full — every find has made it home."
-		_find_fill.size.x = _find_bar.size.x
-		_find_count.text = found
+		text.text = "Your den is full — every find has made it home."
+		fill.size.x = bar.size.x
+		count.text = found
 		return
 	var remaining := int(next["remaining"])
-	_find_text.text = "%d more %s for %s." % [
+	text.text = "%d more %s for %s." % [
 		remaining, "minute" if remaining == 1 else "minutes", str(next["name"])]
 	var window := maxf(1.0, float(next["window"]))
-	_find_fill.size.x = _find_bar.size.x * clampf(float(next["done"]) / window, 0.0, 1.0)
-	_find_count.text = found
+	fill.size.x = bar.size.x * clampf(float(next["done"]) / window, 0.0, 1.0)
+	count.text = found
 
 
 # --- Builders ----------------------------------------------------------------

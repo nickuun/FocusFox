@@ -554,7 +554,7 @@ home." Free before launch, expensive after.
 | 2a | Swap the background in, re-key the constants, `LAYOUT_VERSION` 3 | 2 hours | **done** |
 | 2b | `Room` restructure, coordinate fixes, panning, auto-pan | 1–1.5 days | |
 | 3 | Contact shadows, z-order depth | half a day | **done** (tint skipped, see below) |
-| 4 | Journal Den page | most of a day | |
+| 4 | Journal Den page | most of a day | **done** |
 | 5 | Surfaces incl. baked shelves | half a day | **done** |
 | 6 | Arrival moment, achievement retune | 2 hours | |
 
