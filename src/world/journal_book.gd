@@ -18,7 +18,20 @@ const FONT := preload("res://assets/not_sprites/pixel_operator/PixelOperator.ttf
 
 const PLATE := preload("res://assets/journal/journal ui/Main Page/Journal_Today_Page.png")
 const TITLE_ART := preload("res://assets/journal/journal ui/Main Page/Fox_Journal-title.png")
-const FOX_FRAME := preload("res://assets/journal/journal ui/Main Page/fox_frame.png")
+## The fox's photo on the Today page. Two moods, both of them the whole polaroid —
+## border included — so they replace fox_frame.png rather than sitting inside it.
+##
+## Neither loops. "wave" is the greeting and plays on arriving at the page; "sway" is
+## the calm one and turns up now and then while you stay, so the photo has some life in
+## it without ever becoming a thing that moves the whole time you're trying to read.
+const FOX_ANIM_DIR := "res://assets/journal/journal fox/"
+const FOX_ANIMS := {
+	"wave": {"folder": "Idle 01", "prefix": "Idle 01 Fox Photo", "frames": 19, "fps": 12.0},
+	"sway": {"folder": "Idle 02", "prefix": "Idle 02 Fox Photo", "frames": 16, "fps": 9.0},
+}
+## How long between ambient sways. Long, and randomised, because a photo that stirs on
+## a fixed beat reads as a loading spinner.
+const FOX_IDLE_GAP := Vector2(9.0, 17.0)
 const PANEL_LARGE := preload("res://assets/journal/journal ui/Main Page/day_tab.png")
 const PANEL_MEDIUM := preload("res://assets/journal/journal ui/Main Page/medium_tab.png")
 const RULE := preload("res://assets/journal/journal ui/Main Page/tilable_line.png")
@@ -164,6 +177,10 @@ var _hist_summary: Array[Label] = []
 var _hist_best: Label
 var _hist_extra: Array[Label] = []
 
+# Today page's fox photo
+var _fox_photo: AnimatedSprite2D
+var _fox_idle_timer: Timer
+
 # Den page widgets
 var _den_selected := 0
 var _den_rows: Array = []
@@ -288,6 +305,12 @@ func _show_page(page: int, animate: bool) -> void:
 		_pages[i].visible = i == page
 	_refresh_current()
 
+	# The fox says hello when you land on its page, and settles again when you leave.
+	if page == Page.TODAY:
+		_play_fox("wave")
+	else:
+		_restart_fox_idle()
+
 	if not animate:
 		_pages[page].scale = Vector2.ONE
 		return
@@ -305,9 +328,18 @@ func _show_page(page: int, animate: bool) -> void:
 ## Closing the journal is the other way to leave a half-written note behind, and
 ## world.gd closes it by flipping `visible` rather than calling anything here.
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_VISIBILITY_CHANGED and not visible and _log_note != null:
-		_save_note()
-		_log_note.release_focus()
+	if what != NOTIFICATION_VISIBILITY_CHANGED:
+		return
+	if not visible:
+		if _log_note != null:
+			_save_note()
+			_log_note.release_focus()
+		_restart_fox_idle()  # stops the timer while the book is shut
+		return
+	# world.gd opens the journal by flipping `visible`, not by calling _show_page, so
+	# opening it straight onto the page it was left on has to greet you from here.
+	if _current == Page.TODAY:
+		_play_fox("wave")
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -347,12 +379,19 @@ func _build_today(page: Control) -> void:
 	page.add_child(title)
 	_rule(page, l.x + 14, l.y + 47, LEFT_PAGE.size.x - 28)
 
-	var frame := TextureRect.new()
-	frame.texture = FOX_FRAME
-	frame.position = l + Vector2(14, 59)
-	frame.size = FOX_FRAME.get_size()
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	page.add_child(frame)
+	# Anchored top-left rather than centred so it lands on the same origin the static
+	# frame did — the art is 1px wider and 11px taller, which still clears the greeting.
+	_fox_photo = AnimatedSprite2D.new()
+	_fox_photo.sprite_frames = _build_fox_frames()
+	_fox_photo.centered = false
+	_fox_photo.position = l + Vector2(14, 59)
+	page.add_child(_fox_photo)
+	_fox_photo.animation = "sway"
+
+	_fox_idle_timer = Timer.new()
+	_fox_idle_timer.one_shot = true
+	_fox_idle_timer.timeout.connect(_on_fox_idle)
+	add_child(_fox_idle_timer)
 
 	# Score, sitting beside the polaroid where the mockup put the headline numbers.
 	_lbl(page, "Today's score", l.x + 140, l.y + 65, 186, 20, 15, INK_SOFT)
@@ -377,6 +416,57 @@ func _build_today(page: Control) -> void:
 	_find_widgets = _build_find_panel(page,
 		Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 212))
 	_build_totals_panel(page)
+
+
+## One SpriteFrames holding both moods, built from the numbered files on disk.
+##
+## The frames are numbered 1..n, so they have to be walked in that order rather than
+## sorted as text — "Photo10" sorts before "Photo2" and the wave would come out shuffled.
+func _build_fox_frames() -> SpriteFrames:
+	var frames := SpriteFrames.new()
+	for key in FOX_ANIMS:
+		var spec: Dictionary = FOX_ANIMS[key]
+		frames.add_animation(key)
+		frames.set_animation_loop(key, false)
+		frames.set_animation_speed(key, float(spec["fps"]))
+		for i in range(1, int(spec["frames"]) + 1):
+			var path := "%s%s/%s%d.png" % [FOX_ANIM_DIR, spec["folder"], spec["prefix"], i]
+			if not ResourceLoader.exists(path):
+				push_warning("Journal fox frame missing: %s" % path)
+				continue
+			frames.add_frame(key, load(path))
+	# The one SpriteFrames ships with, which we never use.
+	if frames.has_animation("default"):
+		frames.remove_animation("default")
+	return frames
+
+
+func _play_fox(anim: String) -> void:
+	if _fox_photo == null or _fox_photo.sprite_frames == null:
+		return
+	if not _fox_photo.sprite_frames.has_animation(anim):
+		return
+	_fox_photo.animation = anim
+	_fox_photo.frame = 0
+	_fox_photo.play(anim)
+	_restart_fox_idle()
+
+
+## Only stirs while the Today page is actually being looked at — the photo isn't on any
+## other page, and animating an invisible book is just work nobody sees.
+func _restart_fox_idle() -> void:
+	if _fox_idle_timer == null:
+		return
+	if not visible or _current != Page.TODAY:
+		_fox_idle_timer.stop()
+		return
+	_fox_idle_timer.start(randf_range(FOX_IDLE_GAP.x, FOX_IDLE_GAP.y))
+
+
+func _on_fox_idle() -> void:
+	if not visible or _current != Page.TODAY:
+		return
+	_play_fox("sway")
 
 
 ## Label above, track and fill below, value right-aligned on the label's line.
