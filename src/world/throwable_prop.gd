@@ -9,12 +9,31 @@ class_name ThrowableProp
 @export var gravity := 2800.0
 @export var bounce := 0.42
 @export var air_friction := 0.6
-@export var floor_friction := 7.0
+## Deceleration once a prop is down on the floor, in hundreds of px/s². Low values
+## read as ice: a hard throw keeps skating until it hits a wall. This is the number
+## to turn if finds feel slippery — no scene overrides it, so it covers the menu
+## plant and every den find at once.
+@export var floor_friction := 28.0
 @export var throw_boost := 1.0
 @export var max_throw_speed := 2600.0
 @export var rest_velocity_threshold := 22.0
 @export var margin := 48.0
 @export var shadow_lift_range := 220.0
+
+## A hung find ignores gravity entirely: it stays on the nail wherever it's put,
+## drags freely in both axes instead of only lifting off the floor, and settles the
+## moment you let go. The den decides what counts as wall — see DenCatalog.is_wall.
+@export var wall_mounted := false
+
+## How far a hung find rocks when you let go of it — pixels of sideways sway per
+## unit of throw speed, capped, then damped back to true. Purely cosmetic.
+##
+## Deliberately a nudge along x rather than a rotation: everything here is pixel art
+## drawn at 1:1, and spinning a nearest-filtered sprite resamples it into uneven
+## pixel sizes. Sliding it by whole pixels keeps the grid intact.
+@export var wall_swing := 0.004
+@export var wall_swing_max := 6.0
+@export var wall_settle_time := 0.9
 
 signal grabbed
 ## The moment the mouse lets go, before the prop has finished flying. The den
@@ -53,9 +72,24 @@ func _compute_bounds() -> void:
 	# its authored position and is free to be flung around the rest of the screen.
 	var view := get_viewport_rect().size
 	_floor_y = position.y
-	_ceil_y = margin
+	# Measured to the sprite's visual top rather than to `position`, because a den
+	# find is anchored at its base (Den._create_item) — left as a bare margin, a
+	# tall find like the bookshelf would punch its whole height off the top.
+	_ceil_y = margin + _top_extent()
 	_min_x = margin
 	_max_x = view.x - margin
+
+
+## Distance from `position` up to the top edge of the drawn sprite, whatever the
+## anchoring. A centred sprite with no offset — the menu's desk plant — gives half
+## the texture, as before; a den find anchored at its base gives its full height.
+func _top_extent() -> float:
+	if texture == null:
+		return 0.0
+	var top := offset.y
+	if centered:
+		top -= texture.get_size().y * 0.5
+	return -top
 
 
 func _process(delta: float) -> void:
@@ -66,7 +100,11 @@ func _process(delta: float) -> void:
 	if _dragging:
 		position = mouse + _drag_offset
 		_clamp_horizontal()
-		position.y = minf(position.y, _floor_y)
+		# A floor find can only be lifted off its floor, never pushed through it. A
+		# hung one has no floor, so it follows the cursor freely and the den clamps
+		# it to the wall band once it's let go.
+		if not wall_mounted:
+			position.y = minf(position.y, _floor_y)
 		_velocity = _mouse_velocity
 	else:
 		_simulate(delta)
@@ -75,7 +113,7 @@ func _process(delta: float) -> void:
 
 
 func _simulate(delta: float) -> void:
-	if _resting:
+	if _resting or wall_mounted:
 		return
 	_velocity.y += gravity * delta
 	_velocity.x = move_toward(_velocity.x, 0.0, air_friction * 100.0 * delta)
@@ -148,7 +186,39 @@ func _end_drag() -> void:
 	_dragging = false
 	_resting = false
 	_velocity = (_mouse_velocity * throw_boost).limit_length(max_throw_speed)
+	if wall_mounted:
+		# Back on the nail where you left it — no flight, just a rock that damps out.
+		# How hard you flicked it decides how far it sways.
+		var swing := clampf(_velocity.x * wall_swing, -wall_swing_max, wall_swing_max)
+		_velocity = Vector2.ZERO
+		_resting = true
+		released.emit()
+		# Letting go over the open drawer puts it away, and the den frees us.
+		if is_queued_for_deletion():
+			return
+		# Settle first: the den saves the resting spot on this signal, and may pull
+		# the find back into the wall band. The sway is measured from wherever that
+		# leaves us, and returns to exactly it.
+		settled.emit()
+		if is_queued_for_deletion():
+			return
+		_swing_from(swing)
+		return
 	released.emit()
+
+
+## Rocks the prop sideways by `pixels` and lets it settle back. Snapped to whole
+## pixels at both ends so a hung find never comes to rest half off the grid.
+func _swing_from(pixels: float) -> void:
+	var rest_x := roundf(position.x)
+	position.x = rest_x
+	var offset_px := roundf(pixels)
+	if is_zero_approx(offset_px):
+		return
+	position.x = rest_x + offset_px
+	var tw := create_tween()
+	tw.tween_property(self, "position:x", rest_x, wall_settle_time) \
+		.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
 ## Re-homes the prop: it comes to rest exactly here, and here is the floor it

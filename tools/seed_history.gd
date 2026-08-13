@@ -9,13 +9,15 @@ extends SceneTree
 ## written, so this is undoable: delete the seeded file and rename the backup back.
 ## Pass --wipe-den to also clear the den layout and start the room empty.
 ##
-## TARGET_FOCUS_MIN decides how much of the den catalog is unlocked, since finds
-## unlock on total focus minutes. 440 clears everything in den.gd except the tiny
-## clock at 480, which leaves the journal with a real "next find" to count down to.
-
-## 450 clears everything in den.gd up to the warm cushion at 420 and leaves the
-## tiny clock at 480 pending, so the journal has a real find to count down to.
-const TARGET_FOCUS_MIN := 450
+## How much focus history to write decides how much of the den catalog is unlocked,
+## since finds unlock on total focus minutes. The default of 450 clears everything
+## up to the warm cushion at 420 and leaves the tiny clock at 480 pending, so the
+## journal has a real "next find" to count down to.
+##
+## Override it to check the far end of the catalog — a full room, nothing pending:
+##
+##   "<godot>" --headless -s tools/seed_history.gd --path . -- --focus-min 500
+const DEFAULT_FOCUS_MIN := 450
 const DAYS_BACK := 27
 ## Consecutive active days ending today, so the journal's trail isn't broken.
 const TRAIL_DAYS := 5
@@ -36,6 +38,7 @@ func _init() -> void:
 	# Fixed seed so re-running gives the same history rather than a new one.
 	seed(20260805)
 
+	var target_focus_min := _arg_int("--focus-min", DEFAULT_FOCUS_MIN)
 	var stats := StatsStore.new()
 	var backed_up := _backup(StatsStore.PATH)
 
@@ -56,14 +59,14 @@ func _init() -> void:
 	# a day as active if it recorded a focus session, so days left with nothing but
 	# breaks would silently break the trail and the week strip. The share scales to
 	# however many days came out of the draw, so the budget always stretches.
-	var share := maxi(10, int(float(TARGET_FOCUS_MIN) / float(keys.size()) * 0.75))
+	var share := maxi(10, int(float(target_focus_min) / float(keys.size()) * 0.75))
 	for key in keys:
-		total_min += _add_session(days, log_, key, mini(randi_range(share, share + 10), TARGET_FOCUS_MIN - total_min))
+		total_min += _add_session(days, log_, key, mini(randi_range(share, share + 10), target_focus_min - total_min))
 
 	# Whatever's left of the budget goes on second and third sessions at random,
 	# which is what makes the per-day counts uneven the way real use is.
-	while total_min < TARGET_FOCUS_MIN:
-		var length := mini(randi_range(EXTRA_SESSION_MIN.x, EXTRA_SESSION_MIN.y), TARGET_FOCUS_MIN - total_min)
+	while total_min < target_focus_min:
+		var length := mini(randi_range(EXTRA_SESSION_MIN.x, EXTRA_SESSION_MIN.y), target_focus_min - total_min)
 		total_min += _add_session(days, log_, keys[randi() % keys.size()], length)
 
 	# A break or two on most days, and today's task list so that row isn't blank.
@@ -103,6 +106,18 @@ func _init() -> void:
 
 	_report(stats, total_min, breaks, backed_up)
 	quit()
+
+
+## Reads "--name <int>" off the command line, from either side of the `--`
+## separator, so it works however the flag is passed. Falls back to `fallback` when
+## the flag is absent or isn't followed by a number.
+func _arg_int(name: String, fallback: int) -> int:
+	var argv := Array(OS.get_cmdline_args()) + Array(OS.get_cmdline_user_args())
+	var at := argv.find(name)
+	if at == -1 or at + 1 >= argv.size():
+		return fallback
+	var raw := str(argv[at + 1])
+	return int(raw) if raw.is_valid_int() else fallback
 
 
 ## Every day that gets any activity: the trail ending today, plus a scattering

@@ -17,7 +17,19 @@ class_name Den
 const THROWABLE := preload("res://src/world/throwable_prop.gd")
 const FONT := preload("res://assets/not_sprites/pixel_operator/PixelOperator.ttf")
 const PATH := "user://focus_fox_den.cfg"
-const FLOOR_Y := 384.0
+
+## Bumped when a saved position means something different than it used to, so _load
+## can throw away spots it would otherwise misplace. See _load.
+const LAYOUT_VERSION := 2
+
+## Every find is anchored at its base (see _create_item), so these are all the y of
+## a sprite's bottom edge, not its middle. That's what lets finds of wildly
+## different heights — a 40px rug and a 200px bookshelf — share one floor line
+## instead of each sinking to its own.
+##
+## The room art puts the skirting board at y≈402; finds rest a little forward of it
+## so they read as standing on the floor rather than against the wall.
+const FLOOR_Y := 428.0
 
 ## The find list itself lives in DenCatalog, which is plain data plus static
 ## helpers so the journal and the tools/ scripts can read it too. This node owns
@@ -27,7 +39,14 @@ const ITEMS := DenCatalog.ITEMS
 ## Keeps a dropped find inside the room and clear of the drawer, which owns the
 ## bottom 130px of the window.
 const ROOM_MARGIN := 48.0
-const ROOM_BOTTOM := 400.0
+const ROOM_BOTTOM := 440.0
+
+## The band a hung find can live in. WALL_BOTTOM keeps it off the skirting board;
+## WALL_TOP is the highest its *top edge* may reach, which clears the stats panel
+## across the top of the menu (it spans y 9-81). Clamping is height-aware, so a
+## tall painting simply can't be pushed as high as a small clock.
+const WALL_BOTTOM := 390.0
+const WALL_TOP := 95.0
 
 ## Fires whenever what's out in the room changes, so the drawer can restate itself.
 signal placement_changed
@@ -142,7 +161,7 @@ func place(id: String, at: Vector2) -> void:
 	var item := DenCatalog.find(id)
 	if item.is_empty():
 		return
-	var spot := _clamp_to_room(at)
+	var spot := _clamp_to_room(item, at)
 	_positions[id] = spot
 	_placed[id] = true
 	if _items.has(id):
@@ -188,12 +207,17 @@ func _texture_for(item: Dictionary) -> Texture2D:
 	return _textures[id]
 
 
-func _clamp_to_room(at: Vector2) -> Vector2:
+## Where a find is allowed to come to rest. Floor finds get the room; hung ones get
+## the wall band, measured off their own height so nothing overlaps the stats panel.
+func _clamp_to_room(item: Dictionary, at: Vector2) -> Vector2:
 	var view := get_viewport_rect().size
-	return Vector2(
-		clampf(at.x, ROOM_MARGIN, view.x - ROOM_MARGIN),
-		clampf(at.y, ROOM_MARGIN, ROOM_BOTTOM)
-	)
+	var x := clampf(at.x, ROOM_MARGIN, view.x - ROOM_MARGIN)
+	if not DenCatalog.is_wall(item):
+		return Vector2(x, clampf(at.y, ROOM_MARGIN, ROOM_BOTTOM))
+	var tex := _texture_for(item)
+	var height := tex.get_size().y if tex != null else 48.0
+	var highest := WALL_TOP + height  # the base can't go above this without the top clipping
+	return Vector2(x, clampf(at.y, highest, maxf(highest, WALL_BOTTOM)))
 
 
 # --- Item creation ---------------------------------------------------------
@@ -201,17 +225,38 @@ func _clamp_to_room(at: Vector2) -> Vector2:
 func _create_item(item: Dictionary, reveal: bool) -> void:
 	var id: String = item["id"]
 	var tex := _texture_for(item)
+	var size := tex.get_size() if tex != null else Vector2(48, 48)
+	var wall := DenCatalog.is_wall(item)
+
 	var spr := Sprite2D.new()
 	spr.texture = tex
 	spr.set_script(THROWABLE)
-	spr.position = _positions.get(id, Vector2(item["default_x"], FLOOR_Y))
+	spr.wall_mounted = wall
+	# Anchor at the base, so `position` is the bottom edge. Everything downstream —
+	# the floor line, the wall band, the saved spot — is then one comparable number
+	# regardless of how tall the art is, and the reveal grows up out of the floor
+	# rather than swelling from the middle.
+	#
+	# Done by turning centring off rather than by nudging a centred sprite half its
+	# height, because half of an odd number isn't a whole pixel. Several of these
+	# sprites are odd in one axis or both (the lamp is 35x87), and a centred anchor
+	# would leave them straddling the pixel grid, which nearest-neighbour art shows
+	# up immediately. Off-centre, the offset is integral and the art lands square.
+	spr.centered = false
+	spr.offset = Vector2(-roundf(size.x * 0.5), -size.y)
+
+	var default_y: float = float(item.get("default_y", FLOOR_Y)) if wall else FLOOR_Y
+	spr.position = _positions.get(id, Vector2(item["default_x"], default_y))
 
 	var area := Area2D.new()
 	area.name = "Area2D"
 	var col := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()
-	shape.size = tex.get_size() if tex != null else Vector2(48, 48)
+	shape.size = size
 	col.shape = shape
+	# The hitbox has to follow the art up off the anchor. A RectangleShape2D is
+	# measured from its middle, so that's the sprite's corner plus half its size.
+	col.position = spr.offset + size * 0.5
 	area.add_child(col)
 	spr.add_child(area)
 	add_child(spr)  # entering the tree runs ThrowableProp._ready
@@ -269,12 +314,22 @@ func _on_item_settled(id: String) -> void:
 		_interacting[id] = false
 		Audio.play("drop")
 	if _items.has(id):
-		_positions[id] = (_items[id] as Node2D).position
+		var spr := _items[id] as Node2D
+		# A hung find settles the instant it's let go, wherever the cursor was — off
+		# the bottom of the wall, or up behind the stats panel. Nothing stops it on
+		# the way like a floor does, so the band is enforced here instead.
+		var item := DenCatalog.find(id)
+		if not item.is_empty() and DenCatalog.is_wall(item):
+			var spot := _clamp_to_room(item, spr.position)
+			if not spot.is_equal_approx(spr.position):
+				spr.call("rest_at", spot)
+		_positions[id] = spr.position
 	_save()
 
 
 func _save() -> void:
 	var cfg := ConfigFile.new()
+	cfg.set_value("meta", "layout_version", LAYOUT_VERSION)
 	for id in _items:
 		_positions[id] = (_items[id] as Node2D).position
 	for id in _positions:
@@ -289,8 +344,14 @@ func _load() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(PATH) != OK:
 		return
-	if cfg.has_section("pos"):
-		for id in cfg.get_section_keys("pos"):
+	# Version 1 recorded a find's *centre*. Now it records its base, so those old
+	# numbers would hang everything half its own height too high. What the player
+	# actually cares about — what's been found, and what's out — is unaffected, so
+	# only the spots are dropped and each find falls back to its authored place.
+	var version := int(cfg.get_value("meta", "layout_version", 1))
+	var spots: PackedStringArray = cfg.get_section_keys("pos") if cfg.has_section("pos") else PackedStringArray()
+	if version >= LAYOUT_VERSION:
+		for id in spots:
 			var p = cfg.get_value("pos", id)
 			if p is Vector2:
 				_positions[id] = p
@@ -300,7 +361,9 @@ func _load() -> void:
 			_placed[id] = bool(cfg.get_value("placed", id, true))
 	else:
 		# Pre-drawer save: it only knew about positions, and everything it had a
-		# position for was an earned item sitting out in the room.
-		for id in _positions:
+		# position for was an earned item sitting out in the room. Read off the file
+		# rather than off _positions, which an out-of-date layout leaves empty — the
+		# spots are disposable, but what's been found is not.
+		for id in spots:
 			_earned[id] = true
 			_placed[id] = true
