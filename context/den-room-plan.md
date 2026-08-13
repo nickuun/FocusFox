@@ -543,19 +543,24 @@ home." Free before launch, expensive after.
 
 ## Recommended order
 
-| | | Est. |
-|---|---|---|
-| 1 | Den mode + entry icon + fade rule | half a day |
-| 2a | Swap the background in, re-key the constants, `LAYOUT_VERSION` 3 | 2 hours |
-| 2b | `Room` restructure, coordinate fixes, panning, auto-pan | 1–1.5 days |
-| 3 | Contact shadows, z-order depth, tint | half a day |
-| 4 | Journal Den page | most of a day |
-| 5 | Surfaces incl. baked shelves | half a day |
-| 6 | Arrival moment, achievement retune | 2 hours |
+| | | Est. | |
+|---|---|---|---|
+| 1 | Den mode + entry icon + fade rule | half a day | |
+| 2a | Swap the background in, re-key the constants, `LAYOUT_VERSION` 3 | 2 hours | **done** |
+| 2b | `Room` restructure, coordinate fixes, panning, auto-pan | 1–1.5 days | |
+| 3 | Contact shadows, z-order depth | half a day | **done** (tint skipped, see below) |
+| 4 | Journal Den page | most of a day | |
+| 5 | Surfaces incl. baked shelves | half a day | **done** |
+| 6 | Arrival moment, achievement retune | 2 hours | |
 
-Total **three to four days**. 2a is worth doing first and alone — it's small, it's
-visible, and it de-risks everything after it by getting the new geometry on screen where
-you can see whether 367 is really the right floor line.
+Total **three to four days**. 2a was worth doing first and alone — it de-risked
+everything after it by getting the geometry on screen, and 367 verified as the right
+floor line the moment the fox and the finds lined up on it.
+
+**Atmospheric tint was skipped deliberately.** Across a 60px band the effect is
+marginal, and anchoring it wrong tints the whole room grey by default. Worth revisiting
+only if the room looks flat once it can be panned — the shadows turned out to do the
+work it was there for.
 
 For the trailer: **1 + 2 + 3** is the shot — walking a wide room full of things you
 earned, everything casting a shadow.

@@ -35,6 +35,25 @@ class_name ThrowableProp
 @export var wall_swing_max := 6.0
 @export var wall_settle_time := 0.9
 
+## Horizontal bounds a thrown prop is kept inside. The den overrides these per find,
+## because the room's left end is a corner: a find standing on the floor there reads
+## fine, one hung on the angled side wall does not. Left negative, both fall back to
+## `margin` off each edge of the viewport.
+@export var bound_left := -1.0
+@export var bound_right := -1.0
+
+## Where this prop comes to rest, asked of the room rather than remembered:
+## `func(x: float, from_y: float) -> float`, returning the y of the nearest surface
+## below `from_y` at horizontal position `x`.
+##
+## Unset — the menu's desk plant — the prop keeps resting at the y it was authored at,
+## which is what everything did before the room had a floor worth asking about.
+var floor_provider := Callable()
+
+## The contact shadow that tracks this prop. The den assigns one before the prop enters
+## the tree; the desk plant has its own authored sibling found by name instead.
+var shadow: Sprite2D
+
 signal grabbed
 ## The moment the mouse lets go, before the prop has finished flying. The den
 ## listens for this to catch a find dropped back onto its drawer.
@@ -44,6 +63,9 @@ signal settled
 @onready var _area: Area2D = $Area2D
 
 var _shadow: Sprite2D
+var _shadow_base_scale := Vector2.ONE
+## The floor a prop with no floor_provider falls back to: wherever it was authored.
+var _authored_floor := 0.0
 var _velocity := Vector2.ZERO
 var _dragging := false
 var _drag_offset := Vector2.ZERO
@@ -58,9 +80,11 @@ var _resting := false
 
 
 func _ready() -> void:
-	_shadow = get_parent().get_node_or_null("PlantShadow")
+	_shadow = shadow if is_instance_valid(shadow) else get_parent().get_node_or_null("PlantShadow")
+	_authored_floor = position.y
 	if _shadow != null:
 		_shadow_offset = _shadow.position - position
+		_shadow_base_scale = _shadow.scale
 	_compute_bounds()
 	_last_mouse = get_global_mouse_position()
 	if _area != null:
@@ -68,16 +92,27 @@ func _ready() -> void:
 
 
 func _compute_bounds() -> void:
-	# The prop lives in the launcher viewport (960x540 design space). It rests at
-	# its authored position and is free to be flung around the rest of the screen.
+	# The prop lives in the launcher viewport (960x540 design space) and is free to be
+	# flung around it.
 	var view := get_viewport_rect().size
-	_floor_y = position.y
+	_floor_y = _floor_at(position.x, position.y)
 	# Measured to the sprite's visual top rather than to `position`, because a den
 	# find is anchored at its base (Den._create_item) — left as a bare margin, a
 	# tall find like the bookshelf would punch its whole height off the top.
 	_ceil_y = margin + _top_extent()
-	_min_x = margin
-	_max_x = view.x - margin
+	_min_x = bound_left if bound_left >= 0.0 else margin
+	_max_x = bound_right if bound_right >= 0.0 else view.x - margin
+
+
+## The y this prop should come to rest at, standing at `x` and falling from `from_y`.
+##
+## Pass INF for from_y to ask for the bare floor with every surface ignored. That's
+## what dragging wants: a find on the cursor has to be free to travel down past a
+## shelf it happens to be passing over, or shelves become walls.
+func _floor_at(x: float, from_y: float) -> float:
+	if floor_provider.is_valid():
+		return float(floor_provider.call(x, from_y))
+	return _authored_floor
 
 
 ## Distance from `position` up to the top edge of the drawn sprite, whatever the
@@ -100,11 +135,15 @@ func _process(delta: float) -> void:
 	if _dragging:
 		position = mouse + _drag_offset
 		_clamp_horizontal()
-		# A floor find can only be lifted off its floor, never pushed through it. A
+		# A floor find can only be lifted off the floor, never pushed through it. A
 		# hung one has no floor, so it follows the cursor freely and the den clamps
 		# it to the wall band once it's let go.
+		#
+		# The *bare* floor, ignoring shelves — otherwise carrying the mug across the
+		# bookshelf would stop it dead at shelf height and you could never put it down
+		# in front of the thing.
 		if not wall_mounted:
-			position.y = minf(position.y, _floor_y)
+			position.y = minf(position.y, _floor_at(position.x, INF))
 		_velocity = _mouse_velocity
 	else:
 		_simulate(delta)
@@ -115,6 +154,9 @@ func _process(delta: float) -> void:
 func _simulate(delta: float) -> void:
 	if _resting or wall_mounted:
 		return
+	# Asked again every frame rather than cached at the drop, so a find that slides off
+	# the end of a shelf falls the rest of the way instead of skating out into mid-air.
+	_floor_y = _floor_at(position.x, position.y)
 	_velocity.y += gravity * delta
 	_velocity.x = move_toward(_velocity.x, 0.0, air_friction * 100.0 * delta)
 	position += _velocity * delta
@@ -137,6 +179,10 @@ func _simulate(delta: float) -> void:
 			_velocity.x = move_toward(_velocity.x, 0.0, floor_friction * 100.0 * delta)
 			if absf(_velocity.x) <= rest_velocity_threshold:
 				_velocity = Vector2.ZERO
+				# Snapped where it comes to rest, so the spot the den saves is a whole
+				# pixel. Otherwise a find settles on a fraction and that fraction is
+				# what gets written to the layout and read back on the next launch.
+				position = position.round()
 				_resting = true
 				settled.emit()
 		else:
@@ -150,9 +196,12 @@ func _clamp_horizontal() -> void:
 func _update_shadow() -> void:
 	if _shadow == null:
 		return
-	_shadow.position.x = position.x + _shadow_offset.x
+	# Pinned to the floor under the prop rather than to the prop, so a find picked up
+	# leaves its shadow behind on the ground — and a find standing on a shelf casts
+	# onto the shelf instead of onto the floorboards far below it.
+	_shadow.position = Vector2(position.x + _shadow_offset.x, _floor_y + _shadow_offset.y)
 	var height := clampf((_floor_y - position.y) / shadow_lift_range, 0.0, 1.0)
-	_shadow.scale = Vector2.ONE * lerpf(1.0, 0.62, height)
+	_shadow.scale = _shadow_base_scale * lerpf(1.0, 0.62, height)
 	_shadow.modulate.a = lerpf(0.9, 0.2, height)
 
 
@@ -221,12 +270,31 @@ func _swing_from(pixels: float) -> void:
 		.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
-## Re-homes the prop: it comes to rest exactly here, and here is the floor it
-## falls back to if it's thrown from now on. The den's drawer uses this so you can
-## put a find wherever you like instead of on the shelf it was authored at — a
-## plain throw still drops back to wherever it was last put down.
+## Pins the prop exactly here and stops it simulating. For hung finds, which have no
+## floor to fall to — the den uses it to pull a painting back into the wall band after
+## it's been let go somewhere it shouldn't be.
+##
+## Not for floor finds. This used to be how the drawer placed everything, and because
+## it also made `at` the prop's floor, wherever you put a find down became the height
+## it fell back to — so a mug placed at head height would drop through the air and stop
+## dead in mid-air, forever. Floor finds use drop_at().
 func rest_at(at: Vector2) -> void:
 	position = at
 	_velocity = Vector2.ZERO
 	_compute_bounds()
 	_resting = true
+
+
+## Puts the prop down at `at` and lets go. Where it ends up is the room's business: a
+## floor find falls from here to whatever floor_provider says is underneath, so
+## dropping one in mid-air lands it on the floor, and dropping it over a shelf lands it
+## on the shelf. A hung one simply stays.
+func drop_at(at: Vector2) -> void:
+	if wall_mounted:
+		rest_at(at)
+		settled.emit()
+		return
+	position = at
+	_velocity = Vector2.ZERO
+	_resting = false
+	_compute_bounds()

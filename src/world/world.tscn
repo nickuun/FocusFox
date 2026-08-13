@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://m3p4ccdoqm0x"]
 
 [ext_resource type="Script" uid="uid://brcpg0nxctq1j" path="res://src/world/world.gd" id="1_world"]
-[ext_resource type="Texture2D" uid="uid://ciwftu0oq81f4" path="res://assets/main_menu/backgrounds/background.png" id="3_a20vb"]
+[ext_resource type="Texture2D" uid="uid://b3nwotru0poom" path="res://assets/main_menu/backgrounds/wide-background.png" id="3_a20vb"]
 [ext_resource type="Texture2D" uid="uid://b5xmpxyx216km" path="res://assets/main_menu/title.png" id="3_title"]
 [ext_resource type="Texture2D" uid="uid://b4lc3xvwj4c8m" path="res://assets/main_menu/mainmenu-stats-panel.png" id="4_4dyjh"]
 [ext_resource type="Texture2D" uid="uid://c28fhgopjjtk5" path="res://assets/main_menu/default_button.png" id="4_button"]
@@ -172,7 +172,8 @@ script = ExtResource("12_desktop_fox")
 [node name="MainMenu" type="Node2D" parent="MenuLayer" unique_id=304852977]
 
 [node name="Background" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1489674489]
-position = Vector2(480, 75)
+position = Vector2(976, 272)
+scale = Vector2(0.5, 0.5)
 texture = ExtResource("3_a20vb")
 
 [node name="MainmenuStatsPanel" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1408234629]

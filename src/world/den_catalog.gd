@@ -17,6 +17,11 @@ class_name DenCatalog
 ## also needs a default_y, because there's no floor to land on — see Den.FLOOR_Y
 ## for where the floor ones come to rest.
 ##
+## surface marks a find you can stand other finds on top of. Opt-in rather than
+## derived from the art, because "has a flat top" isn't something a sprite knows:
+## a rug is flat and 40px tall, so treating every find as a surface would leave a
+## mug resting 40px up in the air on top of it instead of on the floor over it.
+##
 ## texture may be "" for a find that's planned but has no sprite yet. It still
 ## counts toward the journal's progression, so the fox can promise it, but it can't
 ## be earned or put in the room until there's art — otherwise an invisible prop
@@ -28,7 +33,8 @@ const ITEMS := [
 	{"id": "rug",       "name": "a soft rug",        "unlock_min": 120, "default_x": 470.0, "texture": "res://assets/main_menu/environment/rug.png"},
 	# Kept clear of the menu's own desk plant, which is authored into world.tscn at
 	# x=135 and is 101 wide — a bookshelf at the left edge buries it entirely.
-	{"id": "bookshelf", "name": "a bookshelf",       "unlock_min": 180, "default_x": 320.0, "texture": "res://assets/main_menu/environment/bookshelf.png"},
+	{"id": "bookshelf", "name": "a bookshelf",       "unlock_min": 180, "default_x": 320.0, "texture": "res://assets/main_menu/environment/bookshelf.png",
+		"surface": true},
 	{"id": "blanket",   "name": "a cozy blanket",    "unlock_min": 240, "default_x": 615.0, "texture": "res://assets/main_menu/environment/blanket.png"},
 	{"id": "fern",      "name": "a potted fern",     "unlock_min": 300, "default_x": 700.0, "texture": "res://assets/main_menu/environment/fern.png"},
 	{"id": "painting",  "name": "a little painting", "unlock_min": 360, "default_x": 330.0, "texture": "res://assets/main_menu/environment/painting.png",
@@ -62,6 +68,11 @@ static func has_art(item: Dictionary) -> bool:
 ## explicit mount is a floor find.
 static func is_wall(item: Dictionary) -> bool:
 	return str(item.get("mount", "floor")) == "wall"
+
+
+## Other finds can be stood on top of this one — see the `surface` note above.
+static func is_surface(item: Dictionary) -> bool:
+	return bool(item.get("surface", false))
 
 
 ## What the fox is bringing home next: the first find whose focus threshold hasn't
