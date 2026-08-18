@@ -17,7 +17,7 @@ const DESIGN_SIZE := Vector2i(960, 540)
 
 ## HOME / CHOOSE / RUNNING are the session flow. DEN is a side room off it: the menu
 ## chrome clears out and what's left is the fox's room and the drawer of things to put
-## in it. You come back to whichever of the other three you left — see _set_den_open.
+## in it. You come back to whichever of the other three you left.
 enum Mode { HOME, CHOOSE, RUNNING, DEN }
 
 const COLOUR_OPTIONS := [
@@ -75,7 +75,6 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 @onready var _stats_week_value: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/WeekValue
 @onready var _stats_total_header: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/TotalHeader
 @onready var _journal_icon: TextureButton = $MenuLayer/JournalIcon
-@onready var _den_icon: TextureButton = $MenuLayer/DenIcon
 ## The menu's authored desk plant. Not a find — it was always in the room — but it's
 ## furniture, so it dims with the rest of the furniture rather than staying vivid
 ## beside a faded lamp.
@@ -97,11 +96,6 @@ const SCRIM_FADE := 0.16
 
 const JOURNAL_ICON := preload("res://assets/main_menu/icons/journal-icon.png")
 const HOME_ICON := preload("res://assets/main_menu/icons/home-icon.png")
-## PLACEHOLDER. customize.png is a leftover purple planet from the planetoid days —
-## the right name, the wrong picture. Wants a den glyph in the journal icon's warm
-## painted hand; swapping the file is the whole change.
-const DEN_ICON := preload("res://assets/main_menu/icons/customize.png")
-
 ## What the den fades to when the launcher has something else to say. The room is the
 ## backdrop to the whole menu rather than a screen of its own, so it stays on show —
 ## but a lamp at full strength competes with the status line and the task field.
@@ -226,7 +220,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	if event.keycode == KEY_ESCAPE and _mode == Mode.DEN:
-		_set_den_open(false)
+		_den_inventory.set_open(false)
 		get_viewport().set_input_as_handled()
 
 
@@ -355,7 +349,7 @@ func _setup_menu_nodes() -> void:
 	_settings_icon_button.pressed.connect(_on_settings_pressed)
 	_settings_panel.close_button.pressed.connect(_hide_settings_panel)
 	_journal_icon.pressed.connect(_on_journal_pressed)
-	_den_icon.pressed.connect(_on_den_icon_pressed)
+	_den_inventory.opened_changed.connect(_on_drawer_opened_changed)
 	_journal_panel.close_requested.connect(_set_journal_open.bind(false))
 	_settings_panel.scale_slider.value_changed.connect(_on_scale_changed)
 	_settings_panel.opacity_slider.value_changed.connect(_on_opacity_changed)
@@ -447,7 +441,6 @@ func _set_mode(mode: Mode) -> void:
 	_settings_icon_button.visible = not den
 	for label in _version_labels:
 		label.visible = not den
-	_den_icon.texture_normal = HOME_ICON if den else DEN_ICON
 	_apply_den_dim(home or den)
 
 	_short_button.visible = choose
@@ -497,16 +490,15 @@ func _apply_den_dim(full: bool) -> void:
 
 # --- Den mode --------------------------------------------------------------
 
-func _on_den_icon_pressed() -> void:
-	if _intro_running:
-		return
-	_set_den_open(_mode != Mode.DEN)
-
-
-func _set_den_open(open: bool) -> void:
+## The drawer's pull tab is the whole way in and out. Pulling the drawer open already
+## meant "I want to arrange my den", so a separate button that did the same thing was
+## one control too many — and hanging the mode off the tab makes what the tab is for
+## obvious instead of something to discover.
+##
+## The drawer plays its own open/close sound, so there is deliberately none here.
+func _on_drawer_opened_changed(open: bool) -> void:
 	if open == (_mode == Mode.DEN):
 		return
-	Audio.play("open" if open else "close")
 	if open:
 		# The den, the journal and the settings panel each want the whole window.
 		_hide_settings_panel()
@@ -514,8 +506,7 @@ func _set_den_open(open: bool) -> void:
 			_set_journal_open(false)
 		_mode_before_den = _mode
 		_set_mode(Mode.DEN)
-	else:
-		_den_inventory.set_open(false)
+	elif _mode == Mode.DEN:
 		_set_mode(_mode_before_den)
 
 
@@ -924,8 +915,6 @@ func _on_settings_pressed() -> void:
 		return
 	if _journal_open:
 		_set_journal_open(false)
-	if _mode == Mode.DEN:
-		_set_den_open(false)
 	_den_inventory.set_open(false)
 	Audio.play("open")
 	_settings_panel.reset_to_first_tab()
@@ -953,9 +942,7 @@ func _set_journal_open(open: bool) -> void:
 	Audio.play("open" if open else "close")
 	if open:
 		_hide_settings_panel()
-		# Safe to call back into: leaving den mode never touches the journal.
-		if _mode == Mode.DEN:
-			_set_den_open(false)
+		# Closing the drawer is what drops out of den mode, if we were in it.
 		_den_inventory.set_open(false)
 		_journal_panel.refresh(_stats, _den)
 	# The journal covers the whole window and sits above the drawer, so the drawer
@@ -1096,7 +1083,6 @@ func _play_intro() -> void:
 			continue
 		fade_targets.append(child)
 	fade_targets.append(_journal_icon)
-	fade_targets.append(_den_icon)
 	fade_targets.append(_den_inventory)
 
 	# Remember each node's resting alpha (the preview fox carries its opacity).

@@ -11,7 +11,6 @@
 [ext_resource type="Texture2D" uid="uid://c5ddp7inuo7jl" path="res://assets/main_menu/environment/plant - shadow.png" id="13_a20vb"]
 [ext_resource type="Texture2D" uid="uid://cj2lm0w4uppyq" path="res://assets/main_menu/environment/plant.png" id="14_eo0a0"]
 [ext_resource type="Texture2D" uid="uid://dau4b46fiyhtx" path="res://assets/main_menu/icons/settings/default-gear-icon.png" id="15_eo0a0"]
-[ext_resource type="Texture2D" uid="uid://34yxiva4ln8v" path="res://assets/main_menu/icons/customize.png" id="16_denicon"]
 [ext_resource type="Texture2D" uid="uid://qtknhb8lseh4" path="res://assets/main_menu/icons/journal-icon.png" id="16_ij7pi"]
 [ext_resource type="FontFile" uid="uid://w0p6smylyk1x" path="res://assets/not_sprites/pixel_operator/PixelOperator.ttf" id="17_font"]
 [ext_resource type="PackedScene" uid="uid://bky7btjtomh0p" path="res://src/planetoid/planetoid.tscn" id="18_fox"]
@@ -484,15 +483,6 @@ offset_right = 945.0
 offset_bottom = 68.0
 focus_mode = 0
 texture_normal = ExtResource("16_ij7pi")
-
-[node name="DenIcon" type="TextureButton" parent="MenuLayer" unique_id=598295922]
-z_index = 100
-offset_left = 902.0
-offset_top = 78.0
-offset_right = 945.0
-offset_bottom = 124.0
-focus_mode = 0
-texture_normal = ExtResource("16_denicon")
 
 [node name="ClockDial" type="Sprite2D" parent="MenuLayer" unique_id=769053101]
 z_index = 20

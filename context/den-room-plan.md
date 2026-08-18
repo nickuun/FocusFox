@@ -89,7 +89,8 @@ Geometry, in design px after the 0.5 scale:
 | Room size | 3904 × 1088 | **1952 × 544** |
 | Wall/floor junction | y 697 | **y 348.5** |
 | Floor depth (junction → bottom) | 391 | **195.5** |
-| Corner — angled side wall ends | x 361 | **x 180** |
+| Left corner — angled side wall ends | x 361 | **x 180** |
+| Right corner — angled side wall starts | x 3451 | **x 1725** |
 | Window (on the angled wall) | x 60–320 | x 30–160 |
 | Upper shelf (plank top) | y 145, x 380–684 | **y 72.5, x 190–342** |
 | Lower shelf (plank top) | y 331, x 380–684 | **y 165.5, x 190–342** |
@@ -184,16 +185,14 @@ scatter everyone's furniture 60px into the wall.
 
 Mostly delivered. What's left:
 
-1. **A right end for the room.** The wall and floor cut off flat at x=1952 — panning
-   right hits a raw edge. Mirror the left corner, or put a door there.
+1. ~~**A right end for the room.**~~ **Done.** The room now closes at both ends: an
+   angled side wall with a sconce, mirroring the left corner. The seam sits at design
+   **x ≈ 1725**, so the flat back wall runs x 183 → 1723 and wall-mounted finds have to
+   stop clear of both corners once panning makes them reachable. **This was the last
+   thing blocking Phase 2b.**
 2. **A contact shadow.** ~64 × 20, soft black ellipse on transparent, one file reused by
    every find. Nothing the fox brings home currently casts a shadow (see Phase 3) and
    this is the highest-impact sprite left in the pass.
-3. **A den icon**, 43×46 to match every other icon in `assets/main_menu/icons/`, in the
-   journal icon's warm painted hand. Den mode currently borrows `customize.png` — the
-   right name, but the art is a leftover purple planet from the planetoid days and it
-   looks it. Swapping the file is the whole change.
-
 4. **More finds.** Nine now fill ~40% of the floor. The room is built for roughly 18 —
    no rush, the ladder is meant to unspool over patches.
 5. **Shelves are done** — two are baked into the wall, and they become surfaces for
@@ -259,16 +258,18 @@ since it's load-bearing by accident.
 
 ### Getting in and out
 
-A `DenIcon` `TextureButton` in `MenuLayer` under the journal icon —
-`offset_left = 902, offset_top = 78`, 43×46, the size every icon in
-`assets/main_menu/icons/` already is. `customize.png` is the obvious glyph and is
-otherwise unused. Swap to `home-icon.png` while open, the pattern the journal icon uses
-at [world.gd:745](../src/world/world.gd#L745).
+The drawer's pull tab, and nothing else. Pulling the drawer open already meant "I want
+to arrange my den", so a separate button that did the same thing was one control too
+many — two ways to bring out the same bar. Hanging the mode off the tab also makes what
+the tab is *for* obvious rather than something to discover.
 
-The journal and the den are mutually exclusive; each opener closes the other. Escape
-leaves den mode — but `JournalBook` handles its own Escape in `_unhandled_key_input`, so
-world.gd's handler must check the journal isn't visible first or the two fight over the
-key.
+`DenInventory.opened_changed` drives it: open enters den mode and remembers where you
+came from, closed returns you there. Escape closes the drawer rather than the mode, so
+there's one path in and out. The drawer plays its own open/close sound, so the mode
+handler deliberately stays quiet.
+
+The journal and the den are mutually exclusive full-window states; opening the journal
+or the settings panel closes the drawer, which drops out of den mode as a side effect.
 
 ### The finds in the other modes
 
@@ -574,7 +575,6 @@ earned, everything casting a shadow.
 
 ## Open questions
 
-1. **The right end of the room** — mirrored corner, or a door?
 2. **The upper shelf behind the stats panel** — move the panel, or let it be a den-mode
    reward?
 3. **Does the pan hard-stop or rubber-band at the ends?** Rubber-band feels better and is
