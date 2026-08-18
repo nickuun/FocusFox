@@ -51,7 +51,10 @@ script = ExtResource("12_desktop_fox")
 
 [node name="MainMenu" type="Node2D" parent="MenuLayer" unique_id=304852977]
 
-[node name="Background" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1489674489]
+[node name="Room" type="Node2D" parent="MenuLayer/MainMenu" unique_id=304852978]
+
+
+[node name="Background" type="Sprite2D" parent="MenuLayer/MainMenu/Room" unique_id=1489674489]
 position = Vector2(976, 272)
 scale = Vector2(0.5, 0.5)
 texture = ExtResource("3_a20vb")
@@ -130,7 +133,7 @@ text = "Your Desktop Companion"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="PreviewFox" parent="MenuLayer/MainMenu" unique_id=600092329 instance=ExtResource("18_fox")]
+[node name="PreviewFox" parent="MenuLayer/MainMenu/Room" unique_id=600092329 instance=ExtResource("18_fox")]
 z_index = 28
 position = Vector2(481.3, 207)
 
@@ -384,20 +387,20 @@ texture_normal = ExtResource("15_eo0a0")
 texture_pressed = ExtResource("21_gearhi")
 texture_hover = ExtResource("21_gearhi")
 
-[node name="Planet" type="Node2D" parent="MenuLayer/MainMenu" unique_id=496703197]
+[node name="Planet" type="Node2D" parent="MenuLayer/MainMenu/Room" unique_id=496703197]
 
-[node name="PlantShadow" type="Sprite2D" parent="MenuLayer/MainMenu/Planet" unique_id=1088798449]
+[node name="PlantShadow" type="Sprite2D" parent="MenuLayer/MainMenu/Room/Planet" unique_id=1088798449]
 position = Vector2(134, 372)
 texture = ExtResource("13_a20vb")
 
-[node name="Plant" type="Sprite2D" parent="MenuLayer/MainMenu/Planet" unique_id=1472679930]
+[node name="Plant" type="Sprite2D" parent="MenuLayer/MainMenu/Room/Planet" unique_id=1472679930]
 position = Vector2(135, 364)
 texture = ExtResource("14_eo0a0")
 script = ExtResource("22_throw")
 
-[node name="Area2D" type="Area2D" parent="MenuLayer/MainMenu/Planet/Plant" unique_id=1035788673]
+[node name="Area2D" type="Area2D" parent="MenuLayer/MainMenu/Room/Planet/Plant" unique_id=1035788673]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="MenuLayer/MainMenu/Planet/Plant/Area2D" unique_id=1368643594]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="MenuLayer/MainMenu/Room/Planet/Plant/Area2D" unique_id=1368643594]
 position = Vector2(1, 2)
 shape = SubResource("CapsuleShape2D_a20vb")
 

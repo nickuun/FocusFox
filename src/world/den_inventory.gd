@@ -295,6 +295,13 @@ func is_open() -> bool:
 	return _open
 
 
+## True while a cell's ghost is riding the cursor. world.gd watches this so the room
+## can pan when the ghost is carried to a screen edge — otherwise nothing from the
+## drawer could ever be placed beyond the first screenful.
+func is_dragging() -> bool:
+	return _dragging
+
+
 func toggle() -> void:
 	set_open(not _open)
 

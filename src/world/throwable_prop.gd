@@ -86,7 +86,7 @@ func _ready() -> void:
 		_shadow_offset = _shadow.position - position
 		_shadow_base_scale = _shadow.scale
 	_compute_bounds()
-	_last_mouse = get_global_mouse_position()
+	_last_mouse = _mouse()
 	if _area != null:
 		_area.input_event.connect(_on_area_input)
 
@@ -102,6 +102,15 @@ func _compute_bounds() -> void:
 	_ceil_y = margin + _top_extent()
 	_min_x = bound_left if bound_left >= 0.0 else margin
 	_max_x = bound_right if bound_right >= 0.0 else view.x - margin
+
+
+## Re-fences the prop after it has already entered the tree. The den sets bounds before
+## adding a find, so it needs no such thing — but the menu's desk plant is authored into
+## the scene and computed its bounds long before anyone knew how wide the room was.
+func set_bounds(left: float, right: float) -> void:
+	bound_left = left
+	bound_right = right
+	_compute_bounds()
 
 
 ## The y this prop should come to rest at, standing at `x` and falling from `from_y`.
@@ -127,8 +136,18 @@ func _top_extent() -> float:
 	return -top
 
 
+## The mouse in the same space this prop's `position` is in — its parent's.
+##
+## Not get_global_mouse_position(), which answers in canvas space. The two agreed
+## exactly as long as the den sat at the origin, and stopped agreeing the moment the
+## room could be panned: the prop would jump by the pan distance on being grabbed.
+func _mouse() -> Vector2:
+	var parent := get_parent() as Node2D
+	return parent.get_local_mouse_position() if parent != null else get_global_mouse_position()
+
+
 func _process(delta: float) -> void:
-	var mouse := get_global_mouse_position()
+	var mouse := _mouse()
 	_mouse_velocity = (mouse - _last_mouse) / maxf(delta, 0.001)
 	_last_mouse = mouse
 
@@ -226,7 +245,7 @@ func _input(event: InputEvent) -> void:
 func _begin_drag() -> void:
 	_dragging = true
 	_resting = false
-	_drag_offset = position - get_global_mouse_position()
+	_drag_offset = position - _mouse()
 	_velocity = Vector2.ZERO
 	grabbed.emit()
 

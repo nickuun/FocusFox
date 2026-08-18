@@ -58,6 +58,9 @@ const ROOM_BOTTOM := 410.0
 const FLOOR_MARGIN_LEFT := 60.0
 const WALL_MARGIN_LEFT := 195.0
 const ROOM_MARGIN_RIGHT := 48.0
+## The room closes at both ends, so the far corner needs the same clearance the near
+## one does. The back wall runs x 183..1723; this keeps hung finds inside it.
+const WALL_MARGIN_RIGHT := 240.0
 
 ## The band a hung find can live in. WALL_BOTTOM keeps it clear of the wall/floor
 ## junction at 348.5; WALL_TOP is the highest its *top edge* may reach, which clears
@@ -98,6 +101,13 @@ const SHADOW_WIDTH_RATIO := 0.85
 ## Scaling the ellipse uniformly would make it comically tall under a 220px rug, so its
 ## height is held near the authored 20px.
 const SHADOW_HEIGHT_LIMITS := Vector2(0.6, 1.4)
+
+## How wide the room is, in design pixels — the background's own width, handed over by
+## world.gd rather than measured here, since the den doesn't own the backdrop.
+##
+## Not the viewport: the room is wider than the window and den mode pans across it, so
+## clamping finds to 960 would pen them into the first screenful.
+var room_width := 960.0
 
 ## Fires whenever what's out in the room changes, so the drawer can restate itself.
 signal placement_changed
@@ -187,6 +197,15 @@ func unlocked_entries() -> Array:
 			"placed": is_placed(id),
 		})
 	return out
+
+
+## True while a find is under the cursor, which is what tells world.gd it should pan the
+## room when the cursor reaches an edge.
+func is_dragging() -> bool:
+	for id in _interacting:
+		if _interacting[id]:
+			return true
+	return false
 
 
 func is_placed(id: String) -> bool:
@@ -320,18 +339,18 @@ func _texture_for(item: Dictionary) -> Texture2D:
 ## Where a find is allowed to be let go. Floor finds get the room; hung ones get the
 ## wall band, measured off their own height so nothing overlaps the stats panel.
 ##
-## Bounded by the window rather than by the room, which is wider than it — until the
-## den can be panned there's no way to reach, or see, anything put down past 960.
+## Bounded by the room, not the window. Floor finds may stand into either corner, where
+## the floor carries on; hung ones have to stop clear of both angled side walls, since
+## flat art on a receding plane reads as a mistake.
 func _clamp_to_room(item: Dictionary, at: Vector2) -> Vector2:
-	var view := get_viewport_rect().size
-	var right := view.x - ROOM_MARGIN_RIGHT
+	var right := room_width - ROOM_MARGIN_RIGHT
 	if not DenCatalog.is_wall(item):
 		# Only the letting-go point is clamped. Where it lands is gravity's business.
 		return Vector2(clampf(at.x, FLOOR_MARGIN_LEFT, right), clampf(at.y, ROOM_TOP, ROOM_BOTTOM))
 	var tex := _texture_for(item)
 	var height := tex.get_size().y if tex != null else 48.0
 	var highest := WALL_TOP + height  # the base can't go above this without the top clipping
-	return Vector2(clampf(at.x, WALL_MARGIN_LEFT, right),
+	return Vector2(clampf(at.x, WALL_MARGIN_LEFT, room_width - WALL_MARGIN_RIGHT),
 		clampf(at.y, highest, maxf(highest, WALL_BOTTOM)))
 
 
@@ -413,7 +432,7 @@ func _create_item(item: Dictionary, reveal: bool) -> void:
 
 	spr.floor_provider = floor_for.bind(id)
 	spr.bound_left = WALL_MARGIN_LEFT if wall else FLOOR_MARGIN_LEFT
-	spr.bound_right = get_viewport_rect().size.x - ROOM_MARGIN_RIGHT
+	spr.bound_right = room_width - ROOM_MARGIN_RIGHT
 	# A hung find has nothing underneath it to cast onto.
 	if not wall:
 		spr.shadow = _create_shadow(id, spr.position, size.x)

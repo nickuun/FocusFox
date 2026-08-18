@@ -43,7 +43,7 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 
 @onready var _menu_layer: CanvasLayer = $MenuLayer
 @onready var _desktop_fox: DesktopFox = $DesktopFox
-@onready var _preview_fox: RigidBody2D = $MenuLayer/MainMenu/PreviewFox
+@onready var _preview_fox: RigidBody2D = $MenuLayer/MainMenu/Room/PreviewFox
 
 @onready var _start_button: TextureButton = $MenuLayer/MainMenu/Buttons/StartButton
 @onready var _quit_button: TextureButton = $MenuLayer/MainMenu/Buttons/QuitButton
@@ -69,7 +69,10 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 @onready var _settings_panel: FoxSettingsPanel = $MenuLayer/SettingsPanel
 
 @onready var _main_menu: Node2D = $MenuLayer/MainMenu
-@onready var _background: Sprite2D = $MenuLayer/MainMenu/Background
+## Everything that *is* the room, in one node so den mode can slide it sideways while
+## the stats panel and the button row stay pinned where they were composed.
+@onready var _room: Node2D = $MenuLayer/MainMenu/Room
+@onready var _background: Sprite2D = $MenuLayer/MainMenu/Room/Background
 @onready var _title: Sprite2D = $MenuLayer/MainMenu/Title
 @onready var _stats_today_value: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/TodayValue
 @onready var _stats_week_value: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/WeekValue
@@ -78,7 +81,7 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 ## The menu's authored desk plant. Not a find — it was always in the room — but it's
 ## furniture, so it dims with the rest of the furniture rather than staying vivid
 ## beside a faded lamp.
-@onready var _desk_plant: Node2D = $MenuLayer/MainMenu/Planet
+@onready var _desk_plant: Node2D = $MenuLayer/MainMenu/Room/Planet
 @onready var _stats_panel: Sprite2D = $MenuLayer/MainMenu/MainmenuStatsPanel
 @onready var _version_labels: Array[Label] = [
 	$MenuLayer/MainMenu/VersionLabel, $MenuLayer/MainMenu/VersionLabel2,
@@ -101,6 +104,16 @@ const HOME_ICON := preload("res://assets/main_menu/icons/home-icon.png")
 ## but a lamp at full strength competes with the status line and the task field.
 const DEN_DIM := 0.6
 const DEN_DIM_FADE := 0.22
+
+## How far one notch of the wheel walks the room.
+const ROOM_WHEEL_STEP := 120.0
+## The band at each edge of the window that pulls the room along while a find is being
+## carried. Without it there is no way to take something from one screenful to the next.
+const ROOM_EDGE_ZONE := 90.0
+const ROOM_EDGE_SPEED := 620.0
+## Leaving the den returns to the composed screen rather than dumping you wherever you
+## happened to be looking.
+const ROOM_HOME_GLIDE := 0.28
 const BTN_NORMAL := preload("res://assets/main_menu/default_button.png")
 const BTN_HILITE := preload("res://assets/main_menu/default_button - hovered.png")
 
@@ -135,6 +148,11 @@ var _clock_fox: AnimatedSprite2D
 ## True while the sit is running in reverse, so animation_finished can tell the two
 ## ends apart — it fires at both when a playback is reversed.
 var _clock_fox_reversing := false
+var _room_pan := 0.0
+var _room_dragging := false
+var _room_drag_from := 0.0
+var _room_drag_pan := 0.0
+var _room_home_tween: Tween
 
 
 ## --- The revamped fox, previewed inside the session dial ---------------------
@@ -225,6 +243,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _handle_room_pan_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if _mode != Mode.HOME or not is_instance_valid(_preview_fox) or not _preview_fox.visible:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -384,9 +405,16 @@ func _setup_dialogs() -> void:
 func _setup_den() -> void:
 	_den = Den.new()
 	_den.name = "Den"
-	_main_menu.add_child(_den)
+	_room.add_child(_den)
 	# The drawer is where finds come from and where they go back to, so the two
 	# only ever talk through these three wires.
+	_den.room_width = _room_width()
+	# The desk plant is a ThrowableProp as well, and it worked out its bounds from the
+	# viewport back in its own _ready — which stopped describing the room the moment the
+	# room grew wider than the window.
+	var plant := _desk_plant.get_node_or_null("Plant") as ThrowableProp
+	if plant != null:
+		plant.set_bounds(Den.FLOOR_MARGIN_LEFT, _room_width() - Den.ROOM_MARGIN_RIGHT)
 	_den.store_zone = _den_inventory.contains_point
 	_den.placement_changed.connect(_on_den_placement_changed)
 	_den_inventory.place_requested.connect(_on_den_place_requested)
@@ -406,8 +434,11 @@ func _refresh_den_inventory() -> void:
 	_den_inventory.refresh(_den.unlocked_entries())
 
 
+## The drawer is screen furniture, so it reports where you let go in canvas space. The
+## den lives inside the room, which may be panned, so the point has to be carried across
+## before it means anything.
 func _on_den_place_requested(id: String, at: Vector2) -> void:
-	_den.place(id, at)
+	_den.place(id, _den.to_local(at))
 
 
 func _configure_desktop_fox() -> void:
@@ -488,6 +519,102 @@ func _apply_den_dim(full: bool) -> void:
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
+# --- Panning the room ------------------------------------------------------
+#
+# The room is wider than the window, so den mode walks across it. Only den mode: every
+# other mode sits at the home view, the one screenful the menu was actually composed
+# against, with the stats panel and the button row landing where they were drawn to.
+
+func _room_width() -> float:
+	return _background.texture.get_width() * _background.scale.x
+
+
+## How far left the room can slide before its right edge reaches the window's.
+func _pan_limit() -> float:
+	return maxf(0.0, _room_width() - float(DESIGN_SIZE.x))
+
+
+func _set_room_pan(x: float) -> void:
+	_room_pan = clampf(x, -_pan_limit(), 0.0)
+	# Whole pixels only. The room is pixel art at 1:1 with the design space, and a
+	# fractional offset resamples every sprite in it into a soft mess.
+	_room.position.x = roundf(_room_pan)
+
+
+## Glides back to the composed screen on the way out of den mode.
+func _send_room_home() -> void:
+	if _room_home_tween != null and _room_home_tween.is_valid():
+		_room_home_tween.kill()
+	_room_dragging = false
+	if is_zero_approx(_room_pan):
+		return
+	_room_home_tween = create_tween()
+	_room_home_tween.tween_method(_set_room_pan, _room_pan, 0.0, ROOM_HOME_GLIDE) 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+## Wheel, or drag the room itself.
+##
+## The press is deliberately *not* consumed. Godot queues physics-picking events after
+## input propagation and only while the event is still unhandled, so swallowing the
+## press here would kill a find's Area2D click before it ever fired — which reads as
+## "finds stopped being draggable in den mode". Instead the press only *arms* a room
+## drag, and the first motion cancels it if a find or the drawer's ghost has taken the
+## cursor in the meantime.
+func _handle_room_pan_input(event: InputEvent) -> bool:
+	if _mode != Mode.DEN or _pan_limit() <= 0.0:
+		return false
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		match mb.button_index:
+			MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_RIGHT:
+				if mb.pressed:
+					_set_room_pan(_room_pan - ROOM_WHEEL_STEP)
+				return true
+			MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_LEFT:
+				if mb.pressed:
+					_set_room_pan(_room_pan + ROOM_WHEEL_STEP)
+				return true
+			MOUSE_BUTTON_LEFT:
+				_room_dragging = mb.pressed
+				if mb.pressed:
+					_room_drag_from = get_global_mouse_position().x
+					_room_drag_pan = _room_pan
+				return false
+	elif event is InputEventMouseMotion and _room_dragging:
+		if _something_is_being_carried():
+			_room_dragging = false
+			return false
+		_set_room_pan(_room_drag_pan + get_global_mouse_position().x - _room_drag_from)
+		return true
+	return false
+
+
+func _something_is_being_carried() -> bool:
+	return (_den != null and _den.is_dragging()) or _den_inventory.is_dragging()
+
+
+## Carrying a find to the edge of the window drags the room along with it. Not optional:
+## a find picked up on one screenful could otherwise never be put down on another.
+func _update_edge_pan(delta: float) -> void:
+	if _mode != Mode.DEN or _pan_limit() <= 0.0 or _room_dragging:
+		return
+	if not _something_is_being_carried():
+		return
+	var mouse_x := get_global_mouse_position().x
+	var push := 0.0
+	if mouse_x < ROOM_EDGE_ZONE:
+		push = (mouse_x - ROOM_EDGE_ZONE) / ROOM_EDGE_ZONE          # negative, pans right
+	elif mouse_x > float(DESIGN_SIZE.x) - ROOM_EDGE_ZONE:
+		push = (mouse_x - (float(DESIGN_SIZE.x) - ROOM_EDGE_ZONE)) / ROOM_EDGE_ZONE
+	if is_zero_approx(push):
+		return
+	_set_room_pan(_room_pan - clampf(push, -1.0, 1.0) * ROOM_EDGE_SPEED * delta)
+
+
+func _process(delta: float) -> void:
+	_update_edge_pan(delta)
+
+
 # --- Den mode --------------------------------------------------------------
 
 ## The drawer's pull tab is the whole way in and out. Pulling the drawer open already
@@ -507,6 +634,7 @@ func _on_drawer_opened_changed(open: bool) -> void:
 		_mode_before_den = _mode
 		_set_mode(Mode.DEN)
 	elif _mode == Mode.DEN:
+		_send_room_home()
 		_set_mode(_mode_before_den)
 
 
@@ -1079,9 +1207,15 @@ func _play_intro() -> void:
 	# Everything except the background and the title hides, then fades in last.
 	var fade_targets: Array = []
 	for child in _main_menu.get_children():
-		if child == _background or child == _title:
+		if child == _title or child == _room:
 			continue
 		fade_targets.append(child)
+	# The room is skipped as a whole and unpacked instead, because the background is
+	# inside it now and is the one thing that must not fade — fading the room would take
+	# the backdrop with it and the intro would open on nothing.
+	for child in _room.get_children():
+		if child != _background:
+			fade_targets.append(child)
 	fade_targets.append(_journal_icon)
 	fade_targets.append(_den_inventory)
 
