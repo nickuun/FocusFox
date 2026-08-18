@@ -137,6 +137,36 @@ var _last_completed := ""     # "focus" / "short" / "long" / "" — drives the n
 var _current_task := ""
 var _clock_dial_base_scale := Vector2.ONE
 var _clock_dial_intro_tween: Tween
+var _clock_fox: AnimatedSprite2D
+## True while the sit is running in reverse, so animation_finished can tell the two
+## ends apart — it fires at both when a playback is reversed.
+var _clock_fox_reversing := false
+
+
+## --- The revamped fox, previewed inside the session dial ---------------------
+##
+## The dial art is an ornate window with a ledge and a crescent moon, and its base
+## texture is named Clock_No Fox_Empty.png — the hole in it was always meant to hold a
+## fox. This is a look at the new art in that hole while it's being drawn.
+##
+## Deliberately only that. The desktop fox still runs off the old 14x7 sprite sheet in
+## planetoid.gd and nothing here touches it.
+const CLOCK_FOX_DIR := "res://assets/fox/animations/sitting-transition/"
+const CLOCK_FOX_PREFIX := "Fox Sitting"
+const CLOCK_FOX_FRAMES := 27
+const CLOCK_FOX_FPS := 14.0
+## Half scale, which costs nothing: the launcher renders the design space at 2x, so a
+## 0.5 sprite puts one source texel on one physical pixel. The frames are drawn at twice
+## design size for exactly that reason, and at 1:1 the fox would overflow the window.
+const CLOCK_FOX_SCALE := 0.5
+## Where the fox goes, in the dial texture's own pixels: the interior's centre line and
+## the top of the painted ledge, both measured off Clock_No Fox_Empty.png.
+const CLOCK_FOX_WINDOW_X := 477.5
+const CLOCK_FOX_LEDGE_Y := 293.0
+## The drawn fox within its 390x195 frame, taken as the union across all 27 frames so
+## the anchor can't jitter as the tail swings: the centre of the content, and its footing.
+const CLOCK_FOX_CONTENT_CENTRE_X := 220.0
+const CLOCK_FOX_CONTENT_BOTTOM_Y := 187.0
 
 
 const SETTINGS_PATH := "user://focus_fox.cfg"
@@ -161,6 +191,7 @@ func _ready() -> void:
 	_desktop_fox.initialize()
 	_apply_cosmetics_to_previews()
 	_clock_dial_base_scale = _clock_dial.scale
+	_setup_clock_fox()
 	_set_mode(Mode.HOME)
 	_refresh_ui()
 	_refresh_stats_bar()
@@ -602,6 +633,72 @@ func _update_clock_dial() -> void:
 	mat.set_shader_parameter("fill", elapsed)
 
 
+func _setup_clock_fox() -> void:
+	var frames := SpriteFrames.new()
+	frames.add_animation("sit")
+	# Not looping: animation_finished is what turns the playback around, and a looping
+	# animation never emits it.
+	frames.set_animation_loop("sit", false)
+	frames.set_animation_speed("sit", CLOCK_FOX_FPS)
+	for i in range(1, CLOCK_FOX_FRAMES + 1):
+		var path := "%s%s%d.png" % [CLOCK_FOX_DIR, CLOCK_FOX_PREFIX, i]
+		if not ResourceLoader.exists(path):
+			push_warning("Clock fox frame missing: %s" % path)
+			continue
+		frames.add_frame("sit", load(path))
+	if frames.has_animation("default"):
+		frames.remove_animation("default")
+
+	_clock_fox = AnimatedSprite2D.new()
+	_clock_fox.name = "ClockFox"
+	_clock_fox.sprite_frames = frames
+	_clock_fox.centered = false
+	_clock_fox.scale = Vector2.ONE * CLOCK_FOX_SCALE
+	# Parented to the dial rather than sat beside it, which hands us three things for
+	# free: it inherits the dial's visibility, so it comes and goes with the session
+	# without being wired to the mode; it rides the dial's pop-in tween; and its z_index
+	# is relative, so 5 puts it over the dial's 20 and under the labels' 30.
+	_clock_fox.z_index = 5
+	_clock_fox.position = _clock_fox_offset()
+	_clock_fox.animation_finished.connect(_on_clock_fox_finished)
+	_clock_dial.add_child(_clock_fox)
+
+
+## Where to hang the fox inside the dial. The dial sprite is centred, so its children
+## measure from the middle of the texture — hence subtracting the texture centre — and
+## the fox is anchored by its own footing rather than by its frame's corner.
+func _clock_fox_offset() -> Vector2:
+	var texture_centre := _clock_dial.texture.get_size() * 0.5
+	var spot := Vector2(CLOCK_FOX_WINDOW_X, CLOCK_FOX_LEDGE_Y) - texture_centre
+	var footing := Vector2(CLOCK_FOX_CONTENT_CENTRE_X, CLOCK_FOX_CONTENT_BOTTOM_Y) * CLOCK_FOX_SCALE
+	return (spot - footing).round()
+
+
+## Sits down, gets back up, and keeps at it for as long as the session runs. Reversing
+## reads as standing up rather than as a rewind because the animation is a real one-way
+## transition — its first and last frames are different poses.
+func _on_clock_fox_finished() -> void:
+	if _clock_fox_reversing:
+		_clock_fox_reversing = false
+		_clock_fox.play("sit")
+	else:
+		_clock_fox_reversing = true
+		_clock_fox.play_backwards("sit")
+
+
+func _start_clock_fox() -> void:
+	if _clock_fox == null:
+		return
+	_clock_fox_reversing = false
+	_clock_fox.frame = 0
+	_clock_fox.play("sit")
+
+
+func _stop_clock_fox() -> void:
+	if _clock_fox != null:
+		_clock_fox.stop()
+
+
 func _play_clock_dial_intro() -> void:
 	_reset_clock_dial_intro()
 	_clock_dial.scale = _clock_dial_base_scale * CLOCK_DIAL_INTRO_START_SCALE
@@ -609,6 +706,7 @@ func _play_clock_dial_intro() -> void:
 	_clock_dial_intro_tween = create_tween().set_parallel(true)
 	_clock_dial_intro_tween.tween_property(_clock_dial, "scale", _clock_dial_base_scale, CLOCK_DIAL_INTRO_SECONDS).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_clock_dial_intro_tween.tween_property(_clock_dial, "modulate:a", 1.0, CLOCK_DIAL_INTRO_SECONDS * 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_start_clock_fox()
 
 
 func _reset_clock_dial_intro() -> void:
@@ -617,6 +715,7 @@ func _reset_clock_dial_intro() -> void:
 	_clock_dial_intro_tween = null
 	_clock_dial.scale = _clock_dial_base_scale
 	_clock_dial.modulate.a = 1.0
+	_stop_clock_fox()
 
 
 func _on_clock_finished() -> void:

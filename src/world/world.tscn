@@ -11,8 +11,8 @@
 [ext_resource type="Texture2D" uid="uid://c5ddp7inuo7jl" path="res://assets/main_menu/environment/plant - shadow.png" id="13_a20vb"]
 [ext_resource type="Texture2D" uid="uid://cj2lm0w4uppyq" path="res://assets/main_menu/environment/plant.png" id="14_eo0a0"]
 [ext_resource type="Texture2D" uid="uid://dau4b46fiyhtx" path="res://assets/main_menu/icons/settings/default-gear-icon.png" id="15_eo0a0"]
-[ext_resource type="Texture2D" uid="uid://qtknhb8lseh4" path="res://assets/main_menu/icons/journal-icon.png" id="16_ij7pi"]
 [ext_resource type="Texture2D" uid="uid://34yxiva4ln8v" path="res://assets/main_menu/icons/customize.png" id="16_denicon"]
+[ext_resource type="Texture2D" uid="uid://qtknhb8lseh4" path="res://assets/main_menu/icons/journal-icon.png" id="16_ij7pi"]
 [ext_resource type="FontFile" uid="uid://w0p6smylyk1x" path="res://assets/not_sprites/pixel_operator/PixelOperator.ttf" id="17_font"]
 [ext_resource type="PackedScene" uid="uid://bky7btjtomh0p" path="res://src/planetoid/planetoid.tscn" id="18_fox"]
 [ext_resource type="Texture2D" uid="uid://nfw1slh0kywc" path="res://assets/main_menu/clock/Clock_Full.png" id="19_8p8v4"]
@@ -21,37 +21,9 @@
 [ext_resource type="Script" uid="uid://dy1rnck8yapd1" path="res://src/world/throwable_prop.gd" id="22_throw"]
 [ext_resource type="Script" uid="uid://d1cog4kj4ueq5" path="res://src/world/journal_book.gd" id="23_journal"]
 [ext_resource type="Shader" uid="uid://b4qdxfhr5vp2s" path="res://src/world/clock_dial.gdshader" id="24_clockshader"]
-[ext_resource type="Texture2D" uid="uid://2od747napnjv" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt1.png" id="24_f02vj"]
 [ext_resource type="Texture2D" uid="uid://bk85h07bs5usl" path="res://assets/main_menu/clock/Clock_No Fox_Empty.png" id="25_clockempty"]
-[ext_resource type="Texture2D" uid="uid://dixfsonket2fw" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt2.png" id="25_mqjxu"]
-[ext_resource type="Texture2D" uid="uid://yy27xxtyo0hc" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt3.png" id="26_2o35x"]
 [ext_resource type="Script" uid="uid://d3ispukai0egc" path="res://src/world/achievement_toast.gd" id="26_toast"]
 [ext_resource type="Script" uid="uid://dthqi1kghy5al" path="res://src/world/den_inventory.gd" id="27_deninv"]
-[ext_resource type="Texture2D" uid="uid://cktig4m7fxyre" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt4.png" id="27_vgc60"]
-[ext_resource type="Texture2D" uid="uid://u0apqdulu531" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt5.png" id="28_e7rrf"]
-[ext_resource type="Texture2D" uid="uid://f0i6wks5t8at" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt6.png" id="29_l3btk"]
-[ext_resource type="Texture2D" uid="uid://bqa2d877esvkp" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt7.png" id="30_8011o"]
-[ext_resource type="Texture2D" uid="uid://dgey5fe8hkswj" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt8.png" id="31_lnhfo"]
-[ext_resource type="Texture2D" uid="uid://cerd14kervirg" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt9.png" id="32_5je0y"]
-[ext_resource type="Texture2D" uid="uid://diy23herdjs12" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt10.png" id="33_4l1sj"]
-[ext_resource type="Texture2D" uid="uid://c7uet0om6ymyi" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt11.png" id="34_pyagi"]
-[ext_resource type="Texture2D" uid="uid://mswhs8vcuwsx" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt12.png" id="35_p0quc"]
-[ext_resource type="Texture2D" uid="uid://dg4shnuib27bm" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt13.png" id="36_lehhs"]
-[ext_resource type="Texture2D" uid="uid://1poctip02yyc" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt14.png" id="37_rrp3b"]
-[ext_resource type="Texture2D" uid="uid://bclmc8lckn6ke" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt15.png" id="38_ev3hy"]
-[ext_resource type="Texture2D" uid="uid://b3mhc32urx5ts" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt16.png" id="39_fsmct"]
-[ext_resource type="Texture2D" uid="uid://c74qb7u8olxpv" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt17.png" id="40_d2rx5"]
-[ext_resource type="Texture2D" uid="uid://cvcqkprp6c5hc" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt18.png" id="41_f3xux"]
-[ext_resource type="Texture2D" uid="uid://dtu17tfyyrhrf" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt19.png" id="42_843ly"]
-[ext_resource type="Texture2D" uid="uid://bfoecivla7ahw" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt20.png" id="43_rc0e8"]
-[ext_resource type="Texture2D" uid="uid://d35ph3jok2o1d" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt21.png" id="44_6o54b"]
-[ext_resource type="Texture2D" uid="uid://hshvx787rwql" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt22.png" id="45_536jj"]
-[ext_resource type="Texture2D" uid="uid://djcqxka44k72e" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt23.png" id="46_5v5km"]
-[ext_resource type="Texture2D" uid="uid://cbg2fjjepocm0" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt24.png" id="47_uhsgg"]
-[ext_resource type="Texture2D" uid="uid://b1a3ljtg2t0q8" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt25.png" id="48_ji0tx"]
-[ext_resource type="Texture2D" uid="uid://2g7banbnl2ir" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt26.png" id="49_7650o"]
-[ext_resource type="Texture2D" uid="uid://cxawr7guxr0h2" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt27.png" id="50_ph7ck"]
-[ext_resource type="Texture2D" uid="uid://rij287peetca" path="res://assets/fox/animations/sitting-transition/Fox Sitting Tempt28.png" id="51_m7v20"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_a20vb"]
 radius = 34.0
@@ -65,98 +37,6 @@ shader_parameter/center = Vector2(0.5693, 0.4713)
 shader_parameter/start_deg = 135.0
 shader_parameter/aspect = 1.7777778
 shader_parameter/clockwise = true
-
-[sub_resource type="SpriteFrames" id="SpriteFrames_climf"]
-animations = [{
-"frames": [{
-"duration": 1.0,
-"texture": ExtResource("24_f02vj")
-}, {
-"duration": 1.0,
-"texture": ExtResource("25_mqjxu")
-}, {
-"duration": 1.0,
-"texture": ExtResource("26_2o35x")
-}, {
-"duration": 1.0,
-"texture": ExtResource("27_vgc60")
-}, {
-"duration": 1.0,
-"texture": ExtResource("28_e7rrf")
-}, {
-"duration": 1.0,
-"texture": ExtResource("29_l3btk")
-}, {
-"duration": 1.0,
-"texture": ExtResource("30_8011o")
-}, {
-"duration": 1.0,
-"texture": ExtResource("31_lnhfo")
-}, {
-"duration": 1.0,
-"texture": ExtResource("32_5je0y")
-}, {
-"duration": 1.0,
-"texture": ExtResource("33_4l1sj")
-}, {
-"duration": 1.0,
-"texture": ExtResource("34_pyagi")
-}, {
-"duration": 1.0,
-"texture": ExtResource("35_p0quc")
-}, {
-"duration": 1.0,
-"texture": ExtResource("36_lehhs")
-}, {
-"duration": 1.0,
-"texture": ExtResource("37_rrp3b")
-}, {
-"duration": 1.0,
-"texture": ExtResource("38_ev3hy")
-}, {
-"duration": 1.0,
-"texture": ExtResource("39_fsmct")
-}, {
-"duration": 1.0,
-"texture": ExtResource("40_d2rx5")
-}, {
-"duration": 1.0,
-"texture": ExtResource("41_f3xux")
-}, {
-"duration": 1.0,
-"texture": ExtResource("42_843ly")
-}, {
-"duration": 1.0,
-"texture": ExtResource("43_rc0e8")
-}, {
-"duration": 1.0,
-"texture": ExtResource("44_6o54b")
-}, {
-"duration": 1.0,
-"texture": ExtResource("45_536jj")
-}, {
-"duration": 1.0,
-"texture": ExtResource("46_5v5km")
-}, {
-"duration": 1.0,
-"texture": ExtResource("47_uhsgg")
-}, {
-"duration": 1.0,
-"texture": ExtResource("48_ji0tx")
-}, {
-"duration": 1.0,
-"texture": ExtResource("49_7650o")
-}, {
-"duration": 1.0,
-"texture": ExtResource("50_ph7ck")
-}, {
-"duration": 1.0,
-"texture": ExtResource("51_m7v20")
-}],
-"loop": false,
-"name": &"default",
-"speed": 25.0
-}]
 
 [node name="World" type="Node2D" unique_id=43647833]
 position = Vector2(7, 2)
@@ -626,10 +506,3 @@ z_index = 70
 layout_mode = 3
 anchors_preset = 0
 script = ExtResource("27_deninv")
-
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="MenuLayer/DenInventory" unique_id=83581765]
-visible = false
-position = Vector2(445, 264)
-sprite_frames = SubResource("SpriteFrames_climf")
-frame = 27
-frame_progress = 1.0
