@@ -330,6 +330,15 @@ other mode sits at the authored home view. Three ways to move:
 Plus an affordance so nobody misses that the room continues — a soft arrow or edge
 lightening, live only when there's room that way.
 
+### One thing this plan got wrong
+
+It assumed a press arriving at `_unhandled_input` must be empty floor, because finds
+consume their own clicks through `Area2D.input_event`. That ordering is backwards:
+Godot queues physics-picking events *after* input propagation and only while the event
+is still unhandled, so a pan handler that consumes the press kills the find's click
+before it ever happens. The press must only *arm* a room drag, with the first motion
+cancelling it if something else has taken the cursor.
+
 ### Coordinates — where this will bite
 
 Everything in `Den` becomes room-space, which is what you want (saved positions are
@@ -553,7 +562,7 @@ home." Free before launch, expensive after.
 |---|---|---|---|
 | 1 | Den mode + entry icon + fade rule | half a day | **done** |
 | 2a | Swap the background in, re-key the constants, `LAYOUT_VERSION` 3 | 2 hours | **done** |
-| 2b | `Room` restructure, coordinate fixes, panning, auto-pan | 1–1.5 days | |
+| 2b | `Room` restructure, coordinate fixes, panning, auto-pan | 1–1.5 days | **done** |
 | 3 | Contact shadows, z-order depth | half a day | **done** (tint skipped, see below) |
 | 4 | Journal Den page | most of a day | **done** |
 | 5 | Surfaces incl. baked shelves | half a day | **done** |
