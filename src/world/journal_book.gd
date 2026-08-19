@@ -131,6 +131,17 @@ const GROUP_TINTS := [
 	Color(0.65, 0.65, 0.67),  # Secrets
 ]
 const BADGE_LOCKED := Color(0.66, 0.63, 0.60, 0.55)
+## Badge art is authored at 64 and drawn at the plaque's 48, which is not an integer
+## step down — the project's global nearest filter drops rows unevenly at that ratio and
+## the pixel art comes out lopsided. These two rects filter linearly instead.
+const ART_FILTER := CanvasItem.TEXTURE_FILTER_LINEAR
+## Locked art is drawn greyscale already, but at full brightness 25 unearned badges are
+## as loud as the 16 earned ones. This darkens them so colour alone reads as "found".
+const ART_LOCKED := Color(0.56, 0.54, 0.52, 0.85)
+## A hairline of the book's own ink around every badge. Without it the art's pale frame
+## has nothing to sit against and the grid reads as floating stickers.
+const BADGE_BORDER := Color(0.30, 0.19, 0.11, 0.30)
+const BADGE_BORDER_RADIUS := 7
 
 var _current := Page.TODAY
 var _week_offset := 0
@@ -216,6 +227,9 @@ var _ach_count: Label
 var _ach_bar_track: Panel
 var _ach_bar_fill: Panel
 var _ach_secrets: Label
+## label+state -> Texture2D, including the nulls, so a missing file is looked up once
+## rather than on every page refresh.
+var _art_cache := {}
 
 var _stats: StatsStore
 var _den: Den
@@ -1074,12 +1088,13 @@ func _build_achievements(page: Control) -> void:
 			plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			slot.add_child(plate)
 
-			# Bespoke art when it exists, drawn inside the plaque's bevel.
+			# Drawn art when it exists. It fills the slot rather than sitting inside
+			# the plaque, because the art already has the plaque drawn into it.
 			var icon := TextureRect.new()
-			icon.position = Vector2(6, 6)
-			icon.size = Vector2(36, 36)
+			icon.size = BADGE.get_size()
 			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon.stretch_mode = TextureRect.STRETCH_SCALE
+			icon.texture_filter = ART_FILTER
 			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			slot.add_child(icon)
 
@@ -1094,6 +1109,8 @@ func _build_achievements(page: Control) -> void:
 
 			var mark := _lbl(slot, "?", 0, 12, BADGE.get_width(), 26, 20, Color(1, 1, 1, 0.7),
 				HORIZONTAL_ALIGNMENT_CENTER)
+
+			_badge_frame(slot)
 
 			if c >= ids.size():
 				_ach_slots.append({})
@@ -1126,15 +1143,18 @@ func _build_achievement_detail(page: Control) -> void:
 	panel.add_child(_ach_detail_badge)
 
 	_ach_detail_icon = TextureRect.new()
-	_ach_detail_icon.position = Vector2(6, 6)
-	_ach_detail_icon.size = Vector2(36, 36)
+	_ach_detail_icon.position = _ach_detail_badge.position
+	_ach_detail_icon.size = BADGE.get_size()
 	_ach_detail_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_ach_detail_icon.stretch_mode = TextureRect.STRETCH_SCALE
+	_ach_detail_icon.texture_filter = ART_FILTER
 	_ach_detail_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_ach_detail_badge.add_child(_ach_detail_icon)
+	panel.add_child(_ach_detail_icon)
 
 	_ach_detail_mark = _lbl(_ach_detail_badge, "?", 0, 12, BADGE.get_width(), 26, 20,
 		Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_CENTER)
+
+	_badge_frame(panel).position = _ach_detail_badge.position
 
 	_ach_detail_name = _lbl(panel, "", 76, 52, 220, 24, 17, INK)
 	_ach_detail_desc = _lbl(panel, "", 76, 78, 222, 46, 13, INK_SOFT)
@@ -1189,18 +1209,42 @@ func _step_achievement(step: int) -> void:
 	_refresh_achievements()
 
 
-## A bespoke icon for one achievement, or null to fall back to the tinted plaque.
-## Two naming conventions are accepted: `<id>.png` for anything added from now on, and
-## the label-derived `<Label with spaces as underscores>.png` that the one existing
-## icon already uses.
-func _achievement_icon(id: String, def: Dictionary) -> Texture2D:
-	var by_id := "res://assets/achievements/%s.png" % id
-	if ResourceLoader.exists(by_id):
-		return load(by_id)
-	var by_label := "res://assets/achievements/%s.png" % str(def.get("label", "")).replace(" ", "_")
-	if ResourceLoader.exists(by_label):
-		return load(by_label)
-	return null
+## The drawn badge for one achievement in the state asked for, or null if that art
+## hasn't been made yet.
+##
+## Art lives in `assets/achievements/<Label>/{locked,unlocked}.png`, one folder per
+## achievement named for its label — that's how the artist ships it, so the code reads
+## it that way rather than asking for a rename. `?` is stripped because Windows won't
+## take it in a folder name ("Back Tomorrow?" ships as "Back Tomorrow").
+##
+## Each file is a whole 64px badge, frame and all — the same plaque shape `BADGE` draws
+## — so wherever it exists it *replaces* the tinted plaque instead of sitting inside it.
+## Missing art falls back to plaque-plus-paw, which is what keeps a half-drawn set
+## renderable.
+func _achievement_art(def: Dictionary, earned: bool) -> Texture2D:
+	var folder := str(def.get("label", "")).replace("?", "")
+	var path := "res://assets/achievements/%s/%s.png" % [folder, "unlocked" if earned else "locked"]
+	if _art_cache.has(path):
+		return _art_cache[path]
+	var tex: Texture2D = load(path) if ResourceLoader.exists(path) else null
+	_art_cache[path] = tex
+	return tex
+
+
+## Point one grid slot (or the detail panel's copy of it) at an achievement's state:
+## drawn art when it exists, tinted plaque plus paw/? when it doesn't.
+func _paint_badge(plate: TextureRect, icon: TextureRect, paw: PawIcon, mark: Label,
+		def: Dictionary, earned: bool, hidden: bool, group: int) -> void:
+	var art := _achievement_art(def, earned)
+	icon.texture = art
+	icon.visible = art != null
+	icon.modulate = Color.WHITE if earned else ART_LOCKED
+	plate.visible = art == null
+	plate.modulate = GROUP_TINTS[group] if earned else BADGE_LOCKED
+	if paw != null:
+		paw.visible = art == null and earned
+	if mark != null:
+		mark.visible = art == null and not earned and hidden
 
 
 func _refresh_achievements() -> void:
@@ -1216,14 +1260,8 @@ func _refresh_achievements() -> void:
 		var hidden := bool(def.get("hidden", false))
 		var group: int = _ach_group_of[id]
 
-		var plate: TextureRect = entry["plate"]
-		plate.modulate = GROUP_TINTS[group] if earned else BADGE_LOCKED
-
-		var icon: Texture2D = _achievement_icon(id, def) if earned else null
-		(entry["icon"] as TextureRect).texture = icon
-		(entry["icon"] as TextureRect).visible = icon != null
-		(entry["paw"] as PawIcon).visible = earned and icon == null
-		(entry["mark"] as Label).visible = not earned and hidden
+		_paint_badge(entry["plate"], entry["icon"], entry["paw"], entry["mark"],
+			def, earned, hidden, group)
 
 		# A slot pops out slightly when it's the one being read, so the grid and the
 		# panel are visibly connected.
@@ -1262,7 +1300,6 @@ func _refresh_achievement_detail() -> void:
 
 	var group_name := str(Achievements.GROUPS[group]["name"])
 	_ach_group_label.text = group_name
-	_ach_detail_badge.modulate = GROUP_TINTS[group] if earned else BADGE_LOCKED
 
 	var group_ids: Array = Achievements.GROUPS[group]["ids"]
 	var group_found := 0
@@ -1271,10 +1308,8 @@ func _refresh_achievement_detail() -> void:
 			group_found += 1
 	_ach_group_progress.text = "%s — %d of %d found." % [group_name, group_found, group_ids.size()]
 
-	var icon: Texture2D = _achievement_icon(id, def) if earned else null
-	_ach_detail_icon.texture = icon
-	_ach_detail_icon.visible = icon != null
-	_ach_detail_mark.visible = not earned and hidden
+	_paint_badge(_ach_detail_badge, _ach_detail_icon, null, _ach_detail_mark,
+		def, earned, hidden, group)
 
 	# An unearned secret keeps its secret. An unearned ordinary one shows what to aim
 	# for — that's the difference the `hidden` flag is for.
@@ -1697,6 +1732,22 @@ func _lbl(parent: Control, text: String, x: float, y: float, w: float, h: float,
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(lbl)
 	return lbl
+
+
+## The hairline that sits over a badge — art, plaque and fallback alike — so every slot
+## in the grid is outlined the same way whatever is underneath it.
+func _badge_frame(parent: Control) -> Panel:
+	var frame := Panel.new()
+	frame.size = BADGE.get_size()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0)
+	sb.border_color = BADGE_BORDER
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(BADGE_BORDER_RADIUS)
+	frame.add_theme_stylebox_override("panel", sb)
+	parent.add_child(frame)
+	return frame
 
 
 func _flat(fill: Color, radius: int) -> StyleBoxFlat:
