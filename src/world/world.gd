@@ -111,9 +111,6 @@ const ROOM_WHEEL_STEP := 120.0
 ## carried. Without it there is no way to take something from one screenful to the next.
 const ROOM_EDGE_ZONE := 90.0
 const ROOM_EDGE_SPEED := 620.0
-## Leaving the den returns to the composed screen rather than dumping you wherever you
-## happened to be looking.
-const ROOM_HOME_GLIDE := 0.28
 const BTN_NORMAL := preload("res://assets/main_menu/default_button.png")
 const BTN_HILITE := preload("res://assets/main_menu/default_button - hovered.png")
 
@@ -152,7 +149,6 @@ var _room_pan := 0.0
 var _room_dragging := false
 var _room_drag_from := 0.0
 var _room_drag_pan := 0.0
-var _room_home_tween: Tween
 
 
 ## --- The revamped fox, previewed inside the session dial ---------------------
@@ -521,9 +517,20 @@ func _apply_den_dim(full: bool) -> void:
 
 # --- Panning the room ------------------------------------------------------
 #
-# The room is wider than the window, so den mode walks across it. Only den mode: every
-# other mode sits at the home view, the one screenful the menu was actually composed
-# against, with the stats panel and the button row landing where they were drawn to.
+# The room is wider than the window, so den mode walks across it. Only den mode *pans* —
+# outside it the chrome is pinned and there's nothing to scroll with — but wherever you
+# leave the view is where the room stays: in every mode, and across launches.
+#
+# It used to glide back to the first screenful on the way out, on the theory that the
+# menu was composed against that one view. In practice it made everything past x=960
+# read as an annexe to the menu rather than as the room the menu opens onto, which is
+# the opposite of the point of a wide room.
+#
+# What that costs: the preview fox is room furniture (world.tscn parents it inside Room
+# at x 481), so it pans away with everything else and HOME can open on a stretch of room
+# with no fox in it. Deliberate — the fox has a place in its den rather than tracking the
+# camera. The pinned chrome (stats panel, buttons, labels) lands where it was drawn
+# regardless, so only the backdrop changes.
 
 func _room_width() -> float:
 	return _background.texture.get_width() * _background.scale.x
@@ -535,21 +542,17 @@ func _pan_limit() -> float:
 
 
 func _set_room_pan(x: float) -> void:
-	_room_pan = clampf(x, -_pan_limit(), 0.0)
+	var to := clampf(x, -_pan_limit(), 0.0)
+	if is_equal_approx(to, _room_pan):
+		return
+	_room_pan = to
 	# Whole pixels only. The room is pixel art at 1:1 with the design space, and a
 	# fractional offset resamples every sprite in it into a soft mess.
 	_room.position.x = roundf(_room_pan)
-
-
-## Glides back to the composed screen on the way out of den mode.
-func _send_room_home() -> void:
-	if _room_home_tween != null and _room_home_tween.is_valid():
-		_room_home_tween.kill()
-	_room_dragging = false
-	if is_zero_approx(_room_pan):
-		return
-	_room_home_tween = create_tween()
-	_room_home_tween.tween_method(_set_room_pan, _room_pan, 0.0, ROOM_HOME_GLIDE) 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	# The view is now part of the save. Debounced, because a drag and an edge-pan both
+	# call this every frame — the timer restarts on each one and only writes once the
+	# room has come to rest.
+	_request_save()
 
 
 ## Wheel, or drag the room itself.
@@ -634,7 +637,10 @@ func _on_drawer_opened_changed(open: bool) -> void:
 		_mode_before_den = _mode
 		_set_mode(Mode.DEN)
 	elif _mode == Mode.DEN:
-		_send_room_home()
+		# The room keeps the view you left it at; only the drag state is dropped, or a
+		# press left hanging here would resume against a stale origin the next time the
+		# drawer opens and jump the room on the first mouse move.
+		_room_dragging = false
 		_set_mode(_mode_before_den)
 
 
@@ -999,6 +1005,7 @@ func _save_settings() -> void:
 	cfg.set_value("audio", "muted", Audio.muted)
 	cfg.set_value("audio", "volume", Audio.volume)
 	cfg.set_value("audio", "ambience", Audio.ambience_volume)
+	cfg.set_value("den", "room_pan", _room_pan)
 	cfg.save(SETTINGS_PATH)
 
 
@@ -1016,6 +1023,10 @@ func _load_settings() -> void:
 	Audio.set_muted(bool(cfg.get_value("audio", "muted", Audio.muted)))
 	Audio.set_volume(float(cfg.get_value("audio", "volume", Audio.volume)))
 	Audio.set_ambience_volume(float(cfg.get_value("audio", "ambience", Audio.ambience_volume)))
+	# Restores the view, not just the room's contents. _set_room_pan clamps, so a pan
+	# saved against wider room art survives that art getting narrower instead of parking
+	# the room past its own edge.
+	_set_room_pan(float(cfg.get_value("den", "room_pan", _room_pan)))
 
 
 func _update_fox_activity() -> void:
