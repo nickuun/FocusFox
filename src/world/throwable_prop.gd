@@ -35,6 +35,12 @@ class_name ThrowableProp
 @export var wall_swing_max := 6.0
 @export var wall_settle_time := 0.9
 
+## How far the floor has to drop away beneath a resting prop before it gives up its
+## perch. A hair over a pixel, because Den.BAKED_SHELVES tops sit on halves (72.5,
+## 165.5) while a settled prop is snapped to a whole one — without the slack a find
+## standing on a shelf would rattle itself awake every frame.
+const REST_SLACK := 1.0
+
 ## Horizontal bounds a thrown prop is kept inside. The den overrides these per find,
 ## because the room's left end is a corner: a find standing on the floor there reads
 ## fine, one hung on the angled side wall does not. Left negative, both fall back to
@@ -171,11 +177,20 @@ func _process(delta: float) -> void:
 
 
 func _simulate(delta: float) -> void:
-	if _resting or wall_mounted:
+	if wall_mounted:
 		return
 	# Asked again every frame rather than cached at the drop, so a find that slides off
 	# the end of a shelf falls the rest of the way instead of skating out into mid-air.
 	_floor_y = _floor_at(position.x, position.y)
+	if _resting:
+		# Resting is not permanent, which is the whole point of asking every frame. What
+		# a find is standing on can be carried off, put back in the drawer, or still be
+		# falling itself when the find lands on it. Re-checking here is the difference
+		# between a mug that follows its bookshelf down and one left hanging in the air
+		# until some later launch happens to drop it.
+		if _floor_y <= position.y + REST_SLACK:
+			return
+		_resting = false
 	_velocity.y += gravity * delta
 	_velocity.x = move_toward(_velocity.x, 0.0, air_friction * 100.0 * delta)
 	position += _velocity * delta
@@ -273,6 +288,14 @@ func _end_drag() -> void:
 		_swing_from(swing)
 		return
 	released.emit()
+
+
+## Whether this prop is where it lives, rather than still on its way there. The den asks
+## before writing a layout: a position caught mid-flight is a point in thin air, and
+## saving it means the next launch loads the find above the floor and drops it all over
+## again. A hung find has no flight to be in the middle of.
+func is_resting() -> bool:
+	return _resting or wall_mounted
 
 
 ## Rocks the prop sideways by `pixels` and lets it settle back. Snapped to whole

@@ -544,8 +544,15 @@ func _on_item_settled(id: String) -> void:
 func _save() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("meta", "layout_version", LAYOUT_VERSION)
+	# Only a find that has come to rest knows where it lives. A save can land in the
+	# middle of a fall — every settle triggers one, and finds dropped together don't land
+	# together — so syncing unconditionally wrote whatever mid-air y a find happened to
+	# be passing through. The last spot it actually rested at is the better answer, and
+	# it's already in _positions.
 	for id in _items:
-		_positions[id] = (_items[id] as Node2D).position
+		var spr := _items[id] as Node2D
+		if spr.call("is_resting"):
+			_positions[id] = spr.position
 	for id in _positions:
 		cfg.set_value("pos", id, _positions[id])
 	for id in _earned:
