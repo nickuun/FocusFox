@@ -519,7 +519,20 @@ func _input(event: InputEvent) -> void:
 ## tab and the pull handle. Dropping here means "not in the room": a cell drag
 ## cancels, and den.gd uses the same test to store a find dragged back in.
 func contains_point(p: Vector2) -> bool:
-	if not _open:
+	return _open and blocks_pan(p)
+
+
+## Where the drawer takes the cursor for itself, whether it's out or in. world.gd
+## checks this before panning the room: the pull handle is parked at the right edge
+## even while the body is offscreen, and reaching for it — or scrolling a page of
+## finds, or carrying one over the drawer to put it away — shouldn't drag the room
+## out from under the cursor.
+##
+## Measured off _body.position rather than off `_open`, so a drawer halfway through
+## its slide covers exactly the strip it's actually drawn on. Parked, the body and
+## its tab sit past the right edge of the window and stop counting on their own.
+func blocks_pan(p: Vector2) -> bool:
+	if not visible:
 		return false
 	var body := Rect2(_body.position, Vector2(BODY_W, BODY_H))
 	var tab := Rect2(_body.position + Vector2(TAB_X, -TAB_SIZE.y), TAB_SIZE)

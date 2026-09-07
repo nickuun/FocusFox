@@ -121,15 +121,16 @@ scale = Vector2(0.9, 0.9)
 texture = ExtResource("3_title")
 
 [node name="Slogan" type="Label" parent="MenuLayer/MainMenu/Title" unique_id=13644777]
-offset_left = -151.11108
-offset_top = 83.33333
-offset_right = 179.77783
-offset_bottom = 118.33333
+offset_left = -154.8
+offset_top = 70.0
+offset_right = 178.2
+offset_bottom = 125.0
 theme_override_colors/font_color = Color(0.3764706, 0.21568628, 0.1254902, 1)
 theme_override_constants/outline_size = 2
 theme_override_fonts/font = ExtResource("17_font")
-theme_override_font_sizes/font_size = 34
-text = "Your Desktop Companion"
+theme_override_font_sizes/font_size = 22
+text = "A cozy focus companion
+that grows with you"
 horizontal_alignment = 1
 vertical_alignment = 1
 

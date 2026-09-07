@@ -517,9 +517,12 @@ func _apply_den_dim(full: bool) -> void:
 
 # --- Panning the room ------------------------------------------------------
 #
-# The room is wider than the window, so den mode walks across it. Only den mode *pans* —
-# outside it the chrome is pinned and there's nothing to scroll with — but wherever you
-# leave the view is where the room stays: in every mode, and across launches.
+# The room is wider than the window, so you walk across it: wheel or drag anywhere on the
+# room, in any mode. It used to pan in den mode only, on the theory that arranging the den
+# was the one reason to look past the first screenful — but the room is the backdrop the
+# whole app sits on, so being unable to look around it unless the drawer was out made the
+# rest of the room feel like it belonged to the drawer. Wherever you leave the view is
+# where the room stays: in every mode, and across launches.
 #
 # It used to glide back to the first screenful on the way out, on the theory that the
 # menu was composed against that one view. In practice it made everything past x=960
@@ -564,10 +567,14 @@ func _set_room_pan(x: float) -> void:
 ## drag, and the first motion cancels it if a find or the drawer's ghost has taken the
 ## cursor in the meantime.
 func _handle_room_pan_input(event: InputEvent) -> bool:
-	if _mode != Mode.DEN or _pan_limit() <= 0.0:
+	if _pan_limit() <= 0.0:
 		return false
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
+		# A release always counts, wherever it lands, or a drag that ends over the
+		# drawer would leave the room stuck to the cursor.
+		if mb.pressed and _cursor_over_drawer():
+			return false
 		match mb.button_index:
 			MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_RIGHT:
 				if mb.pressed:
@@ -596,12 +603,24 @@ func _something_is_being_carried() -> bool:
 	return (_den != null and _den.is_dragging()) or _den_inventory.is_dragging()
 
 
+## The drawer is not part of the room, so the room doesn't move under it: no wheel, no
+## drag starting there, and no edge-pan from hovering its pull handle — which sits right
+## inside the window's right-hand edge band, where it would otherwise be impossible to
+## reach for without the room sliding away.
+func _cursor_over_drawer() -> bool:
+	return _den_inventory.blocks_pan(get_global_mouse_position())
+
+
 ## Carrying a find to the edge of the window drags the room along with it. Not optional:
 ## a find picked up on one screenful could otherwise never be put down on another.
+##
+## Not over the drawer, though — carrying a find down there means putting it away, not
+## going somewhere else. The strip above the drawer is still edge-pannable, so the right
+## edge stays reachable with a find in hand.
 func _update_edge_pan(delta: float) -> void:
-	if _mode != Mode.DEN or _pan_limit() <= 0.0 or _room_dragging:
+	if _pan_limit() <= 0.0 or _room_dragging:
 		return
-	if not _something_is_being_carried():
+	if not _something_is_being_carried() or _cursor_over_drawer():
 		return
 	var mouse_x := get_global_mouse_position().x
 	var push := 0.0
