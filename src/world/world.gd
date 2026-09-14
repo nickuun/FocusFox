@@ -41,9 +41,41 @@ const DEFAULT_MINUTES := {"focus": 25, "short": 5, "long": 15}
 const CLOCK_DIAL_INTRO_SECONDS := 0.28
 const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 
+## --- The revamped fox in the room --------------------------------------------
+##
+## The room's resident was the old 32px pixel fox blown up to 320px — a placeholder that
+## has been waiting for the drawn fox. It now shows the new sitting clip instead.
+##
+## Only sitting, and only here. The new set's walk/run/sleep clips are imported and can
+## be flicked through in place with the review keys below, but nothing in the app plays
+## them yet: they still need work (see fox_v2.gd on the two art scales, and on the run
+## cycle not closing). Keeping the swap to one screen and one clip means the desktop pet,
+## the settings preview and the dial fox all still run the old art and none of them moved.
+##
+## The old fox is not gone, just not drawn: V2_TOGGLE_KEY puts it back instantly so the
+## two can be compared in the same spot without a rebuild.
+const MENU_FOX_V2_CLIP := "sit"
+## Where the fox's feet go, in design space: the x the preview fox was placed at, and the
+## bottom of the 320px box it filled (207 centre + 160 half-height).
+const MENU_FOX_V2_FOOTING := Vector2(481.3, 367.0)
+## Matches the preview fox's z_index so the swap doesn't reorder the room.
+const MENU_FOX_V2_Z := 28
+
+## Review keys, HOME only. F9 swaps old fox <-> new fox in place; F10 steps the new fox
+## through its clips so the unfinished ones can be looked at against the room art.
+const V2_TOGGLE_KEY := KEY_F9
+const V2_CYCLE_CLIP_KEY := KEY_F10
+## F11 drops the compensation and draws the art at one art pixel per screen pixel — the
+## frames exactly as delivered. Small, until they're redrawn at the target size.
+const V2_ONE_TO_ONE_KEY := KEY_F11
+
 @onready var _menu_layer: CanvasLayer = $MenuLayer
 @onready var _desktop_fox: DesktopFox = $DesktopFox
 @onready var _preview_fox: RigidBody2D = $MenuLayer/MainMenu/Room/PreviewFox
+## The revamped fox standing in for the preview fox in the room. Built in code rather
+## than placed in world.tscn so the scene keeps exactly one fox node and this one can be
+## taken back out in a line — see _setup_menu_fox_v2().
+var _menu_fox_v2: FoxV2
 
 @onready var _start_button: TextureButton = $MenuLayer/MainMenu/Buttons/StartButton
 @onready var _quit_button: TextureButton = $MenuLayer/MainMenu/Buttons/QuitButton
@@ -145,6 +177,13 @@ var _clock_fox: AnimatedSprite2D
 ## True while the sit is running in reverse, so animation_finished can tell the two
 ## ends apart — it fires at both when a playback is reversed.
 var _clock_fox_reversing := false
+## The launch curtain: opaque from the first frame, and the only thing that animates
+## across a handoff. See the boot splash notes above.
+var _curtain: ColorRect
+var _curtain_tween: Tween
+var _boot_splash_active := false
+var _boot_skip := false
+var _showing_fox_v2 := true
 var _room_pan := 0.0
 var _room_dragging := false
 var _room_drag_from := 0.0
@@ -177,11 +216,43 @@ const CLOCK_FOX_CONTENT_CENTRE_X := 220.0
 const CLOCK_FOX_CONTENT_BOTTOM_Y := 187.0
 
 
+## --- Boot splash --------------------------------------------------------------
+##
+## Borrowed wholesale from 100-million-zombies: there is one full-screen curtain, and
+## **only the curtain ever animates**. Every handoff — engine splash to scene, splash to
+## room — happens while the curtain is fully opaque, so there is no frame in which
+## something can be seen changing. Nothing pops because nothing visible moves.
+##
+## The engine's own boot splash (project.godot) is deliberately set to draw the flat
+## background colour and *not* the image. It cannot animate — it is painted before any
+## scene exists — so leaving the logo in it gave a static plate for a beat and then a
+## jump as the scene took over at a different size and opacity. Now the engine paints
+## the same brown the curtain starts on, which makes that handoff invisible, and the
+## logo is only ever seen moving.
+const BOOT_SPLASH_TEXTURE := "res://assets/static/boot_splash.png"
+## Curtain timings: reveal the splash, hold it, cover it again, then reveal the room.
+const BOOT_SPLASH_REVEAL := 0.55
+const BOOT_SPLASH_HOLD := 1.0
+const BOOT_SPLASH_COVER := 0.55
+const BOOT_ROOM_REVEAL := 0.45
+## How fast the curtain closes when the splash is skipped rather than run out.
+const BOOT_SPLASH_SKIP_COVER := 0.18
+## The gentle push in. It starts at 1.0 — exactly filling the window, matching what the
+## engine painted — and only ever grows, so no edge can uncover.
+const BOOT_SPLASH_GROW_FROM := 1.0
+const BOOT_SPLASH_GROW_TO := 1.06
+## The splash art's own edge colour, sampled from its corners. The curtain, the splash's
+## backing and the engine's bg_color are all this, which is what lets the handoffs hide.
+const BOOT_SPLASH_BACKING := Color(0.125, 0.106, 0.11, 1.0)
+
+
 const SETTINGS_PATH := "user://focus_fox.cfg"
 
 
 func _ready() -> void:
 	randomize()
+	# Before anything else: the screen starts covered, so frame one is never the raw room.
+	_setup_curtain()
 	# Closing the launcher tucks it into the tray instead of quitting the app.
 	get_tree().set_auto_accept_quit(false)
 	_stats = StatsStore.new()
@@ -194,6 +265,7 @@ func _ready() -> void:
 	_setup_tray()
 	_setup_settings_scrim()
 	_setup_menu_nodes()
+	_setup_menu_fox_v2()
 	_configure_desktop_fox()
 	_load_settings()
 	_desktop_fox.initialize()
@@ -233,6 +305,12 @@ func _physics_process(delta: float) -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
+	# Any key cuts the launch splash short (a click does the same, via the splash's own
+	# blocker). Two seconds of logo gets old fast when you're relaunching all day.
+	if _boot_splash_active:
+		_boot_skip = true
+		get_viewport().set_input_as_handled()
+		return
 	if event.keycode == KEY_ESCAPE and _mode == Mode.DEN:
 		_den_inventory.set_open(false)
 		get_viewport().set_input_as_handled()
@@ -242,10 +320,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _handle_room_pan_input(event):
 		get_viewport().set_input_as_handled()
 		return
-	if _mode != Mode.HOME or not is_instance_valid(_preview_fox) or not _preview_fox.visible:
+	if _handle_fox_v2_review_input(event):
+		get_viewport().set_input_as_handled()
+		return
+	if _mode != Mode.HOME or not is_instance_valid(_preview_fox) or not _room_fox_present():
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		if _preview_fox.global_position.distance_to(get_global_mouse_position()) <= _desktop_fox.get_fox_radius(_preview_fox):
+		# The new fox has no physics body to pick against, so it is hit-tested off its
+		# drawn footprint. The old fox keeps its own radius, which accounts for the body
+		# scale that cosmetics apply to it.
+		if _showing_fox_v2:
+			if _menu_fox_v2 != null and _fox_v2_hit_rect().has_point(get_global_mouse_position()):
+				_pulse_fox_v2()
+		elif _preview_fox.global_position.distance_to(get_global_mouse_position()) <= _desktop_fox.get_fox_radius(_preview_fox):
 			_preview_fox.call("pulse_click")
 
 
@@ -447,6 +534,69 @@ func _configure_desktop_fox() -> void:
 	_desktop_fox.fox_palette = "default"
 
 
+# --- The revamped fox in the room -------------------------------------------
+
+func _setup_menu_fox_v2() -> void:
+	_menu_fox_v2 = FoxV2.new()
+	_menu_fox_v2.name = "MenuFoxV2"
+	# Parented to Room, like the preview fox it stands in for, so it pans with the room
+	# rather than tracking the window.
+	_menu_fox_v2.z_index = MENU_FOX_V2_Z
+	_menu_fox_v2.position = MENU_FOX_V2_FOOTING
+	_preview_fox.get_parent().add_child(_menu_fox_v2)
+	_menu_fox_v2.play_clip(MENU_FOX_V2_CLIP)
+	_menu_fox_v2.visible = false
+
+
+## Whether the room should be showing a fox at all — true in the modes that draw the
+## room, and false while the fox is out on the desktop. Both foxes answer to it; which
+## one is actually drawn is _showing_fox_v2.
+func _room_fox_present() -> bool:
+	return (_mode == Mode.HOME or _mode == Mode.DEN) and not _desktop_fox.is_spawned()
+
+
+## The new fox's drawn footprint in global coordinates. Its origin is under its feet
+## (FoxV2 anchors that way), so the box goes up and out from there.
+func _fox_v2_hit_rect() -> Rect2:
+	var size := _menu_fox_v2.drawn_size() * _menu_fox_v2.global_scale.abs()
+	var origin := _menu_fox_v2.global_position - Vector2(size.x * 0.5, size.y)
+	return Rect2(origin, size)
+
+
+func _pulse_fox_v2() -> void:
+	if _menu_fox_v2 == null:
+		return
+	var base := _menu_fox_v2.scale
+	var tween := create_tween()
+	tween.tween_property(_menu_fox_v2, "scale", base * Vector2(1.06, 0.94), 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_menu_fox_v2, "scale", base * Vector2(0.97, 1.03), 0.07).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_menu_fox_v2, "scale", base, 0.10).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+## Review keys for the unfinished art. Deliberately not in the settings panel: the new
+## set is not a thing to choose yet, it's a thing to look at.
+func _handle_fox_v2_review_input(event: InputEvent) -> bool:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return false
+	if _mode != Mode.HOME or _menu_fox_v2 == null:
+		return false
+	var key := (event as InputEventKey).keycode
+	if key == V2_TOGGLE_KEY:
+		_showing_fox_v2 = not _showing_fox_v2
+		_preview_fox.visible = _room_fox_present() and not _showing_fox_v2
+		_menu_fox_v2.visible = _room_fox_present() and _showing_fox_v2
+		return true
+	if key == V2_ONE_TO_ONE_KEY and _showing_fox_v2:
+		_menu_fox_v2.one_to_one = not _menu_fox_v2.one_to_one
+		return true
+	if key == V2_CYCLE_CLIP_KEY and _showing_fox_v2:
+		var clips := _menu_fox_v2.clip_names()
+		var next := (clips.find(_menu_fox_v2.current_clip()) + 1) % clips.size()
+		_menu_fox_v2.play_clip(clips[next])
+		return true
+	return false
+
+
 # --- Menu mode -------------------------------------------------------------
 
 func _set_mode(mode: Mode) -> void:
@@ -459,7 +609,9 @@ func _set_mode(mode: Mode) -> void:
 
 	# The room keeps its resident: a fox that's out on the desktop isn't home to be
 	# seen, but otherwise it sits in the den you're arranging around it.
-	_preview_fox.visible = (home or den) and not _desktop_fox.is_spawned()
+	_preview_fox.visible = _room_fox_present() and not _showing_fox_v2
+	if _menu_fox_v2 != null:
+		_menu_fox_v2.visible = _room_fox_present() and _showing_fox_v2
 	_start_button.visible = home
 	_quit_button.visible = home
 
@@ -1262,6 +1414,11 @@ func _play_intro() -> void:
 	_title.modulate.a = 0.0
 	_title.scale = title_scale * 0.82
 
+	# The splash plays behind the curtain and leaves it opaque; lifting the curtain is what
+	# reveals the bare room, and the title bloom below carries on from there.
+	await _play_boot_splash()
+	await _curtain_fade(0.0, BOOT_ROOM_REVEAL)
+
 	# Phase 1 — the title gently appears in the middle.
 	var t1 := create_tween().set_parallel(true)
 	t1.tween_property(_title, "modulate:a", 1.0, 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -1283,6 +1440,105 @@ func _play_intro() -> void:
 	await t3.finished
 
 	_intro_running = false
+
+
+## The curtain, on its own layer above everything including the splash. Opaque to begin
+## with; every reveal in the launch sequence is this fading away.
+func _setup_curtain() -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "Curtain"
+	layer.layer = 210
+	add_child(layer)
+	_curtain = ColorRect.new()
+	_curtain.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_curtain.color = BOOT_SPLASH_BACKING
+	# It sits over the whole app for the life of the process, so it must never be the
+	# thing that eats a click. The splash puts up its own blocker while it needs one.
+	_curtain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_curtain)
+
+
+## Fade the curtain to `target` and return when it's there. Kills any fade already
+## running, so a skip mid-reveal turns around cleanly instead of fighting it.
+func _curtain_fade(target: float, seconds: float) -> void:
+	if _curtain == null:
+		return
+	if _curtain_tween != null and _curtain_tween.is_valid():
+		_curtain_tween.kill()
+	_curtain_tween = create_tween()
+	_curtain_tween.tween_property(_curtain, "color:a", target, seconds) 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await _curtain_tween.finished
+
+
+## Hold, but give up the moment the splash is skipped.
+func _boot_hold(seconds: float) -> void:
+	var timer := get_tree().create_timer(seconds)
+	while timer.time_left > 0.0 and not _boot_skip:
+		await get_tree().process_frame
+
+
+## Reveals the splash from behind the curtain, swells it gently, then covers it again and
+## takes it away — leaving the curtain opaque for the caller to lift onto the room.
+## Returns when the splash is gone. A click or any key cuts it short.
+func _play_boot_splash() -> void:
+	var texture: Texture2D = load(BOOT_SPLASH_TEXTURE)
+	if texture == null:
+		push_warning("Boot splash texture missing: %s" % BOOT_SPLASH_TEXTURE)
+		return
+
+	var layer := CanvasLayer.new()
+	layer.name = "BootSplash"
+	# Under the curtain (210), over the menu.
+	layer.layer = 200
+	add_child(layer)
+
+	# Backs the art so the swell can never uncover an edge, and stops clicks reaching the
+	# menu's live buttons underneath. Its gui_input is also how a click skips.
+	var blocker := ColorRect.new()
+	blocker.set_anchors_preset(Control.PRESET_FULL_RECT)
+	blocker.color = BOOT_SPLASH_BACKING
+	blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	blocker.gui_input.connect(_on_boot_splash_gui_input)
+	layer.add_child(blocker)
+
+	var sprite := Sprite2D.new()
+	sprite.texture = texture
+	sprite.position = Vector2(DESIGN_SIZE) * 0.5
+	# The art is 1920x1080 — the design space at the launcher's 2x — so half scale puts one
+	# source texel on one physical pixel and the splash exactly fills the window.
+	var base := Vector2.ONE * 0.5
+	sprite.scale = base * BOOT_SPLASH_GROW_FROM
+	# The project filters globally with nearest, which is right for the pixel art and wrong
+	# for this: the splash is smooth vector-style artwork and it is scaled every frame it
+	# is on screen, so it filters linearly like the badge art does.
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	layer.add_child(sprite)
+
+	# The art is up and opaque from the first frame — it is simply hidden by the curtain.
+	# That is the whole trick: it never fades its own alpha, so it cannot mismatch what
+	# the engine painted a moment earlier.
+	_boot_splash_active = true
+	_boot_skip = false
+
+	# One continuous swell across the entire splash, fades included, so it reads as a
+	# slow breath rather than stalling while the curtain moves.
+	var total := BOOT_SPLASH_REVEAL + BOOT_SPLASH_HOLD + BOOT_SPLASH_COVER
+	var swell := create_tween()
+	swell.tween_property(sprite, "scale", base * BOOT_SPLASH_GROW_TO, total) 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	await _curtain_fade(0.0, BOOT_SPLASH_REVEAL)
+	await _boot_hold(BOOT_SPLASH_HOLD)
+	await _curtain_fade(1.0, BOOT_SPLASH_SKIP_COVER if _boot_skip else BOOT_SPLASH_COVER)
+
+	_boot_splash_active = false
+	if swell.is_valid():
+		swell.kill()
+	layer.queue_free()
+
+
+func _on_boot_splash_gui_input(event: InputEvent) -> void:
+	if _boot_splash_active and event is InputEventMouseButton and event.pressed:
+		_boot_skip = true
 
 
 ## Both preview foxes — the one posing on the menu and the one in the settings panel's

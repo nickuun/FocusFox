@@ -20,6 +20,7 @@
 [ext_resource type="Script" uid="uid://dy1rnck8yapd1" path="res://src/world/throwable_prop.gd" id="22_throw"]
 [ext_resource type="Script" uid="uid://d1cog4kj4ueq5" path="res://src/world/journal_book.gd" id="23_journal"]
 [ext_resource type="Shader" uid="uid://b4qdxfhr5vp2s" path="res://src/world/clock_dial.gdshader" id="24_clockshader"]
+[ext_resource type="Texture2D" uid="uid://cwgqq2ejpr8hr" path="res://assets/fox/animations/v2/sit/001.png" id="24_pwv0s"]
 [ext_resource type="Texture2D" uid="uid://bk85h07bs5usl" path="res://assets/main_menu/clock/Clock_No Fox_Empty.png" id="25_clockempty"]
 [ext_resource type="Script" uid="uid://d3ispukai0egc" path="res://src/world/achievement_toast.gd" id="26_toast"]
 [ext_resource type="Script" uid="uid://dthqi1kghy5al" path="res://src/world/den_inventory.gd" id="27_deninv"]
@@ -53,11 +54,31 @@ script = ExtResource("12_desktop_fox")
 
 [node name="Room" type="Node2D" parent="MenuLayer/MainMenu" unique_id=304852978]
 
-
 [node name="Background" type="Sprite2D" parent="MenuLayer/MainMenu/Room" unique_id=1489674489]
 position = Vector2(976, 272)
 scale = Vector2(0.5, 0.5)
 texture = ExtResource("3_a20vb")
+
+[node name="PreviewFox" parent="MenuLayer/MainMenu/Room" unique_id=600092329 instance=ExtResource("18_fox")]
+z_index = 28
+position = Vector2(481.3, 207)
+
+[node name="Planet" type="Node2D" parent="MenuLayer/MainMenu/Room" unique_id=496703197]
+
+[node name="PlantShadow" type="Sprite2D" parent="MenuLayer/MainMenu/Room/Planet" unique_id=1088798449]
+position = Vector2(134, 372)
+texture = ExtResource("13_a20vb")
+
+[node name="Plant" type="Sprite2D" parent="MenuLayer/MainMenu/Room/Planet" unique_id=1472679930]
+position = Vector2(135, 364)
+texture = ExtResource("14_eo0a0")
+script = ExtResource("22_throw")
+
+[node name="Area2D" type="Area2D" parent="MenuLayer/MainMenu/Room/Planet/Plant" unique_id=1035788673]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="MenuLayer/MainMenu/Room/Planet/Plant/Area2D" unique_id=1368643594]
+position = Vector2(1, 2)
+shape = SubResource("CapsuleShape2D_a20vb")
 
 [node name="MainmenuStatsPanel" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1408234629]
 position = Vector2(498, 45)
@@ -133,10 +154,6 @@ text = "A cozy focus companion
 that grows with you"
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="PreviewFox" parent="MenuLayer/MainMenu/Room" unique_id=600092329 instance=ExtResource("18_fox")]
-z_index = 28
-position = Vector2(481.3, 207)
 
 [node name="Buttons" type="Node2D" parent="MenuLayer/MainMenu" unique_id=2066033205]
 z_index = 40
@@ -388,23 +405,6 @@ texture_normal = ExtResource("15_eo0a0")
 texture_pressed = ExtResource("21_gearhi")
 texture_hover = ExtResource("21_gearhi")
 
-[node name="Planet" type="Node2D" parent="MenuLayer/MainMenu/Room" unique_id=496703197]
-
-[node name="PlantShadow" type="Sprite2D" parent="MenuLayer/MainMenu/Room/Planet" unique_id=1088798449]
-position = Vector2(134, 372)
-texture = ExtResource("13_a20vb")
-
-[node name="Plant" type="Sprite2D" parent="MenuLayer/MainMenu/Room/Planet" unique_id=1472679930]
-position = Vector2(135, 364)
-texture = ExtResource("14_eo0a0")
-script = ExtResource("22_throw")
-
-[node name="Area2D" type="Area2D" parent="MenuLayer/MainMenu/Room/Planet/Plant" unique_id=1035788673]
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="MenuLayer/MainMenu/Room/Planet/Plant/Area2D" unique_id=1368643594]
-position = Vector2(1, 2)
-shape = SubResource("CapsuleShape2D_a20vb")
-
 [node name="SessionLabel" type="Label" parent="MenuLayer/MainMenu" unique_id=210000001]
 visible = false
 z_index = 30
@@ -500,3 +500,8 @@ z_index = 70
 layout_mode = 3
 anchors_preset = 0
 script = ExtResource("27_deninv")
+
+[node name="001" type="Sprite2D" parent="MenuLayer" unique_id=2063446696]
+z_index = 30
+position = Vector2(491, 266)
+texture = ExtResource("24_pwv0s")
