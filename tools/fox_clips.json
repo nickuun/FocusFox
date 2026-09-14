@@ -1,0 +1,143 @@
+{
+  "_comment": [
+    "Which delivered frames become which game clip. Run with:",
+    "  python tools/fox_import.py --manifest tools/fox_clips.json",
+    "",
+    "EVERY clip the game uses is generated from here, so assets/fox/animations/v2/ is",
+    "output, not source. The delivery in src_root is the source and is never modified.",
+    "",
+    "src_root is where the artist's delivery was unpacked -- the only machine-specific",
+    "line in this file.",
+    "",
+    "'start'/'end' index the source folder's frames sorted by their trailing number (so",
+    "'Fox Play 9' before 'Fox Play 10'), from 0, excluding 'end'. Omit them for the whole clip.",
+    "'scale' below 1 shrinks (smooth resample, then snapped back to the palette); 1.5 grows",
+    "  (nearest, bit-exact). See the header of fox_import.py for why those two and no others.",
+    "'flip' mirrors a clip that was drawn facing right; the whole set must face left.",
+    "'isolate' keeps only the largest connected shape, which drops the grey ball the artist's",
+    "  fox layer carries -- but only in frames where the fox is not touching it.",
+    "",
+    "The last four clips are all cut out of ONE delivered animation, 'Fox Play 02', which",
+    "contains a standing fox, a creep, a leap and a roll. Those cover three poses the set",
+    "was otherwise missing. They are placeholders in timing, not in size: being slices of a",
+    "continuous performance, none of them close into a loop."
+  ],
+  "src_root": "C:/Users/Nicholas/Downloads/New Animations",
+  "clips": [
+    {
+      "name": "walk",
+      "_note": "The best clip in the set: a clean 12-frame cycle whose ends meet. The size reference everything else is matched to, so its scale is 1.0 and must stay there.",
+      "src": "Fox Walking-20260907T173805Z-1-001/Fox Walking",
+      "scale": 1.0,
+      "out": "assets/fox/animations/v2/walk",
+      "pack_group": "reference",
+      "cleanup": [
+        "Nothing to do. This is the clip everything else was sized to match.",
+        "It's also the best loop in the set -- a good reference for the others."
+      ]
+    },
+    {
+      "name": "sleep",
+      "_note": "Curled and breathing, ends meet. Same tier as walk, so no resize.",
+      "src": "Fox Sleeping-20260907T173753Z-1-001/Fox Sleeping/Fox Sleeping 01/Version 1",
+      "scale": 1.0,
+      "out": "assets/fox/animations/v2/sleep",
+      "pack_group": "reference",
+      "cleanup": [
+        "Nothing to do. Loops correctly, reads lovely."
+      ]
+    },
+    {
+      "name": "sit",
+      "_note": "Seated idle (not a sitting-down transition -- the fox is already seated in frame 1). Drawn two-thirds the size of walk, so x1.5 brings its 2px outline to walk's 3px exactly. Nearest-neighbour, so this is lossless and needs no cleanup.",
+      "src": "Fox Sitting Down 02-20260907T173616Z-1-001/Fox Sitting Down 02",
+      "scale": 1.5,
+      "out": "assets/fox/animations/v2/sit",
+      "pack_group": "resized",
+      "cleanup": [
+        "Scaled up 1.5x from what you sent, which made its outlines 3px like walk's.",
+        "The scaling was exact, so there shouldn't be anything to fix -- but worth a glance.",
+        "The game plays this one forwards then backwards, so the ends don't need to meet."
+      ]
+    },
+    {
+      "name": "run",
+      "_note": "Same two-thirds tier as sit, same x1.5. Its cycle does not close -- that is an animation fix, not a size one, and is the reason it is not wired to anything.",
+      "src": "Fox Running 01-20260907T173744Z-1-001/Fox Running 01/Version 1",
+      "scale": 1.5,
+      "out": "assets/fox/animations/v2/run",
+      "pack_group": "resized",
+      "cleanup": [
+        "Scaled up 1.5x, same as sit. The size is fine now.",
+        "THE CYCLE DOESN'T CLOSE: going from the last frame back to the first is about a 1.5x bigger jump than the steps between the other frames, so it visibly hitches once per cycle. This is the one real animation fix in the set -- it's the last few frames needing to lead back into frame 1. Until then the game can't use this clip."
+      ]
+    },
+    {
+      "name": "idle",
+      "_note": "Fox standing, facing left, watching the ball roll in. The nearest thing to a standing idle in the whole delivery, and the pose the desktop pet holds most of the time. Stops at 17: past that the fox lifts a front paw and starts to step toward the ball, which is a different action, not idling.",
+      "src": "Fox Play 02-20260907T173739Z-1-001/Fox Play 02/Fox",
+      "start": 4,
+      "end": 17,
+      "step": 1,
+      "scale": 0.217,
+      "out": "assets/fox/animations/v2/idle",
+      "isolate": true,
+      "pack_group": "cut",
+      "cleanup": [
+        "The fox standing, blinking, tail moving -- cut from where the ball rolls in.",
+        "THIS IS THE MOST VALUABLE ONE TO REDRAW PROPERLY. It's the pose the desktop pet holds most of the time, and right now it isn't a loop -- it's a slice of a longer performance, so it jumps when it repeats. The game currently hides that by playing it forwards then backwards.",
+        "A proper version would be the fox standing still, facing left, with something small and continuous: breathing, an ear flick, the tail. No stepping or paw-lifting -- we had to cut the end of this one off because the fox starts to walk."
+      ]
+    },
+    {
+      "name": "stalk",
+      "_note": "Low creeping walk. Starts after the fox has left the ball behind, so the ball is a separate shape and 'isolate' drops it. Thinned to every second frame: the creep is slow and 40 frames of it is more than the motion carries. Faces right in the source, so it is flipped.",
+      "src": "Fox Play 02-20260907T173739Z-1-001/Fox Play 02/Fox",
+      "start": 60,
+      "end": 99,
+      "step": 2,
+      "scale": 0.217,
+      "flip": true,
+      "out": "assets/fox/animations/v2/stalk",
+      "isolate": true,
+      "pack_group": "cut",
+      "cleanup": [
+        "The low creep. Every 2nd frame was kept -- the original was slower than it needed.",
+        "Doesn't loop, and unlike the others it can't be played backwards to hide that (a walk in reverse is a moonwalk), so the game isn't using this one yet. Low priority -- it's a bonus clip, not one the game needs."
+      ]
+    },
+    {
+      "name": "pounce",
+      "_note": "The leap: gather, extend, front paws reach. Stops at the last frame before the paws touch the ball -- both so the game's own ball provides the impact, and because once the fox touches it the ball stops being a separate shape and 'isolate' can no longer drop it. Faces right in the source, so it is flipped.",
+      "src": "Fox Play 02-20260907T173739Z-1-001/Fox Play 02/Fox",
+      "start": 96,
+      "end": 104,
+      "step": 1,
+      "scale": 0.217,
+      "flip": true,
+      "out": "assets/fox/animations/v2/pounce",
+      "isolate": true,
+      "pack_group": "cut",
+      "cleanup": [
+        "The leap. Stops deliberately on the frame before the paws touch the ball, so the game can put its own ball under them.",
+        "Plays once rather than looping, so the ends don't need to meet. What would help is the last frame sitting comfortably next to the first frame of the standing idle, since that's what plays straight after it."
+      ]
+    },
+    {
+      "name": "play",
+      "_note": "On its back, kicking the ball. Loops on its own. NOTE the fox is holding the ball throughout, and the delivered Fox layer draws a grey ball of its own, so that ball is baked into these frames -- it cannot be isolated out the way the other clips can, because the fox is touching it. Fine as a placeholder, wrong next to the game's blue ball.",
+      "src": "Fox Play 02-20260907T173739Z-1-001/Fox Play 02/Fox",
+      "start": 124,
+      "end": 151,
+      "step": 1,
+      "scale": 0.217,
+      "out": "assets/fox/animations/v2/play",
+      "pack_group": "cut",
+      "cleanup": [
+        "On its back, kicking the ball.",
+        "THE BALL IS DRAWN INTO THESE FRAMES. On the other clips the grey ball could be removed automatically, but here the fox is holding it so it can't be separated. The game draws its own blue ball, so the grey one will clash with it.",
+        "If this section could be redrawn with the paws in the same places but NO ball in the fox layer at all -- ball only on the ball layer, like you already do -- the game can put its own ball into the fox's paws."
+      ]
+    }
+  ]
+}

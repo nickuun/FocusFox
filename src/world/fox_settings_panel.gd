@@ -97,6 +97,7 @@ var scale_slider: HSlider
 var opacity_slider: HSlider
 var liveliness_slider: HSlider
 var colour_option: OptionButton
+var fox_style_toggle: BaseButton
 var sit_height_slider: HSlider
 var focus_length_slider: HSlider
 var short_length_slider: HSlider
@@ -272,14 +273,16 @@ func _build_sound_page() -> void:
 
 func _build_fox_page() -> void:
 	var page := _new_page(ICON_FOX, "Fox", "Manage your little companion.")
-	scale_slider = _slider_row("Fox size", 0, 1.0, 4.0, 1.0, 2.0)
-	opacity_slider = _slider_row("Opacity", 1, 0.35, 1.0, 0.01, 1.0, "", "pct")
-	liveliness_slider = _slider_row("Liveliness", 2, 0.2, 2.0, 0.05, 1.0, "", "mult")
-	sit_height_slider = _slider_row("Sit height", 3, 0.0, 200.0, 1.0, 48.0, "px")
+	# Top of the page on purpose: it changes what the other rows are previewing.
+	fox_style_toggle = _switch_row("New fox art", 0, "Hand-drawn instead of pixel art")
+	scale_slider = _slider_row("Fox size", 1, 1.0, 4.0, 1.0, 1.0)
+	opacity_slider = _slider_row("Opacity", 2, 0.35, 1.0, 0.01, 1.0, "", "pct")
+	liveliness_slider = _slider_row("Liveliness", 3, 0.2, 2.0, 0.05, 1.0, "", "mult")
+	sit_height_slider = _slider_row("Sit height", 4, 0.0, 200.0, 1.0, 48.0, "px")
 
-	_row_label("Fox colour", 4)
+	_row_label("Fox colour", 5)
 	colour_option = OptionButton.new()
-	colour_option.position = Vector2(SLIDER_X, _row_y(4) - 3.0)
+	colour_option.position = Vector2(SLIDER_X, _row_y(5) - 3.0)
 	colour_option.size = Vector2(SLIDER_W, 30)
 	colour_option.focus_mode = Control.FOCUS_NONE
 	colour_option.add_theme_color_override("font_color", WOOD_TEXT)
@@ -293,9 +296,9 @@ func _build_fox_page() -> void:
 
 	# The preview sits to the right of the colour row and the buttons, which is why
 	# those two are kept narrower than the slider rows above them.
-	_build_preview(page, Vector2(CONTENT_RIGHT - PREVIEW_BOX.x - 14.0, _row_y(4) - 6.0))
+	_build_preview(page, Vector2(CONTENT_RIGHT - PREVIEW_BOX.x - 14.0, _row_y(5) - 6.0))
 
-	var buttons_y := _row_y(5) + 4.0
+	var buttons_y := _row_y(6) + 4.0
 	spawn_fox_button = _wood_button("Spawn", CONTENT_LEFT, buttons_y, 112.0)
 	hide_fox_button = _wood_button("Bring Fox Home", CONTENT_LEFT + 120.0, buttons_y, 172.0)
 	reset_fox_button = _wood_button("Reset Position", CONTENT_LEFT, buttons_y + 38.0, 160.0)
@@ -347,22 +350,39 @@ func _build_preview(page: Control, at: Vector2) -> void:
 func fit_preview() -> void:
 	if not is_instance_valid(preview_fox) or not is_instance_valid(_preview_holder):
 		return
-	var footprint := 160.0
+	var footprint := Vector2.ONE * 160.0
 	if preview_fox.has_method("get_sprite_pixel_size"):
 		var measured: Variant = preview_fox.call("get_sprite_pixel_size")
 		if measured is Vector2 and (measured as Vector2).x > 0.0:
-			footprint = (measured as Vector2).x
+			footprint = measured
 	# get_sprite_pixel_size() deliberately excludes the body scale, so fold it in.
 	footprint *= maxf(0.01, absf(preview_fox.scale.x))
 
-	var per_frame_px := footprint / FOX_FRAME_PX
-	var content_px := maxf(FOX_CONTENT_RECT.size.x, FOX_CONTENT_RECT.size.y) * per_frame_px
+	var content_px: float
+	var off: Vector2
+	if _preview_is_drawn():
+		# The drawn frames are cropped to the fox, so the frame IS the content and the
+		# body already carries the offset that centres it. Nothing to correct for.
+		content_px = maxf(footprint.x, footprint.y)
+		off = Vector2.ZERO
+	else:
+		# The 32px sheet draws a much smaller fox inside a mostly-empty frame, so the
+		# visible fox has to be measured from the content rect rather than the frame.
+		var per_frame_px := footprint.x / FOX_FRAME_PX
+		content_px = maxf(FOX_CONTENT_RECT.size.x, FOX_CONTENT_RECT.size.y) * per_frame_px
+		# The body's origin is the frame's centre, not the fox's, so shift the holder by
+		# the gap between the two — otherwise the fox hangs off the bottom of the box.
+		off = (FOX_CONTENT_RECT.get_center() - Vector2.ONE * FOX_FRAME_PX * 0.5) * per_frame_px
+
 	var fit := PREVIEW_FOX_PX / maxf(1.0, content_px)
 	_preview_holder.scale = Vector2.ONE * fit
-	# The body's origin is the frame's centre, not the fox's, so shift the holder by
-	# the gap between the two — otherwise the fox hangs off the bottom of the box.
-	var off := (FOX_CONTENT_RECT.get_center() - Vector2.ONE * FOX_FRAME_PX * 0.5) * per_frame_px
 	_preview_holder.position = PREVIEW_BOX * 0.5 - off * fit
+
+
+func _preview_is_drawn() -> bool:
+	if not is_instance_valid(preview_fox) or not preview_fox.has_method("get_fox_style_name"):
+		return false
+	return str(preview_fox.call("get_fox_style_name")) == "drawn"
 
 
 func _on_preview_pressed() -> void:

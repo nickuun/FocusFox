@@ -41,41 +41,14 @@ const DEFAULT_MINUTES := {"focus": 25, "short": 5, "long": 15}
 const CLOCK_DIAL_INTRO_SECONDS := 0.28
 const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 
-## --- The revamped fox in the room --------------------------------------------
+## --- Which fox the room shows ------------------------------------------------
 ##
-## The room's resident was the old 32px pixel fox blown up to 320px — a placeholder that
-## has been waiting for the drawn fox. It now shows the new sitting clip instead.
-##
-## Only sitting, and only here. The new set's walk/run/sleep clips are imported and can
-## be flicked through in place with the review keys below, but nothing in the app plays
-## them yet: they still need work (see fox_v2.gd on the two art scales, and on the run
-## cycle not closing). Keeping the swap to one screen and one clip means the desktop pet,
-## the settings preview and the dial fox all still run the old art and none of them moved.
-##
-## The old fox is not gone, just not drawn: V2_TOGGLE_KEY puts it back instantly so the
-## two can be compared in the same spot without a rebuild.
-const MENU_FOX_V2_CLIP := "sit"
-## Where the fox's feet go, in design space: the x the preview fox was placed at, and the
-## bottom of the 320px box it filled (207 centre + 160 half-height).
-const MENU_FOX_V2_FOOTING := Vector2(481.3, 367.0)
-## Matches the preview fox's z_index so the swap doesn't reorder the room.
-const MENU_FOX_V2_Z := 28
-
-## Review keys, HOME only. F9 swaps old fox <-> new fox in place; F10 steps the new fox
-## through its clips so the unfinished ones can be looked at against the room art.
-const V2_TOGGLE_KEY := KEY_F9
-const V2_CYCLE_CLIP_KEY := KEY_F10
-## F11 drops the compensation and draws the art at one art pixel per screen pixel — the
-## frames exactly as delivered. Small, until they're redrawn at the target size.
-const V2_ONE_TO_ONE_KEY := KEY_F11
-
+## Nothing special: the room's fox is the same scene as the desktop pet, and planetoid.gd
+## draws it in whichever art style the player picked ("New fox art" on the settings Fox
+## page). The dial fox is separate and still runs the older sitting-transition set.
 @onready var _menu_layer: CanvasLayer = $MenuLayer
 @onready var _desktop_fox: DesktopFox = $DesktopFox
 @onready var _preview_fox: RigidBody2D = $MenuLayer/MainMenu/Room/PreviewFox
-## The revamped fox standing in for the preview fox in the room. Built in code rather
-## than placed in world.tscn so the scene keeps exactly one fox node and this one can be
-## taken back out in a line — see _setup_menu_fox_v2().
-var _menu_fox_v2: FoxV2
 
 @onready var _start_button: TextureButton = $MenuLayer/MainMenu/Buttons/StartButton
 @onready var _quit_button: TextureButton = $MenuLayer/MainMenu/Buttons/QuitButton
@@ -183,7 +156,9 @@ var _curtain: ColorRect
 var _curtain_tween: Tween
 var _boot_splash_active := false
 var _boot_skip := false
-var _showing_fox_v2 := true
+## The review fox is off by default now that the room's own fox can be drawn in either
+## style from settings — F9 still swaps it in to flick through the clips the game
+## never plays (sit, stalk) and to check one against the other.
 var _room_pan := 0.0
 var _room_dragging := false
 var _room_drag_from := 0.0
@@ -265,7 +240,6 @@ func _ready() -> void:
 	_setup_tray()
 	_setup_settings_scrim()
 	_setup_menu_nodes()
-	_setup_menu_fox_v2()
 	_configure_desktop_fox()
 	_load_settings()
 	_desktop_fox.initialize()
@@ -320,19 +294,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _handle_room_pan_input(event):
 		get_viewport().set_input_as_handled()
 		return
-	if _handle_fox_v2_review_input(event):
-		get_viewport().set_input_as_handled()
-		return
 	if _mode != Mode.HOME or not is_instance_valid(_preview_fox) or not _room_fox_present():
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		# The new fox has no physics body to pick against, so it is hit-tested off its
-		# drawn footprint. The old fox keeps its own radius, which accounts for the body
-		# scale that cosmetics apply to it.
-		if _showing_fox_v2:
-			if _menu_fox_v2 != null and _fox_v2_hit_rect().has_point(get_global_mouse_position()):
-				_pulse_fox_v2()
-		elif _preview_fox.global_position.distance_to(get_global_mouse_position()) <= _desktop_fox.get_fox_radius(_preview_fox):
+		# get_fox_radius() accounts for both the body scale cosmetics apply and the fact
+		# that the two art styles are different sizes.
+		if _preview_fox.global_position.distance_to(get_global_mouse_position()) <= _desktop_fox.get_fox_radius(_preview_fox):
 			_preview_fox.call("pulse_click")
 
 
@@ -469,6 +436,7 @@ func _setup_menu_nodes() -> void:
 	for option in COLOUR_OPTIONS:
 		_settings_panel.colour_option.add_item(option["label"])
 	_settings_panel.colour_option.item_selected.connect(_on_colour_selected)
+	_settings_panel.fox_style_toggle.toggled.connect(_on_fox_style_toggled)
 	_settings_panel.reset_fox_button.pressed.connect(_on_reset_fox_pressed)
 	_settings_panel.spawn_fox_button.pressed.connect(_on_spawn_fox_pressed)
 	_settings_panel.hide_fox_button.pressed.connect(_on_hide_fox_pressed)
@@ -525,79 +493,23 @@ func _on_den_place_requested(id: String, at: Vector2) -> void:
 
 
 func _configure_desktop_fox() -> void:
-	_desktop_fox.fox_scale = 2.0
+	_desktop_fox.fox_scale = 1.0
 	_desktop_fox.fox_opacity = 1.0
 	_desktop_fox.click_through_enabled = false
 	_desktop_fox.hover_fade_enabled = false
 	_desktop_fox.sit_height = 48.0  # feet rest above the screen bottom; clears a taskbar
 	_desktop_fox.body_speed_multiplier = 1.0
 	_desktop_fox.fox_palette = "default"
+	_desktop_fox.fox_style = "classic"
 
 
 # --- The revamped fox in the room -------------------------------------------
 
-func _setup_menu_fox_v2() -> void:
-	_menu_fox_v2 = FoxV2.new()
-	_menu_fox_v2.name = "MenuFoxV2"
-	# Parented to Room, like the preview fox it stands in for, so it pans with the room
-	# rather than tracking the window.
-	_menu_fox_v2.z_index = MENU_FOX_V2_Z
-	_menu_fox_v2.position = MENU_FOX_V2_FOOTING
-	_preview_fox.get_parent().add_child(_menu_fox_v2)
-	_menu_fox_v2.play_clip(MENU_FOX_V2_CLIP)
-	_menu_fox_v2.visible = false
-
-
 ## Whether the room should be showing a fox at all — true in the modes that draw the
-## room, and false while the fox is out on the desktop. Both foxes answer to it; which
-## one is actually drawn is _showing_fox_v2.
+## room, and false while the fox is out on the desktop.
 func _room_fox_present() -> bool:
 	return (_mode == Mode.HOME or _mode == Mode.DEN) and not _desktop_fox.is_spawned()
 
-
-## The new fox's drawn footprint in global coordinates. Its origin is under its feet
-## (FoxV2 anchors that way), so the box goes up and out from there.
-func _fox_v2_hit_rect() -> Rect2:
-	var size := _menu_fox_v2.drawn_size() * _menu_fox_v2.global_scale.abs()
-	var origin := _menu_fox_v2.global_position - Vector2(size.x * 0.5, size.y)
-	return Rect2(origin, size)
-
-
-func _pulse_fox_v2() -> void:
-	if _menu_fox_v2 == null:
-		return
-	var base := _menu_fox_v2.scale
-	var tween := create_tween()
-	tween.tween_property(_menu_fox_v2, "scale", base * Vector2(1.06, 0.94), 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_menu_fox_v2, "scale", base * Vector2(0.97, 1.03), 0.07).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_menu_fox_v2, "scale", base, 0.10).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-
-
-## Review keys for the unfinished art. Deliberately not in the settings panel: the new
-## set is not a thing to choose yet, it's a thing to look at.
-func _handle_fox_v2_review_input(event: InputEvent) -> bool:
-	if not (event is InputEventKey and event.pressed and not event.echo):
-		return false
-	if _mode != Mode.HOME or _menu_fox_v2 == null:
-		return false
-	var key := (event as InputEventKey).keycode
-	if key == V2_TOGGLE_KEY:
-		_showing_fox_v2 = not _showing_fox_v2
-		_preview_fox.visible = _room_fox_present() and not _showing_fox_v2
-		_menu_fox_v2.visible = _room_fox_present() and _showing_fox_v2
-		return true
-	if key == V2_ONE_TO_ONE_KEY and _showing_fox_v2:
-		_menu_fox_v2.one_to_one = not _menu_fox_v2.one_to_one
-		return true
-	if key == V2_CYCLE_CLIP_KEY and _showing_fox_v2:
-		var clips := _menu_fox_v2.clip_names()
-		var next := (clips.find(_menu_fox_v2.current_clip()) + 1) % clips.size()
-		_menu_fox_v2.play_clip(clips[next])
-		return true
-	return false
-
-
-# --- Menu mode -------------------------------------------------------------
 
 func _set_mode(mode: Mode) -> void:
 	var entering_running := mode == Mode.RUNNING and _mode != Mode.RUNNING
@@ -609,9 +521,7 @@ func _set_mode(mode: Mode) -> void:
 
 	# The room keeps its resident: a fox that's out on the desktop isn't home to be
 	# seen, but otherwise it sits in the den you're arranging around it.
-	_preview_fox.visible = _room_fox_present() and not _showing_fox_v2
-	if _menu_fox_v2 != null:
-		_menu_fox_v2.visible = _room_fox_present() and _showing_fox_v2
+	_preview_fox.visible = _room_fox_present()
 	_start_button.visible = home
 	_quit_button.visible = home
 
@@ -1169,6 +1079,7 @@ func _save_settings() -> void:
 	cfg.set_value("fox", "opacity", _desktop_fox.fox_opacity)
 	cfg.set_value("fox", "liveliness", _desktop_fox.body_speed_multiplier)
 	cfg.set_value("fox", "palette", _desktop_fox.fox_palette)
+	cfg.set_value("fox", "style", _desktop_fox.fox_style)
 	cfg.set_value("behaviour", "sit_height", _desktop_fox.sit_height)
 	cfg.set_value("pomodoro", "focus", _session_minutes["focus"])
 	cfg.set_value("pomodoro", "short", _session_minutes["short"])
@@ -1188,6 +1099,7 @@ func _load_settings() -> void:
 	_desktop_fox.fox_opacity = float(cfg.get_value("fox", "opacity", _desktop_fox.fox_opacity))
 	_desktop_fox.body_speed_multiplier = float(cfg.get_value("fox", "liveliness", _desktop_fox.body_speed_multiplier))
 	_desktop_fox.fox_palette = str(cfg.get_value("fox", "palette", _desktop_fox.fox_palette))
+	_desktop_fox.fox_style = str(cfg.get_value("fox", "style", _desktop_fox.fox_style))
 	_desktop_fox.sit_height = float(cfg.get_value("behaviour", "sit_height", _desktop_fox.sit_height))
 	for id in _session_minutes:
 		_session_minutes[id] = float(cfg.get_value("pomodoro", id, _session_minutes[id]))
@@ -1549,7 +1461,8 @@ func _apply_cosmetics_to_previews() -> void:
 			continue
 		fox.freeze = true
 		fox.call("set_highlight", false, _desktop_fox.hover_modulate)
-		_desktop_fox.apply_cosmetics_to(fox)
+		# true: both of these are drawn inside the launcher, not in an overlay window.
+		_desktop_fox.apply_cosmetics_to(fox, true)
 		fox.modulate.a = _desktop_fox.fox_opacity
 	# apply_cosmetics_to() changes the body scale, which the preview box divides out.
 	_settings_panel.fit_preview()
@@ -1580,6 +1493,18 @@ func _on_liveliness_changed(value: float) -> void:
 	if _syncing_ui:
 		return
 	_desktop_fox.body_speed_multiplier = value
+	_apply_cosmetics_to_previews()
+	_desktop_fox.apply_visual_settings()
+	Achievements.on_setting_changed()
+	_request_save()
+
+
+## Swaps the art the fox is drawn in. Goes through the same path as the palette, so the
+## desktop pet, the menu room fox and the settings preview all change together.
+func _on_fox_style_toggled(pressed: bool) -> void:
+	if _syncing_ui:
+		return
+	_desktop_fox.fox_style = "drawn" if pressed else "classic"
 	_apply_cosmetics_to_previews()
 	_desktop_fox.apply_visual_settings()
 	Achievements.on_setting_changed()
@@ -1657,6 +1582,7 @@ func _refresh_ui() -> void:
 	_settings_panel.scale_slider.value = _desktop_fox.fox_scale
 	_settings_panel.opacity_slider.value = _desktop_fox.fox_opacity
 	_settings_panel.liveliness_slider.value = _desktop_fox.body_speed_multiplier
+	_settings_panel.fox_style_toggle.button_pressed = _desktop_fox.fox_style == "drawn"
 	_settings_panel.sit_height_slider.value = _desktop_fox.sit_height
 	_settings_panel.focus_length_slider.value = _session_minutes["focus"]
 	_settings_panel.short_length_slider.value = _session_minutes["short"]

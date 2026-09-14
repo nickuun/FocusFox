@@ -46,7 +46,8 @@ const BALL_SPRITE_PX := 11.0
 const CHASE_STUCK_SECONDS := 0.45
 const CHASE_REACHED_PADDING := 8.0
 
-var fox_scale := 3.0
+## "Fox size" in notches, 1-4. One notch is one size regardless of art style.
+var fox_scale := 1.0
 var fox_opacity := 1.0
 var click_through_enabled := false
 var hover_fade_enabled := false
@@ -92,6 +93,22 @@ var _pounce_t := 0.0
 var _pounce_start := Vector2.ZERO
 var _pounce_target := Vector2.ZERO
 var _pounce_peak := 0.0
+
+## Which art the fox is drawn in: "classic" (the 32px sheet) or "drawn" (the
+## hand-drawn set). Pushed onto every fox alongside the palette, since both are
+## cosmetic settings the player owns. See planetoid.gd on why the two differ in size.
+## Physical pixels per design unit inside the launcher window. The overlay windows have
+## no equivalent, so this is the factor between the two — see _fox_preview_scale().
+const OVERLAY_PIXEL_SCALE := 2.0
+
+## Body scale per notch of "Fox size", per art style. Whole numbers only — see
+## _fox_pixel_scale() for why these two values, and why they differ.
+const STYLE_SIZE_STEP := {
+	"classic": 2.0,
+	"drawn": 1.0,
+}
+
+var fox_style := "classic"
 
 var fox_palette := "default"
 var _palettes := {
@@ -163,21 +180,34 @@ func apply_visual_settings() -> void:
 	_apply_fox_visual_state()
 	_apply_click_through_mode()
 	_apply_fox_settings(_fox)
-	_apply_palette_to(_fox)
+	# Full cosmetics, not just style and palette: changing "Fox size" while the fox is out
+	# has to resize its body AND its overlay window. Updating one without the other left
+	# the window at the old size while everything positional used the new scale, which
+	# clipped the fox against the window edge.
+	apply_cosmetics_to(_fox)
 
 
-func apply_cosmetics_to(node: RigidBody2D) -> void:
+## `in_design_space` is true for the foxes that live inside the launcher (the menu room
+## and the settings preview) and false for the one out on the desktop. It only changes the
+## body scale — see _fox_preview_scale() for why the two differ.
+func apply_cosmetics_to(node: RigidBody2D, in_design_space := false) -> void:
 	if not is_instance_valid(node):
 		return
-	var pixel_scale := roundf(fox_scale)
-	if pixel_scale < 1.0:
-		pixel_scale = 1.0
+	# Style first: the body scale depends on it, and so do the palette and the size cache,
+	# which all read whichever sprite the style selected.
+	_apply_style_to(node)
+	var pixel_scale := _fox_preview_scale() if in_design_space else _fox_pixel_scale()
 	node.scale = Vector2.ONE * pixel_scale
 	node.call("set_body_theme", "fox")
 	node.call("set_body_rotation_speed", body_speed_multiplier)
 	_apply_palette_to(node)
 	_cache_sprite_base(node)
 	_update_window_size_for_scale(pixel_scale)
+
+
+func _apply_style_to(node: RigidBody2D) -> void:
+	if is_instance_valid(node) and node.has_method("set_fox_style_name"):
+		node.call("set_fox_style_name", fox_style)
 
 
 func _apply_palette_to(node: RigidBody2D) -> void:
@@ -707,10 +737,10 @@ func get_preview_screen_position(preview_fox: RigidBody2D) -> Vector2:
 func _apply_fox_settings(fox_node: RigidBody2D) -> void:
 	if not is_instance_valid(fox_node):
 		return
-	var pixel_scale := roundf(fox_scale)
-	if pixel_scale < 1.0:
-		pixel_scale = 1.0
-	fox_node.scale = Vector2.ONE * pixel_scale
+	# Through _fox_pixel_scale() like everything else: this used to round fox_scale itself
+	# and so ignored the per-style step, which only went unnoticed because the caller
+	# happens to run apply_cosmetics_to() straight afterwards and overwrite it.
+	fox_node.scale = Vector2.ONE * _fox_pixel_scale()
 	_apply_fox_visual_state()
 
 
@@ -772,8 +802,39 @@ func _get_offscreen_overlay_position() -> Vector2i:
 	return screen_rect.end + _get_window_size_for_scale() + Vector2i(96, 96)
 
 
+## The whole-number body scale the fox is drawn and simulated at. Everything that has to
+## agree with the fox's size reads this — the overlay window, the pounce height, the ball,
+## where the floor is — so the two styles stay consistent by going through one place.
+##
+## Whole numbers only: the overlay window does no scaling of its own and the project
+## filters nearest, so a fractional scale tears the art.
+##
+## One notch of "Fox size" is meant to be one size, whichever fox is drawing it. The two
+## styles draw very different amounts of fox per unit of body scale — about 100px for the
+## classic sheet (32px of art baked at 5x, most of the frame empty) against about 220px
+## for the drawn set — so the classic one takes two steps for every one of the drawn
+## fox's. Both land near 200/400/600/800px, and switching art style never resizes the pet.
+##
+## An earlier version subtracted a step from the drawn fox instead. That collapsed the
+## bottom of the slider: notches 1 and 2 both clamped to a body scale of 1 and produced
+## an identical fox.
 func _fox_pixel_scale() -> float:
-	return maxf(1.0, roundf(fox_scale))
+	var step := maxf(1.0, roundf(fox_scale))
+	return step * float(STYLE_SIZE_STEP.get(fox_style, 1.0))
+
+
+## The same fox, drawn inside the launcher instead of an overlay — the menu room and the
+## settings preview.
+##
+## The launcher renders the 960x540 design space at 2x; an overlay Window does no scaling
+## of its own. So the identical body scale draws the fox at *half* the size once it leaves
+## for the desktop, which is what used to make it shrink on Start. Dividing by the same 2
+## puts both at the same number of physical pixels per source texel.
+##
+## Halving keeps that number whole, which the nearest filter needs: the overlay scale is
+## always an integer, and the extra 2x the launcher applies cancels the halving exactly.
+func _fox_preview_scale() -> float:
+	return _fox_pixel_scale() / OVERLAY_PIXEL_SCALE
 
 
 func _fox_visual_half() -> Vector2:

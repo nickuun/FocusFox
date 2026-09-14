@@ -502,6 +502,7 @@ anchors_preset = 0
 script = ExtResource("27_deninv")
 
 [node name="001" type="Sprite2D" parent="MenuLayer" unique_id=2063446696]
+visible = false
 z_index = 30
 position = Vector2(491, 266)
 texture = ExtResource("24_pwv0s")
