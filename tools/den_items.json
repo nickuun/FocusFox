@@ -1,0 +1,65 @@
+{
+  "_comment": [
+    "Which delivered frame folders become which den find. Run with:",
+    "  python tools/den_import.py --manifest tools/den_items.json",
+    "",
+    "Everything under assets/main_menu/environment/animated/ is OUTPUT, not source.",
+    "The delivery in src_root is never modified. Same arrangement as the fox --",
+    "see tools/fox_clips.json and the header of tools/den_import.py.",
+    "",
+    "src_root is where the artist's delivery was unpacked: the only machine-specific",
+    "line in this file.",
+    "",
+    "'scale' is 0.5 for everything here. The art arrived about twice den size, and a",
+    "half reduction is the one that maps four source pixels onto one without dropping",
+    "rows unevenly. Do not put an arbitrary scale here -- den_import.py refuses",
+    "anything that isn't 1.0 or a clean 1/2, 1/3, 1/4. See its header.",
+    "",
+    "'fps' is the playback rate den.gd gives the find. Nothing is measured from the",
+    "source, so these are a first guess: fire wants to be brisk, leaves want to drift.",
+    "",
+    "'skins' groups several folders under one find, for the fireplace. Each entry",
+    "becomes its own frame folder; the find shows one at a time and the player",
+    "right-clicks to cycle. A find with 'src' instead of 'skins' is a plain one."
+  ],
+  "src_root": "C:/Users/Nicholas/Downloads/Kayleigh's PNGs-20260919T085959Z-1-001/Kayleigh_s PNGs",
+  "finds": [
+    {
+      "id": "fireplace",
+      "_note": "Ten designs of one object, so one find with ten appearances rather than ten drawer slots. Order is the artist's numbering; skin 0 is what a new den gets.",
+      "out": "assets/main_menu/environment/animated/fireplace",
+      "scale": 0.5,
+      "fps": 12.0,
+      "skins": [
+        {"name": "brick",      "src": "Fireplace 01"},
+        {"name": "stone",      "src": "Fireplace 02"},
+        {"name": "modern",     "src": "Fireplace 03/V2",
+          "_note": "V1 and V2 were both delivered. V2 is the later pass."},
+        {"name": "darkwood",   "src": "Fireplace 04"},
+        {"name": "gothic",     "src": "Fireplace 05"},
+        {"name": "stove",      "src": "Fireplace 06",
+          "_note": "Much taller than the rest (a flue) and comes with its own log baskets."},
+        {"name": "industrial", "src": "Fireplace 07"},
+        {"name": "concrete",   "src": "Fireplace 08"},
+        {"name": "marble",     "src": "Fireplace 09"},
+        {"name": "victorian",  "src": "Fireplace 10"}
+      ]
+    },
+    {
+      "id": "hanging_plant",
+      "_note": "Hangs rather than stands -- the first animated wall find. Imported at full size, unlike everything else here: it was delivered much smaller than the fireplaces (87x101 against ~320x250), so the half that right-sized them left this reading as a sprig. At 1.0 it lands at 87x101 -- still small next to a 150px bookshelf, which is what a hanging plant should be -- and the pixels are the artist's own, untouched.",
+      "out": "assets/main_menu/environment/animated/hanging_plant",
+      "src": "Hanging Plant 01",
+      "scale": 1.0,
+      "fps": 8.0
+    },
+    {
+      "id": "fiddle_plant",
+      "_note": "Floor-standing potted fig.",
+      "out": "assets/main_menu/environment/animated/fiddle_plant",
+      "src": "Plant 02",
+      "scale": 0.5,
+      "fps": 8.0
+    }
+  ]
+}
