@@ -1,0 +1,275 @@
+{
+  "name": "plant_06",
+  "scale": 0.5,
+  "source": "C:\\Users\\Nicholas\\Downloads\\From Kayleigh to Nick-20260919T085137Z-1-001\\From Kayleigh to Nick\\Plant 06 Sprites",
+  "pot_size": [
+    68,
+    70
+  ],
+  "parts": [
+    {
+      "file": "00.png",
+      "at": [
+        32,
+        42
+      ],
+      "source": "Plant 01.png",
+      "offset": [
+        -23,
+        -50
+      ],
+      "pivot": [
+        34,
+        20
+      ],
+      "size": [
+        38,
+        38
+      ],
+      "pot": false,
+      "match_error": 5.9
+    },
+    {
+      "file": "01.png",
+      "at": [
+        110,
+        20
+      ],
+      "source": "Plant 02.png",
+      "offset": [
+        16,
+        -62
+      ],
+      "pivot": [
+        4,
+        36
+      ],
+      "size": [
+        33,
+        37
+      ],
+      "pot": false,
+      "match_error": 5.9
+    },
+    {
+      "file": "02.png",
+      "at": [
+        180,
+        39
+      ],
+      "source": "Plant 03.png",
+      "offset": [
+        51,
+        -52
+      ],
+      "pivot": [
+        6,
+        32
+      ],
+      "size": [
+        46,
+        52
+      ],
+      "pot": false,
+      "match_error": 6.3
+    },
+    {
+      "file": "03.png",
+      "at": [
+        23,
+        107
+      ],
+      "source": "Plant 04.png",
+      "offset": [
+        -28,
+        -18
+      ],
+      "pivot": [
+        38,
+        12
+      ],
+      "size": [
+        38,
+        22
+      ],
+      "pot": false,
+      "match_error": 4.4
+    },
+    {
+      "file": "04.png",
+      "at": [
+        86,
+        95
+      ],
+      "source": "Plant 05.png",
+      "offset": [
+        4,
+        -24
+      ],
+      "pivot": [
+        22,
+        21
+      ],
+      "size": [
+        24,
+        24
+      ],
+      "pot": false,
+      "match_error": 7.7
+    },
+    {
+      "file": "05.png",
+      "at": [
+        104,
+        137
+      ],
+      "source": "Plant 5.5 Little Guy.png",
+      "offset": [
+        13,
+        -3
+      ],
+      "pivot": [
+        20,
+        10
+      ],
+      "size": [
+        20,
+        25
+      ],
+      "pot": false,
+      "match_error": 2.3
+    },
+    {
+      "file": "06.png",
+      "at": [
+        122,
+        82
+      ],
+      "source": "Plant 06.png",
+      "offset": [
+        22,
+        -30
+      ],
+      "pivot": [
+        12,
+        38
+      ],
+      "size": [
+        32,
+        42
+      ],
+      "pot": false,
+      "match_error": 4.4
+    },
+    {
+      "file": "07.png",
+      "at": [
+        164,
+        122
+      ],
+      "source": "Plant 07.png",
+      "offset": [
+        43,
+        -10
+      ],
+      "pivot": [
+        0,
+        18
+      ],
+      "size": [
+        38,
+        46
+      ],
+      "pot": false,
+      "match_error": 1.6
+    },
+    {
+      "file": "08.png",
+      "at": [
+        224,
+        146
+      ],
+      "source": "Plant 08 Hidden Guy.png",
+      "offset": [
+        73,
+        2
+      ],
+      "pivot": [
+        0,
+        8
+      ],
+      "size": [
+        19,
+        25
+      ],
+      "pot": false,
+      "match_error": 13.9
+    },
+    {
+      "file": "09.png",
+      "at": [
+        27,
+        134
+      ],
+      "source": "Plant 09.png",
+      "offset": [
+        -26,
+        -4
+      ],
+      "pivot": [
+        40,
+        12
+      ],
+      "size": [
+        40,
+        51
+      ],
+      "pot": false,
+      "match_error": 8.0
+    },
+    {
+      "file": "10.png",
+      "at": [
+        123,
+        168
+      ],
+      "source": "Plant 10.png",
+      "offset": [
+        22,
+        12
+      ],
+      "pivot": [
+        12,
+        0
+      ],
+      "size": [
+        26,
+        32
+      ],
+      "pot": false,
+      "match_error": 2.3
+    },
+    {
+      "file": "11.png",
+      "at": [
+        78,
+        143
+      ],
+      "source": "Pot.png",
+      "offset": [
+        0,
+        0
+      ],
+      "pivot": [
+        0,
+        0
+      ],
+      "size": [
+        68,
+        70
+      ],
+      "pot": true,
+      "match_error": 21.5
+    }
+  ]
+}

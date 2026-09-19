@@ -116,13 +116,17 @@ signal placement_changed
 ## drawer goes back into it.
 var store_zone := Callable()
 
-var _items := {}         # id -> Sprite2D (ThrowableProp), only while it's out
+var _items := {}         # id -> Node2D (ThrowableProp or AnimatedProp), only while it's out
 var _shadows := {}       # id -> Sprite2D, the contact shadow under it
 var _positions := {}     # id -> Vector2 (saved resting spot)
 var _interacting := {}   # id -> bool (true between grab and settle)
 var _placed := {}        # id -> bool (out in the room rather than in the drawer)
 var _earned := {}        # id -> true once the focus time has ever been reached
 var _textures := {}      # id -> Texture2D, so refreshes don't re-load the art
+## id -> skin name, for a find with several appearances (the fireplace). Kept here
+## rather than on the prop because it outlives it: the choice has to survive the find
+## being put back in the drawer and taken out again.
+var _skins := {}
 var _banner: Label
 
 
@@ -175,6 +179,7 @@ func reset_layout() -> void:
 	_interacting.clear()
 	_placed.clear()
 	_earned.clear()
+	_skins.clear()
 	if FileAccess.file_exists(PATH):
 		DirAccess.remove_absolute(PATH)
 	placement_changed.emit()
@@ -329,10 +334,20 @@ func store(id: String) -> void:
 	placement_changed.emit()
 
 
+## The still image that stands for a find outside the room — the drawer's cell icon and
+## the journal's rung. An animated find is represented by its first frame; nothing that
+## shows an icon wants to run thirteen animations at once.
 func _texture_for(item: Dictionary) -> Texture2D:
 	var id: String = item["id"]
 	if not _textures.has(id):
-		_textures[id] = load(item["texture"]) if DenCatalog.has_art(item) else null
+		if not DenCatalog.has_art(item):
+			_textures[id] = null
+		elif DenCatalog.is_rig(item):
+			_textures[id] = load(DenCatalog.rig_icon(item))
+		elif DenCatalog.is_animated(item):
+			_textures[id] = load(DenCatalog.first_frame(item))
+		else:
+			_textures[id] = load(item["texture"])
 	return _textures[id]
 
 
@@ -381,10 +396,10 @@ func floor_for(x: float, from_y: float, asking_id: String) -> float:
 		var item := DenCatalog.find(id)
 		if item.is_empty() or not DenCatalog.is_surface(item):
 			continue
-		var spr := _items[id] as Sprite2D
-		if spr.texture == null:
+		var spr := _items[id] as Node2D
+		var size := _prop_size(spr)
+		if size == Vector2.ZERO:
 			continue
-		var size := spr.texture.get_size()
 		var top := spr.position.y - size.y
 		if top < cutoff or top >= best:
 			continue
@@ -397,58 +412,113 @@ func floor_for(x: float, from_y: float, asking_id: String) -> float:
 
 ## Nearer finds over farther ones. Cheap, and it's most of what stops the room reading
 ## as a row of stickers.
-func _apply_depth(spr: Sprite2D) -> void:
+## The drawn size of a live prop, whichever node type it is. Zero for one with no art,
+## which a caller is expected to skip rather than divide by.
+func _prop_size(spr: Node2D) -> Vector2:
+	if spr is PlantRig:
+		return (spr as PlantRig).rig_size()
+	if spr is AnimatedProp:
+		return (spr as AnimatedProp).frame_size()
+	var still := spr as Sprite2D
+	if still == null or still.texture == null:
+		return Vector2.ZERO
+	return still.texture.get_size()
+
+
+func _apply_depth(spr: Node2D) -> void:
 	var t := clampf(inverse_lerp(WALL_BOTTOM, ROOM_BOTTOM, spr.position.y), 0.0, 1.0)
 	spr.z_index = int(roundf(lerpf(float(DEPTH_Z_MIN), float(DEPTH_Z_MAX), t)))
 
 
 # --- Item creation ---------------------------------------------------------
 
+## Builds the live prop for a find and puts it in the room. Two node types come out of
+## here — a Sprite2D for a still find, an AnimatedSprite2D for one of Kayleigh's
+## animated ones — and everything downstream treats them alike, which is what
+## prop_motion.gd is for. See its class note.
 func _create_item(item: Dictionary, reveal: bool) -> void:
 	var id: String = item["id"]
-	var tex := _texture_for(item)
-	var size := tex.get_size() if tex != null else Vector2(48, 48)
 	var wall := DenCatalog.is_wall(item)
+	var animated := DenCatalog.is_animated(item)
 
-	var spr := Sprite2D.new()
-	spr.texture = tex
-	spr.set_script(THROWABLE)
-	spr.wall_mounted = wall
-	# Anchor at the base, so `position` is the bottom edge. Everything downstream —
-	# the floor line, the wall band, the saved spot — is then one comparable number
-	# regardless of how tall the art is, and the reveal grows up out of the floor
-	# rather than swelling from the middle.
-	#
-	# Done by turning centring off rather than by nudging a centred sprite half its
-	# height, because half of an odd number isn't a whole pixel. Several of these
-	# sprites are odd in one axis or both (the lamp is 35x87), and a centred anchor
-	# would leave them straddling the pixel grid, which nearest-neighbour art shows
-	# up immediately. Off-centre, the offset is integral and the art lands square.
-	spr.centered = false
-	spr.offset = Vector2(-roundf(size.x * 0.5), -size.y)
+	var spr: Node2D
+	var size: Vector2
+	if DenCatalog.is_rig(item):
+		var rig := PlantRig.new()
+		# Parts first: the anchor, the hitbox and the shadow are all measured off them.
+		if not rig.load_rig(str(item["rig"])):
+			rig.free()
+			return
+		rig.anchor_to_base()
+		rig.motion.wall_mounted = wall
+		rig.motion.floor_provider = floor_for.bind(id)
+		rig.motion.bound_left = WALL_MARGIN_LEFT if wall else FLOOR_MARGIN_LEFT
+		rig.motion.bound_right = room_width - ROOM_MARGIN_RIGHT
+		size = rig.rig_size()
+		spr = rig
+	elif animated:
+		var anim := AnimatedProp.new()
+		# Frames first: the anchor, the hitbox and the shadow are all measured off the
+		# art, so it has to exist before any of them are worked out.
+		anim.load_frames(str(item["anim"]), DenCatalog.skins(item), float(item.get("fps", 10.0)))
+		var saved := str(_skins.get(id, ""))
+		if saved != "":
+			anim.set_skin(saved)
+		anim.anchor_to_base()
+		anim.motion.wall_mounted = wall
+		anim.motion.floor_provider = floor_for.bind(id)
+		anim.motion.bound_left = WALL_MARGIN_LEFT if wall else FLOOR_MARGIN_LEFT
+		anim.motion.bound_right = room_width - ROOM_MARGIN_RIGHT
+		anim.skin_changed.connect(_on_item_skin_changed.bind(id))
+		size = anim.frame_size()
+		spr = anim
+	else:
+		var still := Sprite2D.new()
+		var tex := _texture_for(item)
+		size = tex.get_size() if tex != null else Vector2(48, 48)
+		still.texture = tex
+		still.set_script(THROWABLE)
+		still.wall_mounted = wall
+		# Anchor at the base, so `position` is the bottom edge. Everything downstream —
+		# the floor line, the wall band, the saved spot — is then one comparable number
+		# regardless of how tall the art is, and the reveal grows up out of the floor
+		# rather than swelling from the middle.
+		#
+		# Done by turning centring off rather than by nudging a centred sprite half its
+		# height, because half of an odd number isn't a whole pixel. Several of these
+		# sprites are odd in one axis or both (the lamp is 35x87), and a centred anchor
+		# would leave them straddling the pixel grid, which nearest-neighbour art shows
+		# up immediately. Off-centre, the offset is integral and the art lands square.
+		still.centered = false
+		still.offset = Vector2(-roundf(size.x * 0.5), -size.y)
+		still.floor_provider = floor_for.bind(id)
+		still.bound_left = WALL_MARGIN_LEFT if wall else FLOOR_MARGIN_LEFT
+		still.bound_right = room_width - ROOM_MARGIN_RIGHT
+		spr = still
 
 	var default_y: float = float(item.get("default_y", FLOOR_Y)) if wall else FLOOR_Y
 	spr.position = _positions.get(id, Vector2(item["default_x"], default_y))
 
-	spr.floor_provider = floor_for.bind(id)
-	spr.bound_left = WALL_MARGIN_LEFT if wall else FLOOR_MARGIN_LEFT
-	spr.bound_right = room_width - ROOM_MARGIN_RIGHT
 	# A hung find has nothing underneath it to cast onto.
 	if not wall:
-		spr.shadow = _create_shadow(id, spr.position, size.x)
+		spr.set("shadow", _create_shadow(id, spr.position, size.x))
 
 	var area := Area2D.new()
 	area.name = "Area2D"
 	var col := CollisionShape2D.new()
+	col.name = "CollisionShape2D"
 	var shape := RectangleShape2D.new()
 	shape.size = size
 	col.shape = shape
 	# The hitbox has to follow the art up off the anchor. A RectangleShape2D is
 	# measured from its middle, so that's the sprite's corner plus half its size.
-	col.position = spr.offset + size * 0.5
+	# A PlantRig has no `offset` of its own: anchor_to_base() already moved its parts, so
+	# its hitbox is measured straight off its origin.
+	var art_offset: Vector2 = Vector2(-roundf(size.x * 0.5), -size.y) if spr is PlantRig 		else spr.get("offset")
+	col.position = art_offset + size * 0.5
 	area.add_child(col)
 	spr.add_child(area)
-	add_child(spr)  # entering the tree runs ThrowableProp._ready
+	add_child(spr)  # entering the tree runs the prop's _ready
 
 	_items[id] = spr
 	_interacting[id] = false
@@ -484,7 +554,7 @@ func _free_shadow(id: String) -> void:
 		shadow.queue_free()
 
 
-func _reveal(spr: Sprite2D, item: Dictionary) -> void:
+func _reveal(spr: Node2D, item: Dictionary) -> void:
 	spr.modulate.a = 0.0
 	spr.scale = Vector2(0.4, 0.4)
 	var tw := create_tween().set_parallel(true)
@@ -522,12 +592,27 @@ func _on_item_released(id: String) -> void:
 		store(id)
 
 
+## The player right-clicked a find with several appearances. Saved against the id so it
+## survives the find going back in the drawer, and so the next launch restores it.
+func _on_item_skin_changed(skin: String, id: String) -> void:
+	_skins[id] = skin
+	# Swapping skin can change the art's size, so the shadow has to be rebuilt to match —
+	# the stove is twice the brick fireplace's height and a good deal narrower.
+	if _shadows.has(id) and _items.has(id):
+		var spr := _items[id] as Node2D
+		_free_shadow(id)
+		var fresh := _create_shadow(id, spr.position, _prop_size(spr).x)
+		spr.set("shadow", fresh)
+		spr.call("adopt_shadow")
+	_save()
+
+
 func _on_item_settled(id: String) -> void:
 	if _interacting.get(id, false):
 		_interacting[id] = false
 		Audio.play("drop")
 	if _items.has(id):
-		var spr := _items[id] as Sprite2D
+		var spr := _items[id] as Node2D
 		# A hung find settles the instant it's let go, wherever the cursor was — off
 		# the bottom of the wall, or up behind the stats panel. Nothing stops it on
 		# the way like a floor does, so the band is enforced here instead.
@@ -558,6 +643,8 @@ func _save() -> void:
 	for id in _earned:
 		cfg.set_value("earned", id, true)
 		cfg.set_value("placed", id, _placed.get(id, false))
+	for id in _skins:
+		cfg.set_value("skin", id, _skins[id])
 	cfg.save(PATH)
 
 
@@ -591,3 +678,9 @@ func _load() -> void:
 		for id in spots:
 			_earned[id] = true
 			_placed[id] = true
+	# Deliberately outside the version gate: a chosen appearance means the same thing
+	# whatever the floor line was, so unlike the positions there's nothing to throw away.
+	# AnimatedProp.set_skin ignores a name that no longer exists.
+	if cfg.has_section("skin"):
+		for id in cfg.get_section_keys("skin"):
+			_skins[id] = str(cfg.get_value("skin", id, ""))
