@@ -1,0 +1,68 @@
+{
+  "_comment": [
+    "The artist's STILL deliveries -- wall art, and anything else that is one image",
+    "rather than a folder of frames. Run with:",
+    "  python tools/den_static_import.py --manifest tools/den_statics.json",
+    "",
+    "Everything it writes under assets/main_menu/environment/static/ is OUTPUT. The",
+    "delivery in src_root is never modified. Same arrangement as tools/den_items.json",
+    "and tools/fox_clips.json.",
+    "",
+    "Each set names a folder of PNGs and one scale. Sizes were chosen by measuring the",
+    "delivery against what is already in the room rather than by picking a round number:",
+    "",
+    "  paintings_small  1/2  144px art -> 72px, which is the existing painting.png to",
+    "                        the pixel. These twelve were drawn at half the size of the",
+    "                        rest of the set, so half scale puts them exactly where the",
+    "                        room's one existing painting already sits.",
+    "",
+    "  paintings_large  1/3  ~450px art -> ~150px. Half would be ~225px against a wall",
+    "                        band only 245px tall -- a painting filling 95% of the wall",
+    "                        floor-to-ceiling. A third leaves it reading as a statement",
+    "                        piece at roughly twice the small ones, which is a range",
+    "                        rather than a mismatch.",
+    "",
+    "  posters          1/1  59-120px as delivered, already den-sized and sitting",
+    "                        naturally between the two painting tiers. Nothing to do,",
+    "                        and every pixel is the artist's own.",
+    "",
+    "Two tiers is deliberate, not a normalisation that was skipped. The artist drew",
+    "small framed pictures and large statement pieces, and a room with both is better",
+    "than a room where everything is one size.",
+    "",
+    "'mount' is carried straight into the catalog entry. All of this hangs.",
+    "'category' likewise -- see DenCatalog.CATEGORIES."
+  ],
+  "src_root": "C:/Users/Nicholas/Desktop",
+  "sets": [
+    {
+      "id": "paintings_small",
+      "src": "Paintings",
+      "out": "assets/main_menu/environment/static/paintings_small",
+      "scale": 0.5,
+      "mount": "wall",
+      "category": "art",
+      "_note": "The twelve drawn at ~144px. Picked by size rather than by name -- see max_source_width.",
+      "max_source_width": 200
+    },
+    {
+      "id": "paintings_large",
+      "src": "Paintings",
+      "out": "assets/main_menu/environment/static/paintings_large",
+      "scale": 0.3333333333333333,
+      "mount": "wall",
+      "category": "art",
+      "_note": "The twenty-four drawn at ~390-460px.",
+      "min_source_width": 200
+    },
+    {
+      "id": "posters",
+      "src": "Posters-Tapestries",
+      "out": "assets/main_menu/environment/static/posters",
+      "scale": 1.0,
+      "mount": "wall",
+      "category": "poster",
+      "_note": "Punk band posters, unframed. Delivered at den size already. Their own tab rather than sharing one with the paintings: forty-five pieces behind one tab is seven pages, and framed gallery art and band posters are nothing alike to look through."
+    }
+  ]
+}

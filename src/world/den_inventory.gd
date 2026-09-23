@@ -49,10 +49,13 @@ const HANDLE_SIZE := Vector2(57.0, 130.0)
 ## The tab stays parked at the right edge, so the body stops short of it.
 const BODY_W := VIEW.x - HANDLE_SIZE.x
 ## One tab per category, sat along the drawer's top edge. The art is authored 245 wide
-## for the single tab this used to be; four of those would run 980px past the body, so
+## for the single tab this used to be; five of those would run well past the body, so
 ## they're narrowed through the NinePatch — its mitred corners keep their authored size
 ## and only the straight middle gives, so one piece of art serves every tab.
-const TAB_SIZE := Vector2(148.0, 45.0)
+##
+## 130 fits five across with room to spare before the page counter at the right end.
+## Add a sixth category and this has to come down again, or the row has to scroll.
+const TAB_SIZE := Vector2(130.0, 45.0)
 const TAB_GAP := 4.0
 const TAB_X := 26.0
 ## The unselected tabs sit back and a little lower, so the open one reads as the sheet
@@ -243,7 +246,7 @@ func _build_one_tab(index: int) -> Dictionary:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_color_override("font_color", INK)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_font_on(label, 17)
+	_font_on(label, 16)
 	root.add_child(label)
 
 	root.gui_input.connect(_on_tab_input.bind(index))
