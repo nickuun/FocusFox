@@ -51,6 +51,16 @@ class_name DenCatalog
 ## looking for a plant looks under plants.
 
 const ITEMS := [
+	# The room's first plant, and the oldest prop in the game — it was authored straight
+	# into world.tscn as "Planet/Plant" long before the den existed, which left it a
+	# ThrowableProp that no part of the den knew about: no drawer slot, no journal entry,
+	# no place in the collection, and grabbing it panned the room because world.gd's
+	# _something_is_being_carried() only ever asked the den and the drawer.
+	#
+	# It is a find like any other now. unlock_min 0 so it is simply there from the first
+	# launch, the way it always has been.
+	{"id": "desk_plant", "name": "a little desk plant", "unlock_min": 0, "default_x": 135.0,
+		"texture": "res://assets/main_menu/environment/plant.png", "category": "plant"},
 	{"id": "mug",       "name": "a mug",             "unlock_min": 30,  "default_x": 800.0, "texture": "res://assets/main_menu/environment/mug.png"},
 	{"id": "lamp",      "name": "a lamp",            "unlock_min": 60,  "default_x": 215.0, "texture": "res://assets/main_menu/environment/lamp.png", "category": "furniture"},
 	{"id": "rug",       "name": "a soft rug",        "unlock_min": 120, "default_x": 470.0, "texture": "res://assets/main_menu/environment/rug.png", "category": "furniture"},
@@ -106,6 +116,7 @@ const ITEMS := [
 	# a plant and the frame-based finds above are not.
 	{"id": "philodendron", "name": "a philodendron", "unlock_min": 960, "default_x": 720.0,
 		"rig": "plant_06", "category": "plant"},
+
 
 	# --- Kayleigh's wall art -------------------------------------------------
 	#
@@ -255,6 +266,24 @@ const ITEMS := [
 	{"id": "total_anarchy_punk_poster", "name": "a total anarchy punk poster", "unlock_min": 1440, "default_x": 420.0,
 		"texture": "res://assets/main_menu/environment/static/posters/total_anarchy_punk_poster.png",
 		"mount": "wall", "default_y": 230.0, "category": "poster"},
+	# --- Couches, on trial -----------------------------------------------------
+	#
+	# Two of the eighteen delivered, to see whether they belong here at all. They are
+	# drawn in three-quarter view while the room and every other find are flat side-on,
+	# so the question is not scale — 106x73 and 147x99 sit fine against the bookshelf's
+	# 150 — but whether the perspective reads as a mistake once it's in the room.
+	#
+	# No default_y: floor finds fall to FLOOR_Y and ignore it. Not marked `surface`
+	# either, though a couch obviously is one — the seat is well below the top of the
+	# art, and the surface logic stands things on a find's full height, so a mug put on
+	# one would float at backrest level. That wants a seat height per couch, which is
+	# work worth doing only if these stay.
+	{"id": "cottage_couch", "name": "a cottage couch", "unlock_min": 1450, "default_x": 520.0,
+		"texture": "res://assets/main_menu/environment/static/couches_small/cottage_couch.png",
+		"category": "comfort"},
+	{"id": "industrial_couch", "name": "an industrial couch", "unlock_min": 1460, "default_x": 760.0,
+		"texture": "res://assets/main_menu/environment/static/couches_small/industrial_couch.png",
+		"category": "comfort"},
 ]
 
 

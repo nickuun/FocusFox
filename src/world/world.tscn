@@ -64,23 +64,6 @@ texture = ExtResource("3_a20vb")
 z_index = 28
 position = Vector2(481.3, 207)
 
-[node name="Planet" type="Node2D" parent="MenuLayer/MainMenu/Room" unique_id=496703197]
-
-[node name="PlantShadow" type="Sprite2D" parent="MenuLayer/MainMenu/Room/Planet" unique_id=1088798449]
-position = Vector2(134, 372)
-texture = ExtResource("13_a20vb")
-
-[node name="Plant" type="Sprite2D" parent="MenuLayer/MainMenu/Room/Planet" unique_id=1472679930]
-position = Vector2(135, 364)
-texture = ExtResource("14_eo0a0")
-script = ExtResource("22_throw")
-
-[node name="Area2D" type="Area2D" parent="MenuLayer/MainMenu/Room/Planet/Plant" unique_id=1035788673]
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="MenuLayer/MainMenu/Room/Planet/Plant/Area2D" unique_id=1368643594]
-position = Vector2(1, 2)
-shape = SubResource("CapsuleShape2D_a20vb")
-
 [node name="MainmenuStatsPanel" type="Sprite2D" parent="MenuLayer/MainMenu" unique_id=1408234629]
 position = Vector2(498, 45)
 texture = ExtResource("4_4dyjh")
