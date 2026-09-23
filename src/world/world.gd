@@ -87,6 +87,9 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 @onready var _version_labels: Array[Label] = [
 	$MenuLayer/MainMenu/VersionLabel, $MenuLayer/MainMenu/VersionLabel2,
 ]
+## The byline in the bottom-left. Named separately from _version_labels, which only ever
+## shows and hides the pair — see _setup_byline.
+@onready var _byline: Label = $MenuLayer/MainMenu/VersionLabel2
 @onready var _journal_panel: JournalBook = $MenuLayer/JournalBook
 @onready var _clock_dial: Sprite2D = $MenuLayer/ClockDial
 ## Slides in over the button row, so it and the buttons are mutually exclusive.
@@ -242,6 +245,7 @@ func _ready() -> void:
 	_setup_clock()
 	_setup_tray()
 	_setup_settings_scrim()
+	_setup_byline()
 	_setup_menu_nodes()
 	_configure_desktop_fox()
 	_load_settings()
@@ -323,6 +327,15 @@ func _setup_tray() -> void:
 	_tray.pause_toggle_requested.connect(_on_tray_pause)
 	_tray.fox_toggle_requested.connect(_on_tray_fox_toggle)
 	_tray.quit_requested.connect(_on_tray_quit)
+
+
+## Puts the two of us in a different order each launch, so neither name is permanently
+## first. Seeded by the randomize() at the top of _ready.
+func _setup_byline() -> void:
+	var names := ["Nicholas", "Kayleigh"]
+	if randi() % 2 == 1:
+		names.reverse()
+	_byline.text = "By %s & %s" % [names[0], names[1]]
 
 
 func _setup_settings_scrim() -> void:
