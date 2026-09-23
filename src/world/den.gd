@@ -38,19 +38,43 @@ const LAYOUT_VERSION := 3
 ## flat against it.
 const FLOOR_Y := 367.0
 
+## The floor is a band, not a line. FLOOR_Y is only where a find lands when it has never
+## been placed deliberately — drag one lower and it stands nearer the camera, and that is
+## where it comes to rest from then on.
+##
+## Without this every find in the room stood on exactly one y, so a room full of things
+## read as a single rank of cut-outs at the same distance. The floorboards in the art run
+## from the wall junction at 348.5 down past the drawer, so there is real depth to use.
+##
+## FLOOR_NEAR runs past the open drawer's top edge (410) on purpose. A find is anchored
+## at its base, so one standing at 450 still has its whole body above the drawer — only
+## the last few pixels of its feet are covered, and only while the drawer is open, which
+## is not when you are looking at the floor. Stopping at 410 instead bought a tidy edge
+## case at the cost of half the depth in the room.
+##
+## The near end of the band is reachable with the drawer SHUT. With it open, a release
+## below 410 is a drop onto the drawer and puts the find away instead — that gesture came
+## first and is worth more than those forty pixels. DenInventory.contains_point only
+## claims the strip while the drawer is actually out, so nothing is lost the rest of the
+## time.
+const FLOOR_FAR := 358.0
+const FLOOR_NEAR := 450.0
+
 ## The find list itself lives in DenCatalog, which is plain data plus static
 ## helpers so the journal and the tools/ scripts can read it too. This node owns
 ## only what's stateful: which finds are home and where they're sitting.
 const ITEMS := DenCatalog.ITEMS
 
-## The band the cursor may let a find go in. The bottom is the open drawer's top
-## edge: the floor carries on another 130px in front of it, but that's the drawer's
-## territory and a find put down there would sit behind it.
+## The band the cursor may let a floor find go in.
 ##
 ## The top bound is deliberately generous — it only limits where you can let go, not
 ## where the find ends up. Drop one high and it falls. See floor_for().
+##
+## The bottom matches FLOOR_NEAR, since that is how far down the room a find can stand.
+## Clamping the release any higher than the floor band would make the near end of the
+## band unreachable by dragging, which is the only way to reach it.
 const ROOM_TOP := 48.0
-const ROOM_BOTTOM := 410.0
+const ROOM_BOTTOM := 450.0
 
 ## The room's left end is a corner, with an angled side wall carrying the window. A
 ## find standing on the floor in the corner reads fine; one *hung* on that wall would
@@ -150,6 +174,10 @@ var _textures := {}      # id -> Texture2D, so refreshes don't re-load the art
 ## find's own band. Saved, so a wall you arranged survives a relaunch.
 var _stack := {}
 var _stack_next := 1
+## id -> float, the floor line this find stands on. Set by dragging it up or down the
+## floor band and saved with the layout, so a room arranged in depth stays arranged.
+## Absent means the find has never been placed deliberately and uses FLOOR_Y.
+var _depth := {}
 var _banner: Label
 
 
@@ -205,6 +233,7 @@ func reset_layout() -> void:
 	_earned.clear()
 	_stack.clear()
 	_stack_next = 1
+	_depth.clear()
 	if FileAccess.file_exists(PATH):
 		DirAccess.remove_absolute(PATH)
 	placement_changed.emit()
@@ -409,7 +438,8 @@ func _clamp_to_room(item: Dictionary, at: Vector2) -> Vector2:
 ## `from_y` of INF asks for the bare floor with every surface ignored; dragging uses
 ## that, or a shelf would act as a lid on the floor beneath it.
 func floor_for(x: float, from_y: float, asking_id: String) -> float:
-	var best := FLOOR_Y
+	# The find's own depth in the band, not one shared floor line — see FLOOR_FAR.
+	var best: float = float(_depth.get(asking_id, FLOOR_Y))
 	var cutoff := from_y - SUPPORT_TOLERANCE
 
 	for shelf in BAKED_SHELVES:
@@ -465,7 +495,10 @@ func _depth_for(id: String, at: Vector2) -> int:
 	var item := DenCatalog.find(id)
 	if not item.is_empty() and DenCatalog.is_wall(item):
 		return WALL_Z
-	var floor_t := clampf(inverse_lerp(WALL_BOTTOM, ROOM_BOTTOM, at.y), 0.0, 1.0)
+	# Across the floor band, so a find dragged nearer the camera actually draws in front
+	# of one left at the back. Measured over FLOOR_FAR..FLOOR_NEAR rather than over the
+	# whole room, since that is the range a floor find can now occupy.
+	var floor_t := clampf(inverse_lerp(FLOOR_FAR, FLOOR_NEAR, at.y), 0.0, 1.0)
 	return int(roundf(lerpf(float(DEPTH_Z_MIN), float(DEPTH_Z_MAX), floor_t)))
 
 
@@ -539,6 +572,7 @@ func _create_item(item: Dictionary, reveal: bool) -> void:
 		rig.motion.floor_provider = floor_for.bind(id)
 		rig.motion.bound_left = WALL_MARGIN_LEFT if wall else FLOOR_MARGIN_LEFT
 		rig.motion.bound_right = room_width - ROOM_MARGIN_RIGHT
+		rig.motion.drag_floor = 0.0 if wall else FLOOR_NEAR
 		size = rig.rig_size()
 		spr = rig
 	elif animated:
@@ -551,6 +585,7 @@ func _create_item(item: Dictionary, reveal: bool) -> void:
 		anim.motion.floor_provider = floor_for.bind(id)
 		anim.motion.bound_left = WALL_MARGIN_LEFT if wall else FLOOR_MARGIN_LEFT
 		anim.motion.bound_right = room_width - ROOM_MARGIN_RIGHT
+		anim.motion.drag_floor = 0.0 if wall else FLOOR_NEAR
 		size = anim.frame_size()
 		spr = anim
 	else:
@@ -575,6 +610,7 @@ func _create_item(item: Dictionary, reveal: bool) -> void:
 		still.floor_provider = floor_for.bind(id)
 		still.bound_left = WALL_MARGIN_LEFT if wall else FLOOR_MARGIN_LEFT
 		still.bound_right = room_width - ROOM_MARGIN_RIGHT
+		still.drag_floor = 0.0 if wall else FLOOR_NEAR
 		spr = still
 
 	var default_y: float = float(item.get("default_y", FLOOR_Y)) if wall else FLOOR_Y
@@ -676,6 +712,16 @@ func _on_item_released(id: String) -> void:
 	if store_zone.call(get_global_mouse_position()):
 		_interacting[id] = false
 		store(id)
+		return
+	# Where you let go on the floor is the depth you meant, and it has to be recorded
+	# HERE rather than when the find settles. The find's floor is its saved depth, and
+	# step() snaps anything at or below its floor straight onto it — so a find dragged
+	# down to 400 and released while its depth still said 367 was pulled back up to 367
+	# on the very next frame, before it could ever settle at the new line.
+	var item := DenCatalog.find(id)
+	if not item.is_empty() and not DenCatalog.is_wall(item):
+		var spr := _items[id] as Node2D
+		_record_depth(id, spr.position)
 
 
 func _on_item_settled(id: String) -> void:
@@ -692,9 +738,35 @@ func _on_item_settled(id: String) -> void:
 			var spot := _clamp_to_room(item, spr.position)
 			if not spot.is_equal_approx(spr.position):
 				spr.call("rest_at", spot)
+		elif not item.is_empty():
+			_record_depth(id, spr.position)
 		_positions[id] = spr.position
 		_apply_depth(id, spr)
 	_save()
+
+
+## Remembers how far down the floor band a find was left, so it comes to rest there
+## rather than snapping back to the one shared floor line.
+##
+## Only where it came to rest on the floor itself. A find standing on a shelf or on
+## another find is at that thing's height, not at a depth the player chose — taking the
+## shelf away would otherwise leave it hovering at shelf height forever, which is the
+## exact bug floor_for() was written to stop.
+func _record_depth(id: String, at: Vector2) -> void:
+	# Only a release down in the floor band says anything about depth. Let go of
+	# something up in the air and you are dropping it, not placing it — it keeps the
+	# depth it already had and falls to that, which is what makes throwing a find still
+	# behave like throwing rather than silently re-standing it at the back of the room.
+	if at.y < FLOOR_FAR - SUPPORT_TOLERANCE:
+		return
+	_depth[id] = clampf(at.y, FLOOR_FAR, FLOOR_NEAR)
+	# The prop caches its floor each frame in step(), so the new line has to be pushed in
+	# before the next one runs — otherwise it spends a frame measured against the old
+	# depth, which is long enough to snap it back.
+	if _items.has(id):
+		var spr := _items[id] as Node2D
+		if spr.has_method("refresh_floor"):
+			spr.call("refresh_floor")
 
 
 func _save() -> void:
@@ -716,6 +788,8 @@ func _save() -> void:
 		cfg.set_value("placed", id, _placed.get(id, false))
 	for id in _stack:
 		cfg.set_value("stack", id, _stack[id])
+	for id in _depth:
+		cfg.set_value("depth", id, _depth[id])
 	cfg.save(PATH)
 
 
@@ -741,6 +815,11 @@ func _load() -> void:
 	# the same thing whatever the floor line was, so unlike the positions there's nothing
 	# to throw away. _stack_next resumes above the highest saved value so a find raised
 	# after loading still goes to the front.
+	# Gated with the positions, unlike the stack: a depth IS a floor line, so a save from
+	# a layout whose floor sat 61px lower would stand everything in the wrong place.
+	if version >= LAYOUT_VERSION and cfg.has_section("depth"):
+		for id in cfg.get_section_keys("depth"):
+			_depth[id] = clampf(float(cfg.get_value("depth", id, FLOOR_Y)), FLOOR_FAR, FLOOR_NEAR)
 	if cfg.has_section("stack"):
 		for id in cfg.get_section_keys("stack"):
 			var order := int(cfg.get_value("stack", id, 0))

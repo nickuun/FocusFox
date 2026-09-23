@@ -228,6 +228,12 @@ func drop_at(at: Vector2) -> void:
 		settled.emit()
 
 
+
+## Re-reads the floor under this prop — see PropMotion.refresh_floor.
+func refresh_floor() -> void:
+	motion.refresh_floor()
+
+
 func is_resting() -> bool:
 	return motion.is_resting()
 

@@ -21,7 +21,10 @@ class_name ThrowableProp
 ## read as ice: a hard throw keeps skating until it hits a wall. This is the number
 ## to turn if finds feel slippery — no scene overrides it, so it covers the menu
 ## plant and every den find at once.
-@export var floor_friction := 28.0
+##
+## Was 28, which let a hard throw slide some 560px — most of the window — before it
+## stopped. At 84 the same throw travels about 180px: still a throw, no longer a puck.
+@export var floor_friction := 84.0
 @export var throw_boost := 1.0
 @export var max_throw_speed := 2600.0
 @export var rest_velocity_threshold := 22.0
@@ -49,6 +52,10 @@ class_name ThrowableProp
 ## `margin` off each edge of the viewport.
 @export var bound_left := -1.0
 @export var bound_right := -1.0
+
+## How far down the floor band the cursor may carry this prop — see PropMotion.drag_floor.
+## The den sets it per find; the menu's desk plant leaves it at 0 and can only be lifted.
+@export var drag_floor := 0.0
 
 ## Where this prop comes to rest, asked of the room rather than remembered:
 ## `func(x: float, from_y: float) -> float`, returning the y of the nearest surface
@@ -103,6 +110,7 @@ func _ready() -> void:
 	motion.wall_settle_time = wall_settle_time
 	motion.bound_left = bound_left
 	motion.bound_right = bound_right
+	motion.drag_floor = drag_floor
 	motion.floor_provider = floor_provider
 	motion.top_extent = _top_extent
 
@@ -259,5 +267,11 @@ func drop_at(at: Vector2) -> void:
 ## before writing a layout: a position caught mid-flight is a point in thin air, and
 ## saving it means the next launch loads the find above the floor and drops it all over
 ## again. A hung find has no flight to be in the middle of.
+
+## Re-reads the floor under this prop — see PropMotion.refresh_floor.
+func refresh_floor() -> void:
+	motion.refresh_floor()
+
+
 func is_resting() -> bool:
 	return motion.is_resting()

@@ -25,7 +25,7 @@ const REST_SLACK := 1.0
 var gravity := 2800.0
 var bounce := 0.42
 var air_friction := 0.6
-var floor_friction := 28.0
+var floor_friction := 84.0
 var throw_boost := 1.0
 var max_throw_speed := 2600.0
 var rest_velocity_threshold := 22.0
@@ -87,6 +87,13 @@ func floor_at(x: float, from_y: float) -> float:
 	return _authored_floor
 
 
+## Re-reads the floor under the prop right now, rather than waiting for the next step().
+## The den calls this the moment a find's depth changes, so the new line is in effect
+## before gravity gets a chance to measure against the old one.
+func refresh_floor() -> void:
+	_floor_y = floor_at(_node.position.x, _node.position.y)
+
+
 ## The floor currently under the prop, for whoever is drawing its shadow.
 func floor_y() -> float:
 	return _floor_y
@@ -96,13 +103,24 @@ func clamp_horizontal() -> void:
 	_node.position.x = clampf(_node.position.x, _min_x, _max_x)
 
 
-## While the cursor holds it. A floor find can be lifted off the floor but never pushed
-## through it; a hung one follows freely and the den clamps it once it's let go.
+## How far down the floor band the cursor may carry a find, regardless of the floor it
+## currently stands on. The den sets it to FLOOR_NEAR; left at 0 the prop can only be
+## lifted, never pushed nearer, which is how this behaved before the floor had depth.
+var drag_floor := 0.0
+
+
+## While the cursor holds it. A floor find can be lifted off the floor and also pushed
+## down the band toward the camera — that is how its depth is chosen. A hung one follows
+## freely and the den clamps it once it's let go.
 func drag_to(at: Vector2) -> void:
 	_node.position = at
 	clamp_horizontal()
 	if not wall_mounted:
-		_node.position.y = minf(_node.position.y, floor_at(_node.position.x, INF))
+		# The *bare* floor, ignoring shelves, so carrying something across the bookshelf
+		# doesn't stop it dead at shelf height. maxf against drag_floor lets the cursor
+		# take it past its own resting line and further down the band.
+		var limit := maxf(floor_at(_node.position.x, INF), drag_floor)
+		_node.position.y = minf(_node.position.y, limit)
 
 
 func step(delta: float) -> void:
@@ -134,9 +152,13 @@ func step(delta: float) -> void:
 
 	if _node.position.y >= _floor_y:
 		_node.position.y = _floor_y
+		# Friction applies on every touch of the floor, not only once the prop has stopped
+		# bouncing. It used to sit inside the branch below, so a hard throw kept its full
+		# horizontal speed through every bounce and only began to slow down after it had
+		# settled — which is what made finds skate across the room like a puck.
+		velocity.x = move_toward(velocity.x, 0.0, floor_friction * 100.0 * delta)
 		if absf(velocity.y) <= rest_velocity_threshold:
 			velocity.y = 0.0
-			velocity.x = move_toward(velocity.x, 0.0, floor_friction * 100.0 * delta)
 			if absf(velocity.x) <= rest_velocity_threshold:
 				velocity = Vector2.ZERO
 				# Snapped where it comes to rest, so the spot the den saves is a whole
