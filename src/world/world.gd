@@ -83,10 +83,6 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 @onready var _stats_week_value: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/WeekValue
 @onready var _stats_total_header: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/TotalHeader
 @onready var _journal_icon: TextureButton = $MenuLayer/JournalIcon
-## The menu's authored desk plant. Not a find — it was always in the room — but it's
-## furniture, so it dims with the rest of the furniture rather than staying vivid
-## beside a faded lamp.
-@onready var _desk_plant: Node2D = $MenuLayer/MainMenu/Room/Planet
 @onready var _stats_panel: Sprite2D = $MenuLayer/MainMenu/MainmenuStatsPanel
 @onready var _version_labels: Array[Label] = [
 	$MenuLayer/MainMenu/VersionLabel, $MenuLayer/MainMenu/VersionLabel2,
@@ -112,6 +108,11 @@ const DEN_DIM_FADE := 0.22
 
 ## How far one notch of the wheel walks the room.
 const ROOM_WHEEL_STEP := 120.0
+## How quickly the room glides to where the wheel sent it. Each notch moves the target
+## rather than the room, and the room covers this share of what's left per second on an
+## exponential curve — quick off the mark, soft on arrival, and notches spun in a row
+## stack into one longer glide instead of a series of jumps.
+const ROOM_WHEEL_GLIDE := 14.0
 ## The band at each edge of the window that pulls the room along while a find is being
 ## carried. Without it there is no way to take something from one screenful to the next.
 const ROOM_EDGE_ZONE := 90.0
@@ -163,6 +164,8 @@ var _room_pan := 0.0
 var _room_dragging := false
 var _room_drag_from := 0.0
 var _room_drag_pan := 0.0
+var _room_wheel_target := 0.0
+var _room_wheel_gliding := false
 
 
 ## --- The revamped fox, previewed inside the session dial ---------------------
@@ -460,12 +463,6 @@ func _setup_den() -> void:
 	# The drawer is where finds come from and where they go back to, so the two
 	# only ever talk through these three wires.
 	_den.room_width = _room_width()
-	# The desk plant is a ThrowableProp as well, and it worked out its bounds from the
-	# viewport back in its own _ready — which stopped describing the room the moment the
-	# room grew wider than the window.
-	var plant := _desk_plant.get_node_or_null("Plant") as ThrowableProp
-	if plant != null:
-		plant.set_bounds(Den.FLOOR_MARGIN_LEFT, _room_width() - Den.ROOM_MARGIN_RIGHT)
 	_den.store_zone = _den_inventory.contains_point
 	_den.placement_changed.connect(_on_den_placement_changed)
 	_den_inventory.place_requested.connect(_on_den_place_requested)
@@ -572,7 +569,7 @@ func _apply_den_dim(full: bool) -> void:
 	if _den_dim_tween != null and _den_dim_tween.is_valid():
 		_den_dim_tween.kill()
 	_den_dim_tween = create_tween().set_parallel(true)
-	for furniture: CanvasItem in [_den, _desk_plant]:
+	for furniture: CanvasItem in [_den]:
 		_den_dim_tween.tween_property(furniture, "modulate:a", target, DEN_DIM_FADE) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
@@ -640,11 +637,11 @@ func _handle_room_pan_input(event: InputEvent) -> bool:
 		match mb.button_index:
 			MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_WHEEL_RIGHT:
 				if mb.pressed:
-					_set_room_pan(_room_pan - ROOM_WHEEL_STEP)
+					_nudge_room_wheel(-ROOM_WHEEL_STEP * _wheel_notches(mb))
 				return true
 			MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_LEFT:
 				if mb.pressed:
-					_set_room_pan(_room_pan + ROOM_WHEEL_STEP)
+					_nudge_room_wheel(ROOM_WHEEL_STEP * _wheel_notches(mb))
 				return true
 			MOUSE_BUTTON_LEFT:
 				_room_dragging = mb.pressed
@@ -656,9 +653,36 @@ func _handle_room_pan_input(event: InputEvent) -> bool:
 		if _something_is_being_carried():
 			_room_dragging = false
 			return false
+		_room_wheel_gliding = false
 		_set_room_pan(_room_drag_pan + get_global_mouse_position().x - _room_drag_from)
 		return true
 	return false
+
+
+## Precision touchpads report a fraction of a notch in `factor`; a plain wheel leaves
+## it at 0, which means one whole notch.
+func _wheel_notches(mb: InputEventMouseButton) -> float:
+	return mb.factor if mb.factor > 0.0 else 1.0
+
+
+## Moves where the wheel is taking the room, not the room itself — _update_wheel_glide
+## carries it there. A glide already under way keeps its target, so notches add up.
+func _nudge_room_wheel(by: float) -> void:
+	if not _room_wheel_gliding:
+		_room_wheel_target = _room_pan
+		_room_wheel_gliding = true
+	_room_wheel_target = clampf(_room_wheel_target + by, -_pan_limit(), 0.0)
+
+
+func _update_wheel_glide(delta: float) -> void:
+	if not _room_wheel_gliding:
+		return
+	if absf(_room_wheel_target - _room_pan) < 0.5:
+		_set_room_pan(_room_wheel_target)
+		_room_wheel_gliding = false
+		return
+	# Framerate-independent: the same share of the gap closes per second at any fps.
+	_set_room_pan(lerpf(_room_pan, _room_wheel_target, 1.0 - exp(-ROOM_WHEEL_GLIDE * delta)))
 
 
 func _something_is_being_carried() -> bool:
@@ -692,10 +716,12 @@ func _update_edge_pan(delta: float) -> void:
 		push = (mouse_x - (float(DESIGN_SIZE.x) - ROOM_EDGE_ZONE)) / ROOM_EDGE_ZONE
 	if is_zero_approx(push):
 		return
+	_room_wheel_gliding = false
 	_set_room_pan(_room_pan - clampf(push, -1.0, 1.0) * ROOM_EDGE_SPEED * delta)
 
 
 func _process(delta: float) -> void:
+	_update_wheel_glide(delta)
 	_update_edge_pan(delta)
 
 
