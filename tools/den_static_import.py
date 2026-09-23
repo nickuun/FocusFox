@@ -128,8 +128,14 @@ def collect(src: Path, spec: dict) -> list[Path]:
     """
     low = float(spec.get("min_source_width", 0))
     high = float(spec.get("max_source_width", 1e9))
+    # An explicit shortlist, by filename stem. For trialling a handful out of a big
+    # delivery before committing to the lot — a set on trial should not quietly grow to
+    # eighteen finds the next time someone re-runs the importer.
+    only = spec.get("only")
     picked = []
     for path in sorted(src.glob("*.png")):
+        if only is not None and path.stem not in only:
+            continue
         with Image.open(path) as image:
             box = image.convert("RGBA").getbbox()
         if box is None:

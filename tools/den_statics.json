@@ -63,6 +63,17 @@
       "mount": "wall",
       "category": "poster",
       "_note": "Punk band posters, unframed. Delivered at den size already. Their own tab rather than sharing one with the paintings: forty-five pieces behind one tab is seven pages, and framed gallery art and band posters are nothing alike to look through."
+    },
+    {
+      "id": "couches_small",
+      "src": "Couch-20260923T173421Z-1-001/Couch",
+      "out": "assets/main_menu/environment/static/couches_small",
+      "scale": 1.0,
+      "mount": "floor",
+      "category": "comfort",
+      "_note": "TWO ONLY, on trial. The couches are drawn in three-quarter view while the room and every other find are flat side-on, so they may not belong here at all -- this is to see how badly that reads in place before importing eighteen of them. Imported at full size: half scale put them at ~106x73, which read as doll's furniture next to a 150px bookshelf. At 1/1 the Cottage is 212x147 and the Industrial 295x198 -- a couch should be the biggest thing on the floor.",
+      "max_source_width": 400,
+      "only": ["Cottage Couch", "Industrial Couch"]
     }
   ]
 }
