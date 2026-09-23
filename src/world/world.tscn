@@ -53,6 +53,7 @@ script = ExtResource("12_desktop_fox")
 [node name="MainMenu" type="Node2D" parent="MenuLayer" unique_id=304852977]
 
 [node name="Room" type="Node2D" parent="MenuLayer/MainMenu" unique_id=304852978]
+z_index = -100
 
 [node name="Background" type="Sprite2D" parent="MenuLayer/MainMenu/Room" unique_id=1489674489]
 position = Vector2(976, 272)

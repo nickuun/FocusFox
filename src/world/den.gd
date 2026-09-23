@@ -63,11 +63,18 @@ const ROOM_MARGIN_RIGHT := 48.0
 const WALL_MARGIN_RIGHT := 240.0
 
 ## The band a hung find can live in. WALL_BOTTOM keeps it clear of the wall/floor
-## junction at 348.5; WALL_TOP is the highest its *top edge* may reach, which clears
-## the stats panel across the top of the menu (it spans y 9-81). Clamping is
+## junction at 348.5; WALL_TOP is the highest its *top edge* may reach. Clamping is
 ## height-aware, so a tall painting simply can't be pushed as high as a small clock.
+##
+## WALL_TOP used to be 95, to clear the menu's stats panel across the top (y 9-81). But
+## the panel is hidden in den mode — world.gd turns it off with everything else that
+## isn't the room — so it was reserving space against something that isn't on screen
+## while you arrange, and a wall of pictures couldn't be hung any higher than its
+## middle. The room art's wall is flat colour from y=0 down to the floor junction, so
+## the only real limit is leaving a hand's breadth of wall above the frame rather than
+## pushing art flush into the corner.
 const WALL_BOTTOM := 340.0
-const WALL_TOP := 95.0
+const WALL_TOP := 26.0
 
 ## The two shelves painted into wide-background.png. They're room furniture rather
 ## than finds, so nothing at runtime can derive them — these are the plank tops,
@@ -85,15 +92,30 @@ const BAKED_SHELVES := [
 ## beside it. Generous on purpose: a 3px miss shouldn't drop the mug on the floor.
 const SUPPORT_TOLERANCE := 14.0
 
-## Nearer finds draw over farther ones. The floor band is shallow, so this is a small
-## effect — but without it a mug set down in front of the bookshelf can draw behind it,
-## which reads as broken rather than as subtle.
+## Nearer finds draw over farther ones — without it a mug set down in front of the
+## bookshelf can draw behind it, which reads as broken rather than as subtle.
 ##
-## The ceiling matters: MenuLayer runs the clock dial at 20, the labels at 30, the
-## buttons at 40, the drawer at 70 and the journal at 80. Staying under 20 keeps every
-## find beneath all of it and above the background. Shadows go one below the lot.
-const DEPTH_Z_MIN := 2
+## Floor finds live in the upper band, wall finds in the lower one, and the two never
+## interleave. A picture hangs flat on the wall and a bookshelf stands in front of it,
+## so no amount of rearranging pictures should bring one out past the furniture — which
+## is what sorting everything on `position.y` alone used to do, since a painting hung
+## low scored as "nearer" than a mug standing on the floor.
+##
+## Both bands stay above the background, which sits at the default z of 0, and below the
+## menu's own furniture: MenuLayer runs the clock dial at 20, the labels at 30, the
+## buttons at 40, the drawer at 70 and the journal at 80. Shadows go one below the lot.
+const DEPTH_Z_MIN := 10
 const DEPTH_Z_MAX := 18
+
+## Every wall find sits on this one z, below every floor find. They are all flat on the
+## same plane, so there is no "nearer" among them to encode — they're separated by tree
+## order instead, which Godot uses to break a z tie and which has no ceiling. Spreading
+## them over a range of z values instead would look identical up to eight pictures and
+## then silently start tying again, and there are forty-seven wall finds in the catalog.
+##
+## Order within the band is the order pictures were last handled, newest in front — see
+## _raise. That is what makes a wall of overlapping posters arrangeable at all.
+const WALL_Z := 5
 
 ## How wide a find's shadow is relative to the find. Under 1 because a shadow running
 ## the full width of the art reads as a puddle rather than as contact.
@@ -124,6 +146,10 @@ var _held := {}          # id -> true only while it's in the cursor's grip (grab
 var _placed := {}        # id -> bool (out in the room rather than in the drawer)
 var _earned := {}        # id -> true once the focus time has ever been reached
 var _textures := {}      # id -> Texture2D, so refreshes don't re-load the art
+## id -> int, how recently this find was last handled. Higher draws in front, within the
+## find's own band. Saved, so a wall you arranged survives a relaunch.
+var _stack := {}
+var _stack_next := 1
 var _banner: Label
 
 
@@ -177,6 +203,8 @@ func reset_layout() -> void:
 	_held.clear()
 	_placed.clear()
 	_earned.clear()
+	_stack.clear()
+	_stack_next = 1
 	if FileAccess.file_exists(PATH):
 		DirAccess.remove_absolute(PATH)
 	placement_changed.emit()
@@ -290,6 +318,10 @@ func place(id: String, at: Vector2) -> void:
 	var spot := _clamp_to_room(item, at)
 	_positions[id] = spot
 	_placed[id] = true
+	# Straight to the front of its band. Taking a picture out of the drawer and having it
+	# land behind the wall you already arranged would read as the game ignoring you, and
+	# for overlapping wall art this is the only ordering control there is.
+	_raise(id)
 	if _items.has(id):
 		# Dropped, not pinned — it falls from here to the floor or onto whatever it was
 		# let go over, and _on_item_settled records where that turned out to be.
@@ -423,9 +455,64 @@ func _prop_size(spr: Node2D) -> Vector2:
 	return still.texture.get_size()
 
 
-func _apply_depth(spr: Node2D) -> void:
-	var t := clampf(inverse_lerp(WALL_BOTTOM, ROOM_BOTTOM, spr.position.y), 0.0, 1.0)
-	spr.z_index = int(roundf(lerpf(float(DEPTH_Z_MIN), float(DEPTH_Z_MAX), t)))
+## Where a find sits in the stack, by id so it can be asked before the prop exists.
+##
+## A floor find is sorted by how far down the room it stands, which is the depth cue that
+## stops the room reading as a row of stickers. A wall find can't be: pictures hang flat
+## on one plane, so there is no "nearer" among them — they're sorted by how recently they
+## were handled instead, newest in front.
+func _depth_for(id: String, at: Vector2) -> int:
+	var item := DenCatalog.find(id)
+	if not item.is_empty() and DenCatalog.is_wall(item):
+		return WALL_Z
+	var floor_t := clampf(inverse_lerp(WALL_BOTTOM, ROOM_BOTTOM, at.y), 0.0, 1.0)
+	return int(roundf(lerpf(float(DEPTH_Z_MIN), float(DEPTH_Z_MAX), floor_t)))
+
+
+## Every wall find that's out, oldest handled first. Ties break on catalog order so the
+## sort is total and a save can't come back in a different order than it went out.
+func _wall_order() -> Array:
+	var ids := []
+	for id in _items:
+		var item := DenCatalog.find(id)
+		if not item.is_empty() and DenCatalog.is_wall(item):
+			ids.append(id)
+	ids.sort_custom(func(a, b):
+		var sa := int(_stack.get(a, 0))
+		var sb := int(_stack.get(b, 0))
+		if sa != sb:
+			return sa < sb
+		return str(a) < str(b))
+	return ids
+
+
+## Brings a find to the front of its band. Called when one is taken out of the drawer or
+## picked up in the room, so "the one I just touched" is always the one on top — which is
+## the only handle the player has on a wall of overlapping pictures.
+func _raise(id: String) -> void:
+	_stack[id] = _stack_next
+	_stack_next += 1
+	_restack_wall()
+
+
+## Re-sorts the wall finds among themselves, oldest handled at the back.
+##
+## Done by moving nodes within the den's children rather than by giving each a different
+## z: they all share WALL_Z, and Godot draws same-z siblings in tree order. That has no
+## limit, where a spread of z values would run out after eight pictures.
+##
+## The shadows and the banner are children here too, and move_child on the wall finds
+## alone leaves them where they are — which is right, since a shadow belongs under the
+## floor find that casts it and neither is in the wall band.
+func _restack_wall() -> void:
+	for id in _wall_order():
+		var spr := _items[id] as Node2D
+		if is_instance_valid(spr):
+			move_child(spr, -1)
+
+
+func _apply_depth(id: String, spr: Node2D) -> void:
+	spr.z_index = _depth_for(id, spr.position)
 
 
 # --- Item creation ---------------------------------------------------------
@@ -516,7 +603,7 @@ func _create_item(item: Dictionary, reveal: bool) -> void:
 
 	_items[id] = spr
 	_interacting[id] = false
-	_apply_depth(spr)
+	_apply_depth(id, spr)
 	spr.grabbed.connect(_on_item_grabbed.bind(id))
 	spr.released.connect(_on_item_released.bind(id))
 	spr.settled.connect(_on_item_settled.bind(id))
@@ -571,6 +658,9 @@ func _show_banner(text: String) -> void:
 func _on_item_grabbed(id: String) -> void:
 	_interacting[id] = true
 	_held[id] = true
+	# Picking one up brings it forward, so a picture buried under three others comes out
+	# on top the moment you touch it — and stays there when you let go.
+	_raise(id)
 	Audio.play("grab")
 
 
@@ -603,7 +693,7 @@ func _on_item_settled(id: String) -> void:
 			if not spot.is_equal_approx(spr.position):
 				spr.call("rest_at", spot)
 		_positions[id] = spr.position
-		_apply_depth(spr)
+		_apply_depth(id, spr)
 	_save()
 
 
@@ -624,6 +714,8 @@ func _save() -> void:
 	for id in _earned:
 		cfg.set_value("earned", id, true)
 		cfg.set_value("placed", id, _placed.get(id, false))
+	for id in _stack:
+		cfg.set_value("stack", id, _stack[id])
 	cfg.save(PATH)
 
 
@@ -645,6 +737,15 @@ func _load() -> void:
 			var p = cfg.get_value("pos", id)
 			if p is Vector2:
 				_positions[id] = p
+	# Outside the version gate with the earned list: how you stacked your pictures means
+	# the same thing whatever the floor line was, so unlike the positions there's nothing
+	# to throw away. _stack_next resumes above the highest saved value so a find raised
+	# after loading still goes to the front.
+	if cfg.has_section("stack"):
+		for id in cfg.get_section_keys("stack"):
+			var order := int(cfg.get_value("stack", id, 0))
+			_stack[id] = order
+			_stack_next = maxi(_stack_next, order + 1)
 	if cfg.has_section("earned"):
 		for id in cfg.get_section_keys("earned"):
 			# A find the catalog no longer has is dropped rather than carried. The ten
