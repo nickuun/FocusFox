@@ -197,6 +197,7 @@ func unlocked_entries() -> Array:
 			"name": str(item.get("name", "a find")),
 			"texture": _texture_for(item),
 			"placed": is_placed(id),
+			"category": DenCatalog.category_of(item),
 		})
 	return out
 

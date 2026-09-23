@@ -48,8 +48,17 @@ const BODY_Y := VIEW.y - BODY_H
 const HANDLE_SIZE := Vector2(57.0, 130.0)
 ## The tab stays parked at the right edge, so the body stops short of it.
 const BODY_W := VIEW.x - HANDLE_SIZE.x
-const TAB_SIZE := Vector2(245.0, 45.0)
+## One tab per category, sat along the drawer's top edge. The art is authored 245 wide
+## for the single tab this used to be; four of those would run 980px past the body, so
+## they're narrowed through the NinePatch — its mitred corners keep their authored size
+## and only the straight middle gives, so one piece of art serves every tab.
+const TAB_SIZE := Vector2(148.0, 45.0)
+const TAB_GAP := 4.0
 const TAB_X := 26.0
+## The unselected tabs sit back and a little lower, so the open one reads as the sheet
+## in front. Purely how far down they're nudged, in pixels.
+const TAB_SUNK := 5.0
+const TAB_DIM := Color(0.90, 0.86, 0.82)
 const CELL_SIZE := Vector2(93.0, 94.0)
 const CELL_STEP := 100.0
 const PER_PAGE := 7
@@ -82,7 +91,13 @@ var _next_arrow: Control
 ## {root: Control, bg: TextureRect, icon: TextureRect, id: String}
 var _cells: Array[Dictionary] = []
 
+## Everything unlocked, in catalog order, before the tab filter. _visible is what the
+## current tab actually shows and is what the cells and the paging count against.
 var _entries: Array = []
+var _visible: Array = []
+var _category := 0
+## One per tab: {root, art, label, id}
+var _tabs: Array[Dictionary] = []
 var _page := 0
 var _open := false
 var _slide: Tween
@@ -121,8 +136,12 @@ func _build() -> void:
 
 	# The tab art carries its own border, and where it meets the body the fill has
 	# to run straight through — so the body's top edge is drawn either side of it.
+	# The tab art carries its own border, and where each tab meets the body the fill has
+	# to run straight through — so the top edge is drawn in the gaps either side of the
+	# whole row rather than under it.
+	var row_w := (TAB_SIZE.x + TAB_GAP) * float(DenCatalog.CATEGORIES.size()) - TAB_GAP
 	_top_edge(0.0, TAB_X)
-	_top_edge(TAB_X + TAB_SIZE.x, BODY_W - TAB_X - TAB_SIZE.x)
+	_top_edge(TAB_X + row_w, BODY_W - TAB_X - row_w)
 	_right_edge()
 
 	_build_tab()
@@ -175,33 +194,15 @@ func _right_edge() -> void:
 
 
 func _build_tab() -> void:
-	# Only the tab's straight middle may stretch; its mitred corners have to stay
-	# their authored size.
-	var tab := NinePatchRect.new()
-	tab.texture = TAB_BG
-	tab.patch_margin_left = 14
-	tab.patch_margin_right = 14
-	tab.patch_margin_top = 8
-	# The tab's bottom is open so its fill flows into the body's.
-	tab.patch_margin_bottom = 0
-	tab.position = Vector2(TAB_X, -TAB_SIZE.y)
-	tab.size = TAB_SIZE
-	tab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_body.add_child(tab)
-
-	var title := Label.new()
-	title.text = "Unlocked Items"
-	title.position = Vector2(TAB_X + 18.0, -TAB_SIZE.y + 6.0)
-	title.size = Vector2(TAB_SIZE.x - 76.0, TAB_SIZE.y - 8.0)
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_color", INK)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_font_on(title, 21)
-	_body.add_child(title)
+	# One tab per category, left to right along the drawer's top edge. The page counter
+	# rides at the body's right end rather than inside a tab, since it belongs to whatever
+	# tab is open rather than to any one of them.
+	for i in DenCatalog.CATEGORIES.size():
+		_tabs.append(_build_one_tab(i))
 
 	# Hidden until there's actually more than one page to be on.
 	_page_label = Label.new()
-	_page_label.position = Vector2(TAB_X + TAB_SIZE.x - 58.0, -TAB_SIZE.y + 6.0)
+	_page_label.position = Vector2(BODY_W - 92.0, -TAB_SIZE.y + 6.0)
 	_page_label.size = Vector2(44.0, TAB_SIZE.y - 8.0)
 	_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_page_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -209,6 +210,72 @@ func _build_tab() -> void:
 	_page_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_font_on(_page_label, 15)
 	_body.add_child(_page_label)
+
+
+func _build_one_tab(index: int) -> Dictionary:
+	var category: Dictionary = DenCatalog.CATEGORIES[index]
+	var x := TAB_X + (TAB_SIZE.x + TAB_GAP) * float(index)
+
+	var root := Control.new()
+	root.position = Vector2(x, -TAB_SIZE.y)
+	root.size = TAB_SIZE
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	_body.add_child(root)
+
+	# Only the tab's straight middle may stretch; its mitred corners have to stay
+	# their authored size.
+	var art := NinePatchRect.new()
+	art.texture = TAB_BG
+	art.patch_margin_left = 14
+	art.patch_margin_right = 14
+	art.patch_margin_top = 8
+	# The tab's bottom is open so its fill flows into the body's.
+	art.patch_margin_bottom = 0
+	art.size = TAB_SIZE
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(art)
+
+	var label := Label.new()
+	label.text = str(category["label"])
+	label.position = Vector2(0.0, 6.0)
+	label.size = Vector2(TAB_SIZE.x, TAB_SIZE.y - 8.0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", INK)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_font_on(label, 17)
+	root.add_child(label)
+
+	root.gui_input.connect(_on_tab_input.bind(index))
+	return {"root": root, "art": art, "label": label, "id": str(category["id"])}
+
+
+func _on_tab_input(event: InputEvent, index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.button_index != MOUSE_BUTTON_LEFT or not mb.pressed or index == _category:
+		return
+	_category = index
+	# Back to the first page: the page you were on in one tab means nothing in another,
+	# and landing on an empty page 3 reads as a broken drawer.
+	_page = 0
+	Audio.play("click")
+	_cancel_drag()
+	_relayout()
+	accept_event()
+
+
+## The open tab stands proud and bright; the rest sit back and a little lower, so the
+## row reads as sheets in a folder rather than as four buttons.
+func _paint_tabs() -> void:
+	for i in _tabs.size():
+		var tab := _tabs[i]
+		var open := i == _category
+		var root := tab["root"] as Control
+		root.position.y = -TAB_SIZE.y + (0.0 if open else TAB_SUNK)
+		(tab["art"] as NinePatchRect).self_modulate = Color.WHITE if open else TAB_DIM
+		(tab["label"] as Label).add_theme_color_override("font_color", INK if open else INK_SOFT)
 
 
 ## The paging arrows and the pull tab are the same sprite; it points right, so
@@ -344,6 +411,12 @@ func refresh(entries: Array) -> void:
 
 
 func _relayout() -> void:
+	# The tab decides what the strip is showing; everything below counts against that
+	# rather than against the whole collection.
+	var wanted := str(DenCatalog.CATEGORIES[_category]["id"])
+	_visible = _entries.filter(func(e): return str(e.get("category", DenCatalog.DEFAULT_CATEGORY)) == wanted)
+	_paint_tabs()
+
 	var pages := _page_count()
 	_page = clampi(_page, 0, pages - 1)
 
@@ -358,7 +431,7 @@ func _relayout() -> void:
 
 
 func _page_count() -> int:
-	return maxi(1, ceili(float(_entries.size()) / float(PER_PAGE)))
+	return maxi(1, ceili(float(_visible.size()) / float(PER_PAGE)))
 
 
 func _paint_cell(index: int) -> void:
@@ -398,9 +471,9 @@ func _paint_cell(index: int) -> void:
 
 func _entry_at(index: int) -> Dictionary:
 	var i := _page * PER_PAGE + index
-	if i < 0 or i >= _entries.size():
+	if i < 0 or i >= _visible.size():
 		return {}
-	return _entries[i] as Dictionary
+	return _visible[i] as Dictionary
 
 
 ## Pixel art shrunk by an arbitrary factor drops rows unevenly, so pick the
@@ -535,7 +608,8 @@ func blocks_pan(p: Vector2) -> bool:
 	if not visible:
 		return false
 	var body := Rect2(_body.position, Vector2(BODY_W, BODY_H))
-	var tab := Rect2(_body.position + Vector2(TAB_X, -TAB_SIZE.y), TAB_SIZE)
+	var row_w := (TAB_SIZE.x + TAB_GAP) * float(DenCatalog.CATEGORIES.size()) - TAB_GAP
+	var tab := Rect2(_body.position + Vector2(TAB_X, -TAB_SIZE.y), Vector2(row_w, TAB_SIZE.y))
 	var handle := Rect2(VIEW.x - HANDLE_SIZE.x, BODY_Y, HANDLE_SIZE.x, HANDLE_SIZE.y)
 	return body.has_point(p) or tab.has_point(p) or handle.has_point(p)
 
