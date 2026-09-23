@@ -38,11 +38,7 @@ class_name DenCatalog
 ## Those frames are generated, not delivered: the artist's folders live outside the repo
 ## and tools/den_import.py crops and halves them into the tree. See its header — the
 ## half scale is a stopgap until the set is re-exported at den size, not a decision.
-##
-## `skins` gives one find several appearances, which is what the ten delivered
-## fireplaces are — ten designs of one object rather than ten separate things to own.
-## The player right-clicks the find to cycle, and the choice is saved with the layout.
-## The first name in the list is what a new den gets.
+
 const ITEMS := [
 	{"id": "mug",       "name": "a mug",             "unlock_min": 30,  "default_x": 800.0, "texture": "res://assets/main_menu/environment/mug.png"},
 	{"id": "lamp",      "name": "a lamp",            "unlock_min": 60,  "default_x": 215.0, "texture": "res://assets/main_menu/environment/lamp.png"},
@@ -70,17 +66,34 @@ const ITEMS := [
 		"anim": "fiddle_plant", "fps": 8.0},
 	{"id": "hanging_plant", "name": "a hanging plant", "unlock_min": 600, "default_x": 620.0,
 		"anim": "hanging_plant", "fps": 8.0, "mount": "wall", "default_y": 196.0},
-	# Stands against the back wall rather than out in the room, so it's placed well left
-	# of the fox's spot and is a surface — a mug on the mantelpiece is the point of one.
-	{"id": "fireplace", "name": "a fireplace", "unlock_min": 660, "default_x": 430.0,
-		"anim": "fireplace", "fps": 12.0, "surface": true,
-		"skins": ["brick", "stone", "modern", "darkwood", "gothic", "stove",
-			"industrial", "concrete", "marble", "victorian"]},
+	# Ten fireplace designs, each its own find. They were briefly one find with ten
+	# right-click skins; that hid nine of them from the drawer and the journal, so the
+	# artist asked for them separated. Each keeps its own frames folder.
+	{"id": "fireplace_brick", "name": "a brick fireplace", "unlock_min": 660, "default_x": 300.0,
+		"anim": "fireplace/brick", "fps": 12.0, "surface": true},
+	{"id": "fireplace_stone", "name": "a stone fireplace", "unlock_min": 690, "default_x": 420.0,
+		"anim": "fireplace/stone", "fps": 12.0, "surface": true},
+	{"id": "fireplace_modern", "name": "a modern fireplace", "unlock_min": 720, "default_x": 540.0,
+		"anim": "fireplace/modern", "fps": 12.0, "surface": true},
+	{"id": "fireplace_darkwood", "name": "a dark wood fireplace", "unlock_min": 750, "default_x": 660.0,
+		"anim": "fireplace/darkwood", "fps": 12.0, "surface": true},
+	{"id": "fireplace_gothic", "name": "a gothic fireplace", "unlock_min": 780, "default_x": 780.0,
+		"anim": "fireplace/gothic", "fps": 12.0, "surface": true},
+	{"id": "fireplace_stove", "name": "a wood-burning stove", "unlock_min": 810, "default_x": 300.0,
+		"anim": "fireplace/stove", "fps": 12.0, "surface": true},
+	{"id": "fireplace_industrial", "name": "an industrial fireplace", "unlock_min": 840, "default_x": 420.0,
+		"anim": "fireplace/industrial", "fps": 12.0, "surface": true},
+	{"id": "fireplace_concrete", "name": "a concrete fireplace", "unlock_min": 870, "default_x": 540.0,
+		"anim": "fireplace/concrete", "fps": 12.0, "surface": true},
+	{"id": "fireplace_marble", "name": "a marble fireplace", "unlock_min": 900, "default_x": 660.0,
+		"anim": "fireplace/marble", "fps": 12.0, "surface": true},
+	{"id": "fireplace_victorian", "name": "a victorian fireplace", "unlock_min": 930, "default_x": 780.0,
+		"anim": "fireplace/victorian", "fps": 12.0, "surface": true},
 	# A rigged plant: drawn once, in parts, and swayed by the engine rather than animated
 	# frame by frame. `rig` names a folder under assets/main_menu/environment/plants/
 	# built by tools/plant_rig.py. See plant_rig.gd for why this is the cheap way to make
 	# a plant and the frame-based finds above are not.
-	{"id": "philodendron", "name": "a philodendron", "unlock_min": 720, "default_x": 720.0,
+	{"id": "philodendron", "name": "a philodendron", "unlock_min": 960, "default_x": 720.0,
 		"rig": "plant_06"},
 ]
 
@@ -124,30 +137,13 @@ static func rig_icon(item: Dictionary) -> String:
 	return RIG_DIR + str(item["rig"]) + "/icon.png"
 
 
-## The appearances this find can be switched between, empty for a find with one look.
-static func skins(item: Dictionary) -> PackedStringArray:
-	var raw = item.get("skins", [])
-	var out := PackedStringArray()
-	for name in raw:
-		out.append(str(name))
-	return out
-
-
 ## The first frame of an animated find: what the drawer and the journal draw as its
 ## icon, and what the den measures to size its hitbox before the prop exists.
 ##
-## Takes the first skin for a find that has several, which is the same one a new den
-## starts on. A drawer icon that changed with the player's choice would be nice and is
-## deliberately not done here — the icon is built from the catalog, which doesn't know
-## what any particular den picked.
 static func first_frame(item: Dictionary) -> String:
 	if not is_animated(item):
 		return ""
-	var path := ANIM_DIR + str(item["anim"])
-	var names := skins(item)
-	if not names.is_empty():
-		path += "/" + names[0]
-	return path + "/001.png"
+	return ANIM_DIR + str(item["anim"]) + "/001.png"
 
 
 ## A planned find with no sprite yet can't be earned — see the ITEMS note above.

@@ -11,10 +11,11 @@ class_name AnimatedProp
 ## extending Sprite2D, and an animated find has to be an AnimatedSprite2D. See the class
 ## note in prop_motion.gd.
 ##
-## What this file owns beyond the art is skins. A fireplace is one find with ten
-## appearances rather than ten finds, so the frames are loaded as ten animations on one
-## SpriteFrames and right-click steps between them. A find with a single appearance
-## holds exactly one animation, named DEFAULT_SKIN, and ignores the whole mechanism.
+## Every find here is one animation. The fireplaces were briefly modelled as ten
+## appearances of a single find that right-click cycled between; that is gone. A skin is
+## a hidden thing — you cannot see what you own, the drawer under-reports the collection
+## and the journal cannot promise a particular piece — so each of the artist's designs is
+## its own find instead.
 
 ## The frames are OUTPUT. The artist's delivery lives outside the repo; tools/den_items.json
 ## says which folder becomes which find and tools/den_import.py crops, halves and
@@ -22,25 +23,21 @@ class_name AnimatedProp
 ## by hand means the next import silently throws the edit away.
 const DIR := "res://assets/main_menu/environment/animated/"
 
-## What a find with no skins calls its one animation. AnimatedSprite2D needs *some*
-## animation name, and "default" is the one SpriteFrames ships with and that we drop.
-const DEFAULT_SKIN := "only"
+## AnimatedSprite2D needs *some* animation name, and "default" is the one SpriteFrames
+## ships with and that we drop.
+const CLIP := "only"
 
 signal grabbed
 ## The moment the mouse lets go, before the prop has finished flying. The den listens
 ## for this to catch a find dropped back onto its drawer.
 signal released
 signal settled
-## The player cycled the appearance. The den saves the choice against the find's id.
-signal skin_changed(skin: String)
 
 ## The contact shadow tracking this prop, assigned by the den before it enters the tree.
 var shadow: Sprite2D
 
 var motion: PropMotion
 
-var _skins: PackedStringArray = []
-var _skin := 0
 var _shadow_base_scale := Vector2.ONE
 var _shadow_offset := Vector2.ZERO
 var _dragging := false
@@ -54,62 +51,34 @@ func _init() -> void:
 	motion.settled.connect(func() -> void: settled.emit())
 
 
-## Loads every skin's frames onto one SpriteFrames. `skins` is empty for a plain find.
-##
-## Called by the den before the prop enters the tree, so `size()` and the anchor are
-## known in time to build the hitbox against them.
-func load_frames(find_id: String, skins: PackedStringArray, fps: float) -> void:
-	_skins = skins
+## Loads the find's frames. Called by the den before the prop enters the tree, so the
+## size and the anchor are known in time to build the hitbox against them.
+func load_frames(find_id: String, fps: float) -> void:
 	var frames := SpriteFrames.new()
-	var names := skins if not skins.is_empty() else PackedStringArray([DEFAULT_SKIN])
-
-	for i in names.size():
-		var skin := names[i]
-		var folder := "%s%s" % [DIR, find_id]
-		if not skins.is_empty():
-			folder += "/" + skin
-		frames.add_animation(skin)
-		frames.set_animation_loop(skin, true)
-		frames.set_animation_speed(skin, fps)
-		var n := 1
-		while true:
-			var path := "%s/%03d.png" % [folder, n]
-			if not ResourceLoader.exists(path):
-				break
-			frames.add_frame(skin, load(path))
-			n += 1
-		if frames.get_frame_count(skin) == 0:
-			push_warning("AnimatedProp '%s' has no frames at %s" % [find_id, folder])
-
+	frames.add_animation(CLIP)
+	frames.set_animation_loop(CLIP, true)
+	frames.set_animation_speed(CLIP, fps)
+	var folder := DIR + find_id
+	var n := 1
+	while true:
+		var path := "%s/%03d.png" % [folder, n]
+		if not ResourceLoader.exists(path):
+			break
+		frames.add_frame(CLIP, load(path))
+		n += 1
+	if frames.get_frame_count(CLIP) == 0:
+		push_warning("AnimatedProp '%s' has no frames at %s" % [find_id, folder])
 	if frames.has_animation("default"):
 		frames.remove_animation("default")
 	sprite_frames = frames
-	animation = names[0]
-
-
-## Switches to a skin by name, for restoring a saved choice. Unknown names are ignored
-## rather than clamped — a skin dropped from the manifest shouldn't silently become a
-## different one the player never picked.
-func set_skin(name: String) -> void:
-	var at := _skins.find(name)
-	if at >= 0:
-		_apply_skin(at)
-
-
-func current_skin() -> String:
-	return _skins[_skin] if _skin < _skins.size() else ""
-
-
-func has_skins() -> bool:
-	return _skins.size() > 1
+	animation = CLIP
 
 
 ## The drawn size of the current frame. The den builds the hitbox and the shadow off
 ## this, the way it uses texture.get_size() for a still find.
 ##
-## Every frame of a skin shares one canvas — den_import.py crops them all to the union
-## of the animation — so this is stable while an animation plays. It does change when
-## the skin does, which is why _apply_skin re-anchors.
+## Every frame shares one canvas — den_import.py crops them all to the union of the
+## animation — so this never changes while the prop is alive.
 func frame_size() -> Vector2:
 	if sprite_frames == null or not sprite_frames.has_animation(animation):
 		return Vector2(48, 48)
@@ -170,9 +139,7 @@ func _process(delta: float) -> void:
 	_update_shadow()
 
 
-## Takes the measurements of whatever is currently in `shadow`. Called on _ready, and
-## again by the den when a skin change swaps the shadow for one sized to the new art —
-## without it the replacement would be drawn at the old one's scale.
+## Takes the measurements of whatever is currently in `shadow`.
 func adopt_shadow() -> void:
 	if shadow == null or not is_instance_valid(shadow):
 		return
@@ -193,18 +160,9 @@ func _update_shadow() -> void:
 
 
 func _on_area_input(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
-	if not (event is InputEventMouseButton) or not event.pressed:
-		return
-	var mb := event as InputEventMouseButton
-	if mb.button_index == MOUSE_BUTTON_LEFT and not _dragging:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
+			and event.pressed and not _dragging:
 		_begin_drag()
-		get_viewport().set_input_as_handled()
-	elif mb.button_index == MOUSE_BUTTON_RIGHT and has_skins() and not _dragging:
-		# Right-click cycles the appearance. Nothing else in the room uses the right
-		# button, so this costs no other interaction.
-		_apply_skin((_skin + 1) % _skins.size())
-		Audio.play("click")
-		skin_changed.emit(current_skin())
 		get_viewport().set_input_as_handled()
 
 
@@ -257,34 +215,6 @@ func _swing_from(pixels: float) -> void:
 	var tw := create_tween()
 	tw.tween_property(self, "position:x", rest_x, motion.wall_settle_time) \
 		.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-
-
-## Swapping skin can change the art's size, so the anchor, the hitbox and the shadow all
-## have to follow it — otherwise the stove, which is twice the brick fireplace's height,
-## would hang in the air off the previous skin's anchor.
-func _apply_skin(index: int) -> void:
-	_skin = index
-	animation = _skins[index]
-	play()
-	anchor_to_base()
-	resize_hitbox()
-	motion.compute_bounds()
-
-
-## Matches the child Area2D's box to the current art. Public because the den builds the
-## hitbox when it creates the prop and this keeps the two in one place.
-func resize_hitbox() -> void:
-	var area := get_node_or_null("Area2D") as Area2D
-	if area == null:
-		return
-	var col := area.get_node_or_null("CollisionShape2D") as CollisionShape2D
-	if col == null or not (col.shape is RectangleShape2D):
-		return
-	var size := frame_size()
-	(col.shape as RectangleShape2D).size = size
-	# A RectangleShape2D is measured from its middle, so that's the art's corner plus
-	# half its size.
-	col.position = offset + size * 0.5
 
 
 # --- Passed through to the motion, so the den can treat both prop types alike --------

@@ -120,13 +120,10 @@ var _items := {}         # id -> Node2D (ThrowableProp or AnimatedProp), only wh
 var _shadows := {}       # id -> Sprite2D, the contact shadow under it
 var _positions := {}     # id -> Vector2 (saved resting spot)
 var _interacting := {}   # id -> bool (true between grab and settle)
+var _held := {}          # id -> true only while it's in the cursor's grip (grab to release)
 var _placed := {}        # id -> bool (out in the room rather than in the drawer)
 var _earned := {}        # id -> true once the focus time has ever been reached
 var _textures := {}      # id -> Texture2D, so refreshes don't re-load the art
-## id -> skin name, for a find with several appearances (the fireplace). Kept here
-## rather than on the prop because it outlives it: the choice has to survive the find
-## being put back in the drawer and taken out again.
-var _skins := {}
 var _banner: Label
 
 
@@ -177,9 +174,9 @@ func reset_layout() -> void:
 	_items.clear()
 	_positions.clear()
 	_interacting.clear()
+	_held.clear()
 	_placed.clear()
 	_earned.clear()
-	_skins.clear()
 	if FileAccess.file_exists(PATH):
 		DirAccess.remove_absolute(PATH)
 	placement_changed.emit()
@@ -204,13 +201,12 @@ func unlocked_entries() -> Array:
 	return out
 
 
-## True while a find is under the cursor, which is what tells world.gd it should pan the
-## room when the cursor reaches an edge.
+## True while a find is in hand, which is what tells world.gd it should pan the room when
+## the cursor reaches an edge. Not `_interacting`: that stays set until the find settles,
+## so a find still tumbling after it's let go would keep the edges live, and the room
+## would slide away under the next reach for something near one.
 func is_dragging() -> bool:
-	for id in _interacting:
-		if _interacting[id]:
-			return true
-	return false
+	return not _held.is_empty()
 
 
 func is_placed(id: String) -> bool:
@@ -313,6 +309,7 @@ func store(id: String) -> void:
 	_placed[id] = false
 	_items.erase(id)
 	_interacting.erase(id)
+	_held.erase(id)
 	# The shadow goes at once rather than shrinking with the find: it belongs to the
 	# floor, and a shadow left under a departing item reads as a hole in it.
 	_free_shadow(id)
@@ -460,16 +457,12 @@ func _create_item(item: Dictionary, reveal: bool) -> void:
 		var anim := AnimatedProp.new()
 		# Frames first: the anchor, the hitbox and the shadow are all measured off the
 		# art, so it has to exist before any of them are worked out.
-		anim.load_frames(str(item["anim"]), DenCatalog.skins(item), float(item.get("fps", 10.0)))
-		var saved := str(_skins.get(id, ""))
-		if saved != "":
-			anim.set_skin(saved)
+		anim.load_frames(str(item["anim"]), float(item.get("fps", 10.0)))
 		anim.anchor_to_base()
 		anim.motion.wall_mounted = wall
 		anim.motion.floor_provider = floor_for.bind(id)
 		anim.motion.bound_left = WALL_MARGIN_LEFT if wall else FLOOR_MARGIN_LEFT
 		anim.motion.bound_right = room_width - ROOM_MARGIN_RIGHT
-		anim.skin_changed.connect(_on_item_skin_changed.bind(id))
 		size = anim.frame_size()
 		spr = anim
 	else:
@@ -576,6 +569,7 @@ func _show_banner(text: String) -> void:
 
 func _on_item_grabbed(id: String) -> void:
 	_interacting[id] = true
+	_held[id] = true
 	Audio.play("grab")
 
 
@@ -585,26 +579,12 @@ func _on_item_grabbed(id: String) -> void:
 ## rests on, so it never physically reaches the drawer sitting underneath. Where
 ## you let go is what you meant.
 func _on_item_released(id: String) -> void:
+	_held.erase(id)
 	if not store_zone.is_valid() or not _items.has(id):
 		return
 	if store_zone.call(get_global_mouse_position()):
 		_interacting[id] = false
 		store(id)
-
-
-## The player right-clicked a find with several appearances. Saved against the id so it
-## survives the find going back in the drawer, and so the next launch restores it.
-func _on_item_skin_changed(skin: String, id: String) -> void:
-	_skins[id] = skin
-	# Swapping skin can change the art's size, so the shadow has to be rebuilt to match —
-	# the stove is twice the brick fireplace's height and a good deal narrower.
-	if _shadows.has(id) and _items.has(id):
-		var spr := _items[id] as Node2D
-		_free_shadow(id)
-		var fresh := _create_shadow(id, spr.position, _prop_size(spr).x)
-		spr.set("shadow", fresh)
-		spr.call("adopt_shadow")
-	_save()
 
 
 func _on_item_settled(id: String) -> void:
@@ -643,8 +623,6 @@ func _save() -> void:
 	for id in _earned:
 		cfg.set_value("earned", id, true)
 		cfg.set_value("placed", id, _placed.get(id, false))
-	for id in _skins:
-		cfg.set_value("skin", id, _skins[id])
 	cfg.save(PATH)
 
 
@@ -668,6 +646,13 @@ func _load() -> void:
 				_positions[id] = p
 	if cfg.has_section("earned"):
 		for id in cfg.get_section_keys("earned"):
+			# A find the catalog no longer has is dropped rather than carried. The ten
+			# fireplaces used to be one find called "fireplace" that right-click cycled;
+			# separating them retired that id, and an earned entry for it would otherwise
+			# count toward found_count() and the achievements forever, against a catalog
+			# with nothing to match it.
+			if DenCatalog.find(id).is_empty():
+				continue
 			_earned[id] = true
 			_placed[id] = bool(cfg.get_value("placed", id, true))
 	else:
@@ -678,9 +663,3 @@ func _load() -> void:
 		for id in spots:
 			_earned[id] = true
 			_placed[id] = true
-	# Deliberately outside the version gate: a chosen appearance means the same thing
-	# whatever the floor line was, so unlike the positions there's nothing to throw away.
-	# AnimatedProp.set_skin ignores a name that no longer exists.
-	if cfg.has_section("skin"):
-		for id in cfg.get_section_keys("skin"):
-			_skins[id] = str(cfg.get_value("skin", id, ""))

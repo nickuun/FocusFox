@@ -57,7 +57,7 @@ Build everything, or one find:
     python tools/den_import.py --manifest tools/den_items.json --only fireplace
 
 Every run writes contact sheets to build/den_sheets/ so a loop can be checked without
-opening Godot -- worth a look for a skin whose ends don't meet.
+opening Godot -- worth a look for a loop whose ends do not meet.
 
 Needs Pillow and numpy.
 """
@@ -242,8 +242,8 @@ def process_find(spec: dict, root: Path, src_root: Path, dry_run: bool) -> dict:
 
     print(f"  {find_id}  (scale {label}, {fps:g} fps)")
 
-    skins = spec.get("skins")
-    entries = skins if skins else [{"name": "", "src": spec["src"]}]
+    variants = spec.get("variants")
+    entries = variants if variants else [{"name": "", "src": spec["src"]}]
 
     built = []
     for entry in entries:
@@ -281,7 +281,7 @@ def process_find(spec: dict, root: Path, src_root: Path, dry_run: bool) -> dict:
             )
         built.append({"name": name, **report})
 
-    return {"id": find_id, "fps": fps, "skins": built}
+    return {"id": find_id, "fps": fps, "variants": built}
 
 
 def main() -> None:
@@ -312,7 +312,7 @@ def main() -> None:
     total = 0
     for spec in finds:
         result = process_find(spec, root, src_root, args.dry_run)
-        total += sum(s["frames"] for s in result["skins"])
+        total += sum(v["frames"] for v in result["variants"])
         print()
 
     print(f"{total} frames {'measured' if args.dry_run else 'written'}.")
