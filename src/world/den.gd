@@ -116,29 +116,25 @@ const BAKED_SHELVES := [
 ## beside it. Generous on purpose: a 3px miss shouldn't drop the mug on the floor.
 const SUPPORT_TOLERANCE := 14.0
 
-## Nearer finds draw over farther ones — without it a mug set down in front of the
-## bookshelf can draw behind it, which reads as broken rather than as subtle.
+## The den draws in two bands: floor finds in the upper one, wall finds in the lower,
+## and the two never interleave. A picture hangs flat on the wall and a bookshelf stands
+## in front of it, so no amount of rearranging pictures should bring one out past the
+## furniture.
 ##
-## Floor finds live in the upper band, wall finds in the lower one, and the two never
-## interleave. A picture hangs flat on the wall and a bookshelf stands in front of it,
-## so no amount of rearranging pictures should bring one out past the furniture — which
-## is what sorting everything on `position.y` alone used to do, since a painting hung
-## low scored as "nearer" than a mug standing on the floor.
+## Within a band, the find handled last draws in front — see _raise. Every find in a
+## band shares its one z, and they're separated by tree order instead, which Godot uses
+## to break a z tie and which has no ceiling.
+##
+## The floor used to sort on how far down the room a find stood, spread over a range of
+## z values. That took the order out of the player's hands: letting go of a find almost
+## always re-stood it at a new depth, so the depth decided and the drag didn't, and two
+## finds a couple of pixels apart could fall either side of a z boundary and swap.
+## Arranging the room by hand is the thing that has to work, so the drag decides.
 ##
 ## Both bands stay above the background, which sits at the default z of 0, and below the
 ## menu's own furniture: MenuLayer runs the clock dial at 20, the labels at 30, the
-## buttons at 40, the drawer at 70 and the journal at 80. Shadows go one below the lot.
-const DEPTH_Z_MIN := 10
-const DEPTH_Z_MAX := 18
-
-## Every wall find sits on this one z, below every floor find. They are all flat on the
-## same plane, so there is no "nearer" among them to encode — they're separated by tree
-## order instead, which Godot uses to break a z tie and which has no ceiling. Spreading
-## them over a range of z values instead would look identical up to eight pictures and
-## then silently start tying again, and there are forty-seven wall finds in the catalog.
-##
-## Order within the band is the order pictures were last handled, newest in front — see
-## _raise. That is what makes a wall of overlapping posters arrangeable at all.
+## buttons at 40, the drawer at 70 and the journal at 80. Shadows go one below the floor.
+const FLOOR_Z := 10
 const WALL_Z := 5
 
 ## How wide a find's shadow is relative to the find. Under 1 because a shadow running
@@ -182,6 +178,12 @@ var _banner: Label
 
 
 func _ready() -> void:
+	# A find is picked up through its Area2D, and where hitboxes overlap the first one
+	# handed the click takes it. Unsorted, that order is whatever the physics query
+	# returns — roughly the order the finds were added — so a click went to whichever
+	# find *used* to be on top rather than the one drawn there now. Sorted, picking walks
+	# z and then tree order, which is exactly what _restack_items arranges.
+	get_viewport().physics_object_picking_sort = true
 	_load()
 	_banner = Label.new()
 	_banner.add_theme_font_override("font", FONT)
@@ -470,8 +472,6 @@ func floor_for(x: float, from_y: float, asking_id: String) -> float:
 	return best
 
 
-## Nearer finds over farther ones. Cheap, and it's most of what stops the room reading
-## as a row of stickers.
 ## The drawn size of a live prop, whichever node type it is. Zero for one with no art,
 ## which a caller is expected to skip rather than divide by.
 func _prop_size(spr: Node2D) -> Vector2:
@@ -485,31 +485,22 @@ func _prop_size(spr: Node2D) -> Vector2:
 	return still.texture.get_size()
 
 
-## Where a find sits in the stack, by id so it can be asked before the prop exists.
-##
-## A floor find is sorted by how far down the room it stands, which is the depth cue that
-## stops the room reading as a row of stickers. A wall find can't be: pictures hang flat
-## on one plane, so there is no "nearer" among them — they're sorted by how recently they
-## were handled instead, newest in front.
-func _depth_for(id: String, at: Vector2) -> int:
+## Which band a find draws in, by id so it can be asked before the prop exists. Where it
+## sits within that band is up to _stack — see FLOOR_Z.
+func _band_for(id: String) -> int:
 	var item := DenCatalog.find(id)
 	if not item.is_empty() and DenCatalog.is_wall(item):
 		return WALL_Z
-	# Across the floor band, so a find dragged nearer the camera actually draws in front
-	# of one left at the back. Measured over FLOOR_FAR..FLOOR_NEAR rather than over the
-	# whole room, since that is the range a floor find can now occupy.
-	var floor_t := clampf(inverse_lerp(FLOOR_FAR, FLOOR_NEAR, at.y), 0.0, 1.0)
-	return int(roundf(lerpf(float(DEPTH_Z_MIN), float(DEPTH_Z_MAX), floor_t)))
+	return FLOOR_Z
 
 
-## Every wall find that's out, oldest handled first. Ties break on catalog order so the
-## sort is total and a save can't come back in a different order than it went out.
-func _wall_order() -> Array:
-	var ids := []
-	for id in _items:
-		var item := DenCatalog.find(id)
-		if not item.is_empty() and DenCatalog.is_wall(item):
-			ids.append(id)
+## Every find that's out, oldest handled first. Ties break on id so the sort is total and
+## a save can't come back in a different order than it went out.
+##
+## Wall and floor finds are sorted together: their z keeps the two bands apart whatever
+## order they're in as siblings, so only the order within each band matters.
+func _item_order() -> Array:
+	var ids := _items.keys()
 	ids.sort_custom(func(a, b):
 		var sa := int(_stack.get(a, 0))
 		var sb := int(_stack.get(b, 0))
@@ -521,31 +512,27 @@ func _wall_order() -> Array:
 
 ## Brings a find to the front of its band. Called when one is taken out of the drawer or
 ## picked up in the room, so "the one I just touched" is always the one on top — which is
-## the only handle the player has on a wall of overlapping pictures.
+## the only handle the player has on a room of overlapping finds.
 func _raise(id: String) -> void:
 	_stack[id] = _stack_next
 	_stack_next += 1
-	_restack_wall()
+	_restack_items()
 
 
-## Re-sorts the wall finds among themselves, oldest handled at the back.
+## Re-sorts the finds among themselves, oldest handled at the back.
 ##
 ## Done by moving nodes within the den's children rather than by giving each a different
-## z: they all share WALL_Z, and Godot draws same-z siblings in tree order. That has no
-## limit, where a spread of z values would run out after eight pictures.
+## z: every find in a band shares its z, and Godot draws same-z siblings in tree order.
+## That has no limit, where a spread of z values would run out after a handful of finds.
 ##
-## The shadows and the banner are children here too, and move_child on the wall finds
-## alone leaves them where they are — which is right, since a shadow belongs under the
-## floor find that casts it and neither is in the wall band.
-func _restack_wall() -> void:
-	for id in _wall_order():
+## The shadows and the banner are children here too, and move_child on the finds alone
+## leaves them where they are — which is fine, since their own z keeps them out of both
+## bands.
+func _restack_items() -> void:
+	for id in _item_order():
 		var spr := _items[id] as Node2D
 		if is_instance_valid(spr):
 			move_child(spr, -1)
-
-
-func _apply_depth(id: String, spr: Node2D) -> void:
-	spr.z_index = _depth_for(id, spr.position)
 
 
 # --- Item creation ---------------------------------------------------------
@@ -639,7 +626,9 @@ func _create_item(item: Dictionary, reveal: bool) -> void:
 
 	_items[id] = spr
 	_interacting[id] = false
-	_apply_depth(id, spr)
+	spr.z_index = _band_for(id)
+	# Into its saved place in the stack, not wherever add_child left it at the front.
+	_restack_items()
 	spr.grabbed.connect(_on_item_grabbed.bind(id))
 	spr.released.connect(_on_item_released.bind(id))
 	spr.settled.connect(_on_item_settled.bind(id))
@@ -658,7 +647,7 @@ func _create_shadow(id: String, at: Vector2, find_width: float) -> Sprite2D:
 	# narrowest thing in the catalog, so this usually scales up from 64.
 	var s := find_width * SHADOW_WIDTH_RATIO / float(SHADOW.get_width())
 	shadow.scale = Vector2(s, clampf(s, SHADOW_HEIGHT_LIMITS.x, SHADOW_HEIGHT_LIMITS.y))
-	shadow.z_index = DEPTH_Z_MIN - 1
+	shadow.z_index = FLOOR_Z - 1
 	add_child(shadow)
 	_shadows[id] = shadow
 	return shadow
@@ -741,7 +730,6 @@ func _on_item_settled(id: String) -> void:
 		elif not item.is_empty():
 			_record_depth(id, spr.position)
 		_positions[id] = spr.position
-		_apply_depth(id, spr)
 	_save()
 
 
