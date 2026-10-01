@@ -77,3 +77,9 @@ Two pieces, each reused wherever it fits:
    buttons, so only the frame is needed.
 
 (The layered welcome modal pieces listed under *Future art cleanup* above still stand.)
+
+Not onboarding, but on the same list: **two achievement badges are unfinished** —
+*Just Checking In* and *Still Counts* (both secret ones). Each has the blank Template
+plaque as its unlocked art and Ready to Focus's stopwatch as its locked art. They need
+their own 64×64 `unlocked.png` + `locked.png` before the Steamworks upload.
+`python tools/make_steam_achievements.py` fails until they're done.
