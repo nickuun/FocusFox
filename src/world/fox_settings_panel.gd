@@ -110,6 +110,7 @@ var hide_fox_button: BaseButton
 var reset_fox_button: BaseButton
 var reset_all_button: BaseButton
 var reset_data_button: BaseButton
+var show_welcome_button: BaseButton
 var fox_status_label: Label
 ## Lives on the Fox tab. World applies the same cosmetics to it as to the menu's
 ## preview fox, then calls fit_preview() so the box scale keeps up.
@@ -412,9 +413,12 @@ func _build_data_page() -> void:
 	reset_data_button.self_modulate = Color(1.12, 0.82, 0.74)
 	_hint("This will reset all progress", CONTENT_LEFT, ROWS_TOP + 100.0).add_theme_color_override("font_color", DANGER)
 
+	show_welcome_button = _wood_button("Show Welcome", CONTENT_LEFT, ROWS_TOP + 138.0, 200.0)
+	_hint("Replay the first-run introduction", CONTENT_LEFT, ROWS_TOP + 172.0)
+
 	var note := Label.new()
 	note.text = "All data is stored locally on your device.\nYou're in control."
-	note.position = Vector2(CONTENT_LEFT, ROWS_TOP + 150.0)
+	note.position = Vector2(CONTENT_LEFT, ROWS_TOP + 216.0)
 	note.size = Vector2(CONTENT_RIGHT - CONTENT_LEFT, 48)
 	note.add_theme_color_override("font_color", HINT_COLOR)
 	_font_on(note, 15)

@@ -122,6 +122,26 @@ const ROOM_EDGE_ZONE := 90.0
 const ROOM_EDGE_SPEED := 620.0
 const BTN_NORMAL := preload("res://assets/main_menu/default_button.png")
 const BTN_HILITE := preload("res://assets/main_menu/default_button - hovered.png")
+const WELCOME_OVERLAY := preload("res://src/world/welcome_overlay.gd")
+## The first-time callouts. The copy points at the taskbar rather than the tray because
+## Windows 11 files new tray icons under the ^ overflow, where a new player won't look;
+## the taskbar button is always visible and already brings the launcher back.
+const HINT_TUCK := "tuck"
+const HINT_RETURN := "return"
+const HINT_CLOSE := "close"
+const HINT_TUCK_TEXT := "Tucking this away so you can focus.
+Click Focus Fox on your taskbar to come back."
+const HINT_RETURN_TEXT := "Welcome back! Whenever I'm tucked away,
+Focus Fox on your taskbar finds me."
+const HINT_CLOSE_TEXT := "Still here, on your taskbar!
+Use Quit on the main menu to close for good."
+const HINT_WIDTH := 330.0
+const HINT_TUCK_AT := Vector2(620.0, 196.0)
+const HINT_RETURN_AT := Vector2(620.0, 196.0)
+const HINT_CLOSE_AT := Vector2(620.0, 196.0)
+## Long enough to read twice: this replaces the 1.5s tuck the first time, and the whole
+## point is that the window doesn't vanish before the player knows where it's going.
+const HINT_HOLD := 6.0
 
 var _mode := Mode.HOME
 var _is_starting := false
@@ -141,6 +161,14 @@ var _den_dim_tween: Tween
 var _intro_running := false
 var _settings_scrim: ColorRect          # blurs + darkens the menu behind the settings panel
 var _scrim_tween: Tween
+var _welcome_overlay
+var _welcome_seen := false
+## First-time callouts for the launcher's disappearing act. Each fires once, then its
+## flag is saved; Show Welcome and a data reset clear them so the run can be replayed.
+var _hint: HintCallout
+var _first_tuck_seen := false
+var _first_return_seen := false
+var _first_close_seen := false
 var _launcher_parked := false           # tucked off-screen into the tray
 var _launcher_home := Vector2i.ZERO     # on-screen position to restore it to
 var _session_started_at := 0
@@ -245,6 +273,8 @@ func _ready() -> void:
 	_setup_clock()
 	_setup_tray()
 	_setup_settings_scrim()
+	_setup_welcome_overlay()
+	_setup_hint_callout()
 	_setup_byline()
 	_setup_menu_nodes()
 	_configure_desktop_fox()
@@ -270,9 +300,29 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		Achievements.on_app_closing(_mode == Mode.RUNNING)
 		if _tray != null and _tray.is_supported():
-			_hide_to_tray()
+			_close_to_tray()
 		else:
 			get_tree().quit()
+
+
+## The close button tucks the launcher away instead of quitting, which a player who
+## meant to quit would otherwise read as the game ignoring them — or never notice, and
+## wonder why Steam still says it's running. So the first time, say so before going.
+func _close_to_tray() -> void:
+	if _hint.is_open() and _hint.purpose in [HINT_CLOSE, HINT_TUCK]:
+		# A second click on the close button is "yes, I get it, go". Mid-tuck it's the
+		# same: that bubble already says where the window's going, and ending it early
+		# is what sends it there.
+		_hint.close(_hint.purpose)
+		return
+	if _first_close_seen or not _is_launcher_open() or _welcome_active():
+		_hide_to_tray()
+		return
+	_first_close_seen = true
+	_save_settings()
+	_hint.pop(HINT_CLOSE, HINT_CLOSE_TEXT, HINT_CLOSE_AT, HINT_WIDTH, HINT_HOLD)
+	await _hint.closed
+	_hide_to_tray()
 
 
 func _physics_process(delta: float) -> void:
@@ -292,12 +342,20 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_boot_skip = true
 		get_viewport().set_input_as_handled()
 		return
+	if _welcome_active():
+		if event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_ESCAPE]:
+			_welcome_overlay.dismiss()
+		get_viewport().set_input_as_handled()
+		return
 	if event.keycode == KEY_ESCAPE and _mode == Mode.DEN:
 		_den_inventory.set_open(false)
 		get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _welcome_active():
+		get_viewport().set_input_as_handled()
+		return
 	if _handle_room_pan_input(event):
 		get_viewport().set_input_as_handled()
 		return
@@ -357,6 +415,22 @@ func _setup_settings_scrim() -> void:
 	# full-screen blocker eats the clicks of anything that isn't after it. The panel
 	# has to be the last child of MenuLayer for its own controls to stay usable.
 	_menu_layer.move_child(_settings_panel, -1)
+
+
+func _setup_welcome_overlay() -> void:
+	_welcome_overlay = WELCOME_OVERLAY.new()
+	_welcome_overlay.name = "WelcomeOverlay"
+	_welcome_overlay.dismissed.connect(_on_welcome_dismissed)
+	_menu_layer.add_child(_welcome_overlay)
+	_menu_layer.move_child(_welcome_overlay, -1)
+
+
+func _setup_hint_callout() -> void:
+	_hint = HintCallout.new()
+	_hint.name = "HintCallout"
+	_menu_layer.add_child(_hint)
+	# Before the settings scrim in the tree, so the scrim eats its clicks while it's up.
+	_menu_layer.move_child(_hint, _settings_scrim.get_index())
 
 
 func _set_scrim_visible(shown: bool) -> void:
@@ -449,6 +523,7 @@ func _setup_menu_nodes() -> void:
 	_settings_panel.volume_slider.value_changed.connect(_on_volume_changed)
 	_settings_panel.ambience_slider.value_changed.connect(_on_ambience_changed)
 	_settings_panel.reset_data_button.pressed.connect(_on_reset_data_pressed)
+	_settings_panel.show_welcome_button.pressed.connect(_on_show_welcome_pressed)
 	for option in COLOUR_OPTIONS:
 		_settings_panel.colour_option.add_item(option["label"])
 	_settings_panel.colour_option.item_selected.connect(_on_colour_selected)
@@ -528,6 +603,12 @@ func _set_mode(mode: Mode) -> void:
 	var choose := mode == Mode.CHOOSE
 	var running := mode == Mode.RUNNING
 	var den := mode == Mode.DEN
+
+	# A "tucking this away" bubble is a lie the moment the session stops.
+	if not running:
+		_hint.close(HINT_TUCK)
+	if den:
+		_hint.close(HINT_RETURN)
 
 	# The room keeps its resident: a fox that's out on the desktop isn't home to be
 	# seen, but otherwise it sits in the den you're arranging around it.
@@ -747,6 +828,9 @@ func _process(delta: float) -> void:
 ##
 ## The drawer plays its own open/close sound, so there is deliberately none here.
 func _on_drawer_opened_changed(open: bool) -> void:
+	if _welcome_active():
+		_den_inventory.set_open(false)
+		return
 	if open == (_mode == Mode.DEN):
 		return
 	if open:
@@ -781,7 +865,7 @@ func _update_ambient() -> void:
 
 
 func _on_start_pressed() -> void:
-	if _intro_running or _is_starting or _desktop_fox.is_spawned():
+	if _intro_running or _welcome_active() or _is_starting or _desktop_fox.is_spawned():
 		return
 	Audio.play("click")
 	_is_starting = true
@@ -794,6 +878,8 @@ func _on_start_pressed() -> void:
 
 
 func _on_session_chosen(id: String) -> void:
+	if _welcome_active():
+		return
 	if not SESSION_META.has(id):
 		return
 	var label: String = SESSION_META[id]["label"]
@@ -823,12 +909,25 @@ func _running_session_label(id: String, label: String) -> String:
 func _queue_minimize() -> void:
 	_minimize_token += 1
 	var token := _minimize_token
-	await get_tree().create_timer(minimize_delay_after_start).timeout
+	# The first time, the delay is a callout saying where the window is going, held
+	# until it's read or clicked. A window that silently vanishes 1.5s into a first
+	# session reads as a crash.
+	var hinted := not _first_tuck_seen
+	if hinted:
+		_hint.pop(HINT_TUCK, HINT_TUCK_TEXT, HINT_TUCK_AT, HINT_WIDTH, HINT_HOLD)
+		await _hint.closed
+	else:
+		await get_tree().create_timer(minimize_delay_after_start).timeout
 	# Only tuck the launcher away if the session is still the one we queued for. The
 	# mode test also covers ducking into the den inside the delay: den mode isn't
 	# RUNNING, so the park quietly cancels itself rather than parking the window out
 	# from under someone mid-rearrange.
 	if token == _minimize_token and _mode == Mode.RUNNING and _clock.is_running() and not _clock.is_paused():
+		# Only counts as seen once it's actually happened — a hint cut short by Stop
+		# gets another go next session.
+		if hinted:
+			_first_tuck_seen = true
+			_save_settings()
 		_hide_to_tray()
 
 
@@ -1016,12 +1115,19 @@ func _hide_to_tray() -> void:
 func _show_launcher() -> void:
 	if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_MINIMIZED:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	var was_parked := _launcher_parked
 	if _launcher_parked:
 		_launcher_parked = false
 		get_window().position = _launcher_home
 	get_window().move_to_foreground()
 	DisplayServer.window_request_attention()
 	_update_tray()
+	# The first time the launcher comes back from its first tuck — on its own when the
+	# session ends, or because they found it — confirm the way back they just used.
+	if was_parked and _first_tuck_seen and not _first_return_seen:
+		_first_return_seen = true
+		_save_settings()
+		_hint.pop(HINT_RETURN, HINT_RETURN_TEXT, HINT_RETURN_AT, HINT_WIDTH, HINT_HOLD)
 
 
 func _on_launcher_focus_entered() -> void:
@@ -1127,6 +1233,10 @@ func _save_settings() -> void:
 	cfg.set_value("audio", "volume", Audio.volume)
 	cfg.set_value("audio", "ambience", Audio.ambience_volume)
 	cfg.set_value("den", "room_pan", _room_pan)
+	cfg.set_value("ui", "welcome_seen", _welcome_seen)
+	cfg.set_value("ui", "first_tuck_seen", _first_tuck_seen)
+	cfg.set_value("ui", "first_return_seen", _first_return_seen)
+	cfg.set_value("ui", "first_close_seen", _first_close_seen)
 	cfg.save(SETTINGS_PATH)
 
 
@@ -1145,6 +1255,10 @@ func _load_settings() -> void:
 	Audio.set_muted(bool(cfg.get_value("audio", "muted", Audio.muted)))
 	Audio.set_volume(float(cfg.get_value("audio", "volume", Audio.volume)))
 	Audio.set_ambience_volume(float(cfg.get_value("audio", "ambience", Audio.ambience_volume)))
+	_welcome_seen = bool(cfg.get_value("ui", "welcome_seen", _welcome_seen))
+	_first_tuck_seen = bool(cfg.get_value("ui", "first_tuck_seen", _first_tuck_seen))
+	_first_return_seen = bool(cfg.get_value("ui", "first_return_seen", _first_return_seen))
+	_first_close_seen = bool(cfg.get_value("ui", "first_close_seen", _first_close_seen))
 	# Restores the view, not just the room's contents. _set_room_pan clamps, so a pan
 	# saved against wider room art survives that art getting narrower instead of parking
 	# the room past its own edge.
@@ -1172,8 +1286,9 @@ func _format_time(seconds: float) -> String:
 # --- Settings panel --------------------------------------------------------
 
 func _on_settings_pressed() -> void:
-	if _intro_running:
+	if _intro_running or _welcome_active():
 		return
+	_hint.close(HINT_RETURN)
 	if _journal_open:
 		_set_journal_open(false)
 	_den_inventory.set_open(false)
@@ -1193,9 +1308,51 @@ func _hide_settings_panel() -> void:
 # --- Journal ---------------------------------------------------------------
 
 func _on_journal_pressed() -> void:
-	if _intro_running:
+	if _intro_running or _welcome_active():
 		return
+	_hint.close(HINT_RETURN)
 	_set_journal_open(not _journal_open)
+
+
+func _welcome_active() -> bool:
+	return is_instance_valid(_welcome_overlay) and _welcome_overlay.visible
+
+
+func _maybe_show_welcome() -> void:
+	if not _welcome_seen:
+		_show_welcome()
+
+
+func _show_welcome() -> void:
+	if not is_instance_valid(_welcome_overlay):
+		return
+	if _journal_open:
+		_set_journal_open(false)
+	_hide_settings_panel()
+	_den_inventory.set_open(false)
+	_hint.close(HINT_RETURN)
+	_welcome_overlay.show_overlay()
+
+
+func _on_welcome_dismissed() -> void:
+	Audio.play("click")
+	_welcome_seen = true
+	_welcome_overlay.hide_overlay()
+	_save_settings()
+
+
+func _on_show_welcome_pressed() -> void:
+	# Replaying the welcome replays what follows it, so the whole first run can be seen
+	# again without wiping progress.
+	_reset_first_time_hints()
+	_save_settings()
+	_show_welcome()
+
+
+func _reset_first_time_hints() -> void:
+	_first_tuck_seen = false
+	_first_return_seen = false
+	_first_close_seen = false
 
 
 func _set_journal_open(open: bool) -> void:
@@ -1321,6 +1478,8 @@ func _do_reset_data() -> void:
 	_cycle_focus_count = 0
 	_last_completed = ""
 	_current_task = ""
+	_welcome_seen = false
+	_reset_first_time_hints()
 	_task_input.text = ""
 	_den_inventory.set_open(false)
 	if _den != null:
@@ -1391,6 +1550,7 @@ func _play_intro() -> void:
 	await t3.finished
 
 	_intro_running = false
+	_maybe_show_welcome()
 
 
 ## The curtain, on its own layer above everything including the splash. Opaque to begin
