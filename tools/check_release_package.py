@@ -21,6 +21,14 @@ FORBIDDEN = [
     b".pyc",
     b"den_import.py",
     b"fox_import.py",
+    b"unlock.mp3",
+]
+
+# GodotSteam ships as DLLs beside the exe rather than inside it. Without them the game
+# still runs — just silently without Steam, which is exactly what's easy to miss.
+REQUIRED_BESIDE = [
+    "steam_api64.dll",
+    "libgodotsteam.windows.template_release.x86_64.dll",
 ]
 
 
@@ -34,6 +42,13 @@ def main() -> int:
     if found:
         print("release package contains source-only/scratch names:", file=sys.stderr)
         for name in found:
+            print(f"  - {name}", file=sys.stderr)
+        return 1
+
+    missing = [name for name in REQUIRED_BESIDE if not (EXPORT.parent / name).exists()]
+    if missing:
+        print("release package is missing files that must ship beside the exe:", file=sys.stderr)
+        for name in missing:
             print(f"  - {name}", file=sys.stderr)
         return 1
 

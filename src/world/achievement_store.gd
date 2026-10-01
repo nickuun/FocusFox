@@ -3,8 +3,8 @@ extends Node
 ## AchievementStore — central hub for all 41 Focus Fox achievements.
 ##
 ## Owns definitions, per-achievement counters, persistence, and the Steam
-## abstraction layer. Nothing outside this file ever calls Steam directly;
-## swap the _steam_* helpers below when GodotSteam is installed.
+## abstraction layer. Nothing outside this file ever calls Steam directly; see the
+## _steam_* helpers at the bottom.
 ##
 ## Usage from other scripts:
 ##   Achievements.unlock("tiny_victory")
@@ -66,7 +66,10 @@ const DEFS: Dictionary = {
 	"comfy_setup":           { "label": "Comfy Setup",             "desc": "Change any setting.",                                    "hidden": false },
 	"bring_fox_home":        { "label": "Bring Fox Home",          "desc": "Use the bring fox home button.",                         "hidden": false },
 	"perfect_little_desk":   { "label": "Perfect Little Desk",     "desc": "Unlock 5 den items.",                                    "hidden": false, "threshold": 5  },
-	"interior_foxcorator":   { "label": "Interior Foxcorator",     "desc": "Unlock 10 den items.",                                   "hidden": false, "threshold": 10 },
+	# A fixed 101, not "every find": the den can keep growing after launch without
+	# moving a goal people are partway to. The catalog must reach it before release —
+	# _warn_unreachable_thresholds() says so on every boot until it does.
+	"interior_foxcorator":   { "label": "Interior Foxcorator",     "desc": "Bring 101 finds home to the den.",                       "hidden": false, "threshold": 101 },
 
 	# --- Secret / Playful ---
 	"you_did_enough_today":  { "label": "You Did Enough Today",    "desc": "Complete a session after ending one early the same day.","hidden": true  },
@@ -159,7 +162,19 @@ var _petted_without_session: bool = false  # for "Just Checking In"
 # ---------------------------------------------------------------------------
 
 func _ready() -> void:
+	_warn_unreachable_thresholds()
+	_steam_init()  # before _load, whose sync needs it
 	_load()
+
+
+## A find-count achievement asking for more finds than exist can never be earned —
+## and once it's on Steam, its wording is fixed for everyone who sees it.
+func _warn_unreachable_thresholds() -> void:
+	for id in ["perfect_little_desk", "interior_foxcorator"]:
+		var need := int(DEFS[id].get("threshold", 0))
+		if need > DenCatalog.size():
+			push_warning("Achievements: '%s' needs %d finds but the den catalog has %d." % [
+				id, need, DenCatalog.size()])
 
 
 # ---------------------------------------------------------------------------
@@ -320,7 +335,7 @@ func on_item_unlocked(total: int) -> void:
 	_items_unlocked = maxi(_items_unlocked, total)
 	if _items_unlocked >= int(DEFS["perfect_little_desk"].get("threshold", 5)):
 		unlock("perfect_little_desk")
-	if _items_unlocked >= int(DEFS["interior_foxcorator"].get("threshold", 10)):
+	if _items_unlocked >= int(DEFS["interior_foxcorator"].get("threshold", 101)):
 		unlock("interior_foxcorator")
 	_save()
 
@@ -394,55 +409,79 @@ func _load() -> void:
 	_items_unlocked = int(cfg.get_value("counters", "items_unlocked", 0))
 	_session_ended_early_today = bool(cfg.get_value("counters", "session_ended_early_today", false))
 	_any_setting_changed = bool(cfg.get_value("counters", "any_setting_changed", false))
-	# Sync any already-earned achievements to Steam (handles reinstalls / new devices)
-	for id in _earned:
-		if _earned[id]:
-			_steam_set_achievement(id)
+	_steam_sync_earned()
 
 
 # ---------------------------------------------------------------------------
 # Steam abstraction layer
 # ---------------------------------------------------------------------------
-# These are the ONLY functions that touch the Steam API.
-# To wire in GodotSteam:
-#   1. Install the GodotSteam plugin (https://godotsteam.com)
-#   2. Add steam_appid.txt to your project root
-#   3. Replace the bodies of _steam_set_achievement() and _steam_init() below
-#   4. Call _steam_init() in _ready(), before _load()
+# These are the ONLY functions that touch the Steam API, via the GodotSteam
+# GDExtension in addons/godotsteam. Every one is a no-op unless init succeeded, so
+# the game runs the same without Steam — local progress is the source of truth and
+# Steam is told about it, never the other way round.
 #
-# The rest of the achievement system requires zero changes.
+# Steam is reached through Engine.get_singleton rather than the bare `Steam` name so
+# this script still compiles with the addon missing.
+#
+# Achievement ids double as Steam API names: create each one in Steamworks with the
+# exact id from DEFS (e.g. "interior_foxcorator").
 # ---------------------------------------------------------------------------
 
+## 480 is Valve's public test app ("Spacewar"), for development before the real app
+## id exists. Swap in Focus Fox's own id once Steamworks issues it. Spacewar has none
+## of our achievements, so under 480 every set reports a miss — init is what it proves.
+const STEAM_APP_ID := 480
+
+var _steam: Object = null
+
+
 func _steam_init() -> void:
-	## Uncomment when GodotSteam is installed:
-	# if Engine.has_singleton("Steam"):
-	#     var result := Steam.steamInitEx()
-	#     if result["status"] != Steam.STEAM_API_INIT_RESULT_OK:
-	#         push_warning("Steam init failed: " + str(result))
-	pass
+	if not Engine.has_singleton("Steam"):
+		return
+	var steam := Engine.get_singleton("Steam")
+	# Passing the id sets SteamAppId for us, so there's no steam_appid.txt to forget to
+	# ship or forget to remove. true = GodotSteam pumps its own callbacks.
+	var result: Dictionary = steam.steamInitEx(STEAM_APP_ID, true)
+	if int(result.get("status", -1)) != 0:  # STEAM_API_INIT_RESULT_OK
+		# Expected whenever Steam isn't running; a log line, not a warning.
+		print("Steam unavailable (%s); achievements stay local." % result.get("verbal", "?"))
+		return
+	_steam = steam
+	print("Steam ready: app %d, user %s." % [steam.getAppID(), steam.getPersonaName()])
 
 
-func _steam_set_achievement(id: String) -> void:
-	## Uncomment when GodotSteam is installed:
-	# if Engine.has_singleton("Steam") and Steam.is_steam_running():
-	#     Steam.setAchievement(id)
-	#     Steam.storeStats()
-	pass
+func _steam_set_achievement(id: String, store := true) -> void:
+	if _steam == null:
+		return
+	if not _steam.setAchievement(id):
+		push_warning("Steam: no achievement named '%s' for app %d." % [id, _steam.getAppID()])
+		return
+	# storeStats is rate-limited — fine per unlock (rare), not per item in a sync.
+	if store:
+		_steam.storeStats()
+
+
+## Re-tells Steam about everything earned locally. Covers a reinstall, a new PC, or
+## progress made while Steam was closed.
+func _steam_sync_earned() -> void:
+	if _steam == null:
+		return
+	for id in _earned:
+		if _earned[id]:
+			_steam_set_achievement(id, false)
+	_steam.storeStats()
 
 
 func _steam_clear_achievement(id: String) -> void:
-	## For development/testing only — clears a Steam achievement.
-	## Uncomment when GodotSteam is installed:
-	# if Engine.has_singleton("Steam") and Steam.is_steam_running():
-	#     Steam.clearAchievement(id)
-	#     Steam.storeStats()
-	pass
+	## For development/testing only.
+	if _steam == null:
+		return
+	_steam.clearAchievement(id)
+	_steam.storeStats()
 
 
 func _steam_reset_all_achievements() -> void:
-	## For development/testing only — wipes all Steam achievements.
-	## Uncomment when GodotSteam is installed:
-	# if Engine.has_singleton("Steam") and Steam.is_steam_running():
-	#     Steam.resetAllStats(true)
-	#     Steam.storeStats()
-	pass
+	## For development/testing only. Stores on its own.
+	if _steam == null:
+		return
+	_steam.resetAllStats(true)
