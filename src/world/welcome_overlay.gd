@@ -12,6 +12,7 @@ const MODAL_POS := Vector2(218.0, 63.0)
 const CTA_RECT := Rect2(337.0, 399.0, 287.0, 62.0)
 const CALLOUT_LEFT := Vector2(70.0, 446.0)
 const CALLOUT_RIGHT := Vector2(750.0, 446.0)
+const CALLOUT_WIDTH := 160.0
 
 var _scrim: ColorRect
 var _content: Control
@@ -95,29 +96,28 @@ func _build() -> void:
 
 
 func _add_callout(pos: Vector2, text: String) -> void:
-	var wrap := Control.new()
+	# Same nine-patch and text box as HintCallout: the art is 140px wide, which two
+	# lines of copy don't fit, and its drawn body is only the top 53 of its 69 rows.
+	var wrap := NinePatchRect.new()
+	wrap.texture = CALLOUT
+	wrap.patch_margin_left = HintCallout.PATCH_LEFT
+	wrap.patch_margin_right = HintCallout.PATCH_RIGHT
 	wrap.position = pos
-	wrap.size = CALLOUT.get_size()
+	wrap.size = Vector2(CALLOUT_WIDTH, CALLOUT.get_height())
+	wrap.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_content.add_child(wrap)
 
-	var art := TextureRect.new()
-	art.texture = CALLOUT
-	art.size = CALLOUT.get_size()
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP
-	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(art)
-
 	var label := Label.new()
 	label.text = text
-	label.position = Vector2(8.0, 8.0)
-	label.size = wrap.size - Vector2(16.0, 14.0)
+	label.position = HintCallout.TEXT_INSET
+	label.size = Vector2(
+		CALLOUT_WIDTH - HintCallout.TEXT_INSET.x - HintCallout.PATCH_RIGHT,
+		HintCallout.BODY_HEIGHT - HintCallout.TEXT_INSET.y * 2.0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_override("font", FONT)
-	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", Color("4a2a1e"))
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrap.add_child(label)

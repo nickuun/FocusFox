@@ -320,6 +320,8 @@ func _close_to_tray() -> void:
 		return
 	_first_close_seen = true
 	_save_settings()
+	# The bubble sits under the settings scrim, so settings left open would hide it.
+	_hide_settings_panel()
 	_hint.pop(HINT_CLOSE, HINT_CLOSE_TEXT, HINT_CLOSE_AT, HINT_WIDTH, HINT_HOLD)
 	await _hint.closed
 	_hide_to_tray()

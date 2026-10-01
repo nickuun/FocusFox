@@ -69,6 +69,10 @@ var _dragging := false
 var _drag_screen_offset := Vector2.ZERO
 var _hovering := false
 var _resting_on_floor := false
+## Picked up or thrown since it last came to rest. Only then does its speed count for
+## Zoomies: a plain fall from mid-screen to the taskbar passes the threshold by itself,
+## which unlocked the secret achievement on every first launch.
+var _flung := false
 # Rendered footprint of the fox sprite at body scale 1 (texture * sprite's own
 # scale). Cached from the fox/preview so the overlay window always fits the fox.
 var _fox_sprite_base := Vector2(160.0, 160.0)
@@ -156,8 +160,10 @@ func physics_step(delta: float) -> void:
 		_update_ball_physics(delta, mouse_screen_position)
 		_sync_ball_window()
 
-	# Report fox speed for the "Zoomies" achievement every frame.
-	Achievements.on_fox_speed(_fox_velocity.length())
+	# Report fox speed for the "Zoomies" achievement every frame — speed the player
+	# caused, not gravity's.
+	if _dragging or _flung:
+		Achievements.on_fox_speed(_fox_velocity.length())
 
 
 func handle_overlay_input(event: InputEvent) -> void:
@@ -240,6 +246,7 @@ func spawn_fox(spawn_position: Vector2) -> void:
 		apply_cosmetics_to(_fox)
 	_fox_screen_position = spawn_position
 	_fox_velocity = Vector2.ZERO
+	_flung = false
 	_dragging = false
 	_hovering = false
 	_overlay_window.show()
@@ -873,6 +880,7 @@ func _update_window_size_for_scale(_pixel_scale: float) -> void:
 
 func _start_drag(mouse_screen_position: Vector2) -> void:
 	_dragging = true
+	_flung = true
 	_resting_on_floor = false
 	_drag_screen_offset = _fox_screen_position - mouse_screen_position
 	_fox_velocity = Vector2.ZERO
@@ -940,6 +948,7 @@ func _apply_screen_bounds() -> void:
 			if absf(_fox_velocity.x) <= rest_velocity_threshold:
 				_fox_velocity.x = 0.0
 				_resting_on_floor = true
+				_flung = false
 		else:
 			_fox_velocity.y = -absf(_fox_velocity.y) * fox_bounce
 			_fox_velocity.x = move_toward(_fox_velocity.x, 0.0, floor_friction * 120.0 / maxf(1.0, fox_scale))
