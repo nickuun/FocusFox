@@ -13,11 +13,15 @@ const SFX := {
 	"grab": preload("res://assets/audio/sfx/grab.ogg"),
 	"drop": preload("res://assets/audio/sfx/drop.ogg"),
 	"back": preload("res://assets/audio/sfx/back.ogg"),
-	"unlock": preload("res://assets/audio/sfx/unlock.mp3"),
+	"unlock": preload("res://assets/audio/sfx/unlock.ogg"),
 }
 const AMBIENCE := {
 	"focus": preload("res://assets/audio/ambience/focus.wav"),
 }
+
+## How far play() nudges pitch either side, so the tenth click in a row doesn't sound
+## stamped out of the same mould as the first.
+const PITCH_JITTER := 0.04
 
 var muted := false
 var volume := 0.8        # master SFX level, 0..1
@@ -48,7 +52,9 @@ func play(name: String, pitch := 1.0) -> void:
 	var p := _players[_next]
 	_next = (_next + 1) % _players.size()
 	p.stream = SFX[name]
-	p.pitch_scale = pitch
+	# Around the pitch asked for, not instead of it: the journal's deliberate 1.25
+	# for page turns should still sound higher than a click.
+	p.pitch_scale = pitch * randf_range(1.0 - PITCH_JITTER, 1.0 + PITCH_JITTER)
 	p.volume_db = linear_to_db(clampf(volume, 0.0001, 1.0))
 	p.play()
 

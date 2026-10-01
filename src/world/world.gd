@@ -394,6 +394,9 @@ func _setup_byline() -> void:
 	if randi() % 2 == 1:
 		names.reverse()
 	_byline.text = "By %s & %s" % [names[0], names[1]]
+	# The version lives once, in project.godot, which the Windows export also stamps
+	# into the exe — so the menu and the file can't disagree again.
+	_version_labels[0].text = "v. %s" % ProjectSettings.get_setting("application/config/version", "")
 
 
 func _setup_settings_scrim() -> void:
