@@ -63,8 +63,16 @@ CEILING = 6250.0
 SLOTS = 101
 POWER = 1.4
 
-# The default session length the curve is described against, for the printed report only.
+# The default session length the curve is described against.
 SESSION_MINUTES = 25
+
+## Rungs whose time is set by hand rather than by the curve, as {index: minutes}. Keep
+## them in order with their neighbours — next_find() walks the catalog assuming it's sorted.
+##
+## Rung 2 (the third find, after the desk plant and the lamp) would be 26 minutes on the
+## curve: a first session at the 25-minute default would end one minute short of it. Pinned
+## to the default so the first full session ends with something new landing in the room.
+PINNED = {2: SESSION_MINUTES}
 
 ## Milestones worth landing a memorable find on, in sessions. These are the achievement
 ## thresholds from achievement_store.gd — a find and a badge arriving together reads as
@@ -110,6 +118,8 @@ CATEGORY_CYCLE = ["furniture", "plant", "comfort", "poster", "art"]
 
 def unlock_for(index: int) -> int:
     """Focus minutes for the rung at `index`, counting from 0."""
+    if index in PINNED:
+        return PINNED[index]
     return int(round(CEILING * (index / float(SLOTS - 1)) ** POWER))
 
 

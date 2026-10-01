@@ -54,7 +54,7 @@ const ITEMS := [
 	{"id": "desk_plant", "name": "a little desk plant", "unlock_min": 0, "default_x": 135.0,
 		"texture": "res://assets/main_menu/environment/plant.png", "category": "plant"},
 	{"id": "lamp",      "name": "a lamp",            "unlock_min": 10,  "default_x": 215.0, "texture": "res://assets/main_menu/environment/lamp.png", "category": "furniture"},
-	{"id": "rug",       "name": "a soft rug",        "unlock_min": 26, "default_x": 470.0, "texture": "res://assets/main_menu/environment/rug.png", "category": "furniture"},
+	{"id": "rug",       "name": "a soft rug",        "unlock_min": 25, "default_x": 470.0, "texture": "res://assets/main_menu/environment/rug.png", "category": "furniture"},
 	{"id": "fern",      "name": "a potted fern",     "unlock_min": 46, "default_x": 700.0, "texture": "res://assets/main_menu/environment/fern.png", "category": "plant"},
 	{"id": "mug",       "name": "a mug",             "unlock_min": 69,  "default_x": 800.0, "texture": "res://assets/main_menu/environment/mug.png"},
 	{"id": "fireplace_brick", "name": "a brick fireplace", "unlock_min": 94, "default_x": 300.0,
