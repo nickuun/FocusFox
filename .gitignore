@@ -9,3 +9,4 @@ __pycache__/
 # The editor copies GDExtension DLLs to ~name.dll for hot reload, and Windows can
 # leave ~RF*.TMP behind when that copy is replaced.
 addons/**/~*
+.DS_Store
