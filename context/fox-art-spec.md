@@ -109,6 +109,27 @@ If there's a 46-frame full-size version, we'd love it — it would play smoother
 > jump, it'll look like a jump in the game. `walk` and `sleep` both do this correctly and
 > are good references.
 
+### Cleaning up the game-size frames
+
+For the idle (and any clip we hand back the same way), please clean up **the frames
+the game uses**, in `assets/fox/animations/v2/idle/` (`001.png` … `023.png`). They're
+small enough that anything stray is easy to see. Pull first to get them.
+
+Once you've started on these, they're yours: the import script stops regenerating
+that clip and only checks it, so your edits are never overwritten. That also means any
+change to the *pose* (like the tail bridge frames) is easiest to do at full size
+**before** you start the cleanup — or drawn straight in at game size, if you'd rather.
+
+The rules the game relies on (the import script checks all of them):
+
+- **Don't change the canvas size**, and don't crop or move the fox within it. Every
+  frame stays 210 × 188, the feet stay on the same row.
+- **Only the existing seven colours**, exactly. Use the eyedropper rather than picking
+  by eye — a near-miss orange silently breaks the fox colour options.
+- **Hard edges only.** Pencil, not brush; no anti-aliasing, no soft eraser.
+- **Keep the filenames.** New frames go on the end (`024.png`, `025.png` …).
+- Commit only those files, and tell Nicholas — he'll run the check.
+
 ### b. Close the `run` cycle
 `run` is the one clip with an actual animation problem: the last frame doesn't lead back
 into the first, so it hitches once every cycle. It's a fix to the last few frames rather

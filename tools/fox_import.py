@@ -635,6 +635,85 @@ def contact_sheet(images: list[np.ndarray], path: Path, cols: int = 8, cell: int
     sheet.save(path)
 
 
+def check_hand_finished(spec: dict, root: Path) -> dict:
+    """Check a clip the artist has cleaned up by hand, instead of regenerating it.
+
+    Once she has touched up a clip's game frames, those frames ARE the clip: re-running
+    the import would overwrite her work with a fresh shrink of the source. So a clip
+    marked "hand_finished" is never written. What this does instead is hold her edits to
+    the rules the game depends on, which are easy to break in a paint program without
+    noticing: the same canvas on every frame, only the fox's palette (the colour
+    options match its oranges exactly), hard-edged alpha, and feet that stay put.
+    """
+    name = spec["name"]
+    out_dir = Path(spec["out"])
+    if not out_dir.is_absolute():
+        out_dir = (root / out_dir).resolve()
+    paths = load_frames(out_dir)
+    frames = [np.array(Image.open(p).convert("RGBA")) for p in paths]
+
+    # The palette every fox clip shares, read off the size reference rather than listed.
+    reference = Path(root / "assets/fox/animations/v2" / SIZE_REFERENCE)
+    allowed: set = set()
+    for path in load_frames(reference):
+        image = np.array(Image.open(path).convert("RGBA"))
+        allowed |= {tuple(c) for c in image[..., :3][image[..., 3] >= ALPHA_CUTOFF]}
+
+    problems = []
+    sizes = {f.shape[1::-1] for f in frames}
+    if len(sizes) > 1:
+        problems.append(f"frames are different sizes {sorted(sizes)}; they must all match")
+    for path, frame in zip(paths, frames):
+        alpha = frame[..., 3]
+        soft = int(((alpha > 0) & (alpha < 255)).sum())
+        if soft:
+            problems.append(f"{path.name}: {soft} half-transparent pixels (edges must be hard)")
+        used = {tuple(c) for c in frame[..., :3][alpha >= ALPHA_CUTOFF]}
+        stray = used - allowed
+        if stray:
+            shown = ", ".join("#%02x%02x%02x" % c for c in sorted(stray)[:4])
+            problems.append(f"{path.name}: {len(stray)} colour(s) outside the fox palette ({shown})")
+
+    boxes = [b for b in (content_bbox(f) for f in frames) if b is not None]
+    anchor = (
+        round((min(b[0] for b in boxes) + max(b[2] for b in boxes)) / 2.0, 1),
+        float(max(b[3] for b in boxes)),
+    )
+    report = {
+        "name": name,
+        "source": str(out_dir),
+        "frames_in": len(frames),
+        "frames_out": len(frames),
+        "src_canvas": tuple(int(v) for v in frames[0].shape[1::-1]),
+        "crop": (0, 0, int(frames[0].shape[1]), int(frames[0].shape[0])),
+        "scale": 1.0,
+        "out_canvas": tuple(int(v) for v in frames[0].shape[1::-1]),
+        "palette": len(allowed),
+        "out_dir": str(out_dir),
+        "flip": False,
+        "anchor": anchor,
+        "area": float(np.mean([np.sqrt(drawn_area(f)) for f in frames])),
+        "hand_finished": True,
+        "problems": problems,
+    }
+    if spec.get("planted"):
+        report["foot_drift"] = foot_drift(frames)
+        if report["foot_drift"] > 1.0:
+            problems.append(f"the feet wander {report['foot_drift']:.0f}px across the clip")
+
+    print(f"[{name}] hand-finished: checked, not regenerated (--regenerate overrides)")
+    for problem in problems:
+        print(f"[{name}]   PROBLEM: {problem}")
+    if not problems:
+        print(f"[{name}]   all good")
+
+    sheets = root / "build" / "fox_sheets"
+    sheets.mkdir(parents=True, exist_ok=True)
+    contact_sheet(frames, sheets / f"{name}.png")
+    report["sheet"] = str(sheets / f"{name}.png")
+    return report
+
+
 def write_pack(reports: list[dict], manifest: dict, clips: list[dict], dest: Path) -> None:
     """Assemble a folder to hand back to the artist.
 
@@ -771,6 +850,11 @@ def main() -> None:
     parser.add_argument("--only", action="append", help="build just this clip (repeatable)")
     parser.add_argument("--dry-run", action="store_true", help="report without writing")
     parser.add_argument(
+        "--regenerate",
+        action="store_true",
+        help="rebuild hand_finished clips too, OVERWRITING the artist's cleanup",
+    )
+    parser.add_argument(
         "--pack",
         type=Path,
         nargs="?",
@@ -801,6 +885,9 @@ def main() -> None:
 
     reports = []
     for spec in clips:
+        if spec.get("hand_finished") and not args.regenerate:
+            reports.append(check_hand_finished(spec, root))
+            continue
         report = process_clip(spec, root, src_root=src_root, dry_run=args.dry_run)
         reports.append(report)
         arrow = "(dry run)" if args.dry_run else "->"

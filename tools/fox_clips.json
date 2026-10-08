@@ -24,6 +24,9 @@
     "'palette_map' folds stray source colours onto palette ones, e.g. a shade the",
     "  colour-options shader can't recolour.",
     "'src_in_repo' resolves 'src' against the repo root instead of src_root.",
+    "'hand_finished' means the artist has cleaned up the game frames themselves: the import",
+    "  never overwrites them, it checks them (canvas, palette, hard edges, feet) instead.",
+    "  --regenerate forces a rebuild and throws her cleanup away.",
     "",
     "stalk, pounce and play are cut out of ONE delivered animation, 'Fox Play 02', which",
     "contains a standing fox, a creep, a leap and a roll. They are placeholders in timing,",
@@ -91,6 +94,8 @@
       "loops": false,
       "_loops_note": "false while the game ping-pongs it (the tail doesn't close yet). Set true once the artist adds the bridge frames and fox_v2.gd plays it as a LOOP.",
       "planted": true,
+      "hand_finished": true,
+      "_hand_finished_note": "Handed to the artist 2026-10-08 to clean up the game frames directly. From here the frames in 'out' are the clip and the import only checks them; --regenerate would overwrite her work.",
       "palette_map": {"#ea9c74": "#d67941"},
       "pack_group": "shrunk",
       "cleanup": [
