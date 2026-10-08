@@ -66,7 +66,7 @@ four separate things the game needed. It's now four clips:
 
 | new clip | your frames | what it is |
 |---|---|---|
-| `idle` | 5–23 | the fox standing, blinking, tail moving |
+| ~~`idle`~~ | 5–23 | the fox standing — retired 2026-10-08, see §4a |
 | `stalk` | 61–99 (every 2nd) | the low creep |
 | `pounce` | 97–104 | the leap, stopping just before the paws land |
 | `play` | 125–151 | on its back, kicking the ball |
@@ -83,14 +83,25 @@ The cut points were chosen by measurement rather than by eye, so they're best gu
 Roughly in order, and **please don't take all of this at once** — the den items come first.
 Everything here is a "would be nice", not a blocker; the game runs on what it has.
 
-### a. A standing idle drawn as a **loop** — the big one
-The `idle` we cut out of `play` works, but it isn't a loop. It's a slice of a longer
-performance, so the last frame doesn't lead back into the first and it visibly jumps. The
-game currently hides that by playing it forwards and then backwards.
+### a. The standing idle — delivered 2026-10-08, one small fix left
+The new idle (head tilt, blink, tail swish) is in the game and looks lovely. Three notes:
 
-This is the pose the desktop pet holds most of the time, so it's the one most worth having
-properly. It would be the fox standing still, facing left, with something small and
-continuous: breathing, an ear flick, the tail.
+- **We used your full-size frames, not the resized ones.** Your resize wasn't wrong —
+  the size was spot on — but resizing is where the "TV static" and the twitching eyes
+  and feet come from, and the import script now shrinks in a way that avoids both. The
+  feet don't move by a single pixel in the game version. So: please keep sending full
+  size, and don't spend time resizing.
+- **The tail doesn't quite close the loop.** From frame 23 back to frame 1 the tail
+  jumps from low and swept back up to raised — about twice a normal step. The head is
+  fine. One or two in-between frames after 23, bringing the tail back up, would make it a
+  true loop. Until then the game plays it forwards then backwards, which works.
+- **One colour was swapped.** A pale orange (`#ea9c74`) is speckled through the fur. The
+  fox colour options only know the two body oranges, so on a recoloured fox those specks
+  would stay orange; the import turns them into the main orange. If the highlight is
+  something you want, tell us and we'll teach the colour options about it.
+
+Also: the resized folder had 45 frames where the full-size one has 23, numbered from 02.
+If there's a 46-frame full-size version, we'd love it — it would play smoother.
 
 > **What "a loop" means here, since it comes up a few times:** the game plays these over
 > and over with no gap, so the last frame has to lead straight back into the first. The

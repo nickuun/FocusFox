@@ -56,6 +56,14 @@ lands on three pixels wherever it starts — so the upscaled clips match the ref
 outline exactly rather than going lumpy. That only holds at x1.5; an arbitrary scale
 would give a mix of 2px and 3px and look chewed.
 
+--- Shrinking an animation without shimmer ("stabilise") ---------------------
+
+The smooth path is right for a still but shimmers on a generated animation, whose fur
+"boils": pixels that flip shade for one frame and back. Opt-in per clip, "stabilise"
+removes those blips at full size, shrinks by majority vote instead (always a palette
+colour, so nothing to snap), and cleans any speck that survives. See the functions
+under "Stabilised shrinking" for the measurements behind it.
+
 --- Usage --------------------------------------------------------------------
 
 Measure a folder and get a suggested scale (relative to `walk`, the size reference):
@@ -281,14 +289,176 @@ def snap_to_palette(rgb: np.ndarray, palette: np.ndarray) -> np.ndarray:
     return out.reshape(rgb.shape).astype(np.uint8)
 
 
+# --- Stabilised shrinking ---------------------------------------------------------
+#
+# The smooth-resample-then-snap path above is right for a single still, but on an
+# animation it shimmers. The generated source "boils": at full size a percent or two of
+# the fur pixels flip to a neighbouring shade for one frame and straight back. Invisible
+# at 1080p. Shrunk 4.5x, each blip tips a few output pixels across the snap threshold,
+# and the result reads as TV static over the fox, with features nudged a pixel either
+# way. Measured on the v2 idle: 274 one-frame blips per output frame by the smooth path,
+# 4 by this one, with the eyes, ears and feet tracking the source's true motion.
+#
+# Three steps, switched on per clip with "stabilise": true:
+#   1. temporal_despeckle   at full size, undo every one-frame blip.
+#   2. mode_downsample      each output pixel takes the commonest colour in its
+#                           footprint. Always a palette colour, so no snap, and a blip
+#                           has to win a vote rather than nudge an average.
+#   3. despeckle_specks     the same blip test on the output, limited to specks of a
+#                           few pixels so a real one-frame event (a blink) survives.
+
+
+def hex_to_rgb(text: str) -> tuple[int, int, int]:
+    text = text.lstrip("#")
+    return int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16)
+
+
+def apply_palette_map(images: list[np.ndarray], mapping: dict) -> None:
+    """Recolour stray source colours onto palette ones, in place.
+
+    For a colour the source uses that the game can't honour. The v2 idle carries a light
+    orange (#ea9c74) speckled through the fur that the colour-options shader doesn't
+    recognise, so on a recoloured fox it stays orange.
+    """
+    for src, dst in mapping.items():
+        s, d = hex_to_rgb(src), hex_to_rgb(dst)
+        for image in images:
+            hit = (image[:, :, :3] == s).all(axis=2)
+            image[hit, :3] = d
+
+
+def to_indexed(image: np.ndarray, palette: np.ndarray) -> np.ndarray:
+    """0 for transparent, 1..n for palette colours. Off-palette pixels go to the nearest."""
+    opaque = image[:, :, 3] >= ALPHA_CUTOFF
+    rgb = snap_to_palette(image[:, :, :3], palette).astype(np.int32)
+    index = np.zeros(image.shape[:2], dtype=np.int16)
+    for i, colour in enumerate(palette):
+        index[(rgb == colour).all(axis=2)] = i + 1
+    index[~opaque] = 0
+    return index
+
+
+def from_indexed(index: np.ndarray, palette: np.ndarray) -> np.ndarray:
+    lut = np.zeros((len(palette) + 1, 4), dtype=np.uint8)
+    lut[1:, :3] = palette
+    lut[1:, 3] = 255
+    return lut[index]
+
+
+def temporal_despeckle(frames: list[np.ndarray], cyclic: bool) -> list[np.ndarray]:
+    """Where a pixel's neighbours in time agree and it doesn't, give it theirs.
+
+    Only ever touches A-B-A. Steady motion (A-A-B, A-B-B, A-B-C) passes through
+    untouched, so this removes boil without smearing movement. `cyclic` treats the last
+    frame as next to the first, which is right for a loop and wrong for anything else.
+    """
+    n = len(frames)
+    out = []
+    for t in range(n):
+        if not cyclic and (t == 0 or t == n - 1):
+            out.append(frames[t].copy())
+            continue
+        before, after = frames[(t - 1) % n], frames[(t + 1) % n]
+        blip = (before == after) & (frames[t] != before)
+        fixed = frames[t].copy()
+        fixed[blip] = before[blip]
+        out.append(fixed)
+    return out
+
+
+# A transparent pixel has to win the footprint vote by this margin. Without it, outline
+# cells that straddle the edge go transparent about half the time and the 3px outline
+# thins and breaks.
+MODE_TRANSPARENT_WEIGHT = 0.85
+
+
+def mode_downsample(index: np.ndarray, out_w: int, out_h: int, colours: int) -> np.ndarray:
+    """Shrink an indexed frame by majority vote over each output pixel's footprint.
+
+    The footprint grid is fixed by the crop and the scale alone, so it is identical for
+    every frame of the clip: a part of the fox that holds still in the source holds
+    exactly still in the output.
+    """
+    h, w = index.shape
+    ys = np.minimum((np.arange(h) * out_h // h), out_h - 1)
+    xs = np.minimum((np.arange(w) * out_w // w), out_w - 1)
+    cell = (ys[:, None] * out_w + xs[None, :]).ravel()
+    votes = np.zeros((out_h * out_w, colours + 1), dtype=np.float32)
+    np.add.at(votes, (cell, index.ravel()), 1.0)
+    votes[:, 0] *= MODE_TRANSPARENT_WEIGHT
+    return votes.argmax(axis=1).reshape(out_h, out_w).astype(np.int16)
+
+
+def despeckle_specks(frames: list[np.ndarray], cyclic: bool, max_pixels: int = 3) -> list[np.ndarray]:
+    """The A-B-A fix again, on the output, but only for specks of `max_pixels` or fewer.
+
+    The size limit is what keeps genuine one-frame events: a blink or an ear flick is a
+    shape, a leftover boil pixel is a speck.
+    """
+    n = len(frames)
+    out = []
+    for t in range(n):
+        fixed = frames[t].copy()
+        if not cyclic and (t == 0 or t == n - 1):
+            out.append(fixed)
+            continue
+        before, after = frames[(t - 1) % n], frames[(t + 1) % n]
+        blip = (before == after) & (frames[t] != before)
+        seen = np.zeros_like(blip)
+        for y, x in zip(*np.nonzero(blip)):
+            if seen[y, x]:
+                continue
+            component, stack = [], [(y, x)]
+            seen[y, x] = True
+            while stack:
+                cy, cx = stack.pop()
+                component.append((cy, cx))
+                for ny in range(max(0, cy - 1), min(blip.shape[0], cy + 2)):
+                    for nx in range(max(0, cx - 1), min(blip.shape[1], cx + 2)):
+                        if blip[ny, nx] and not seen[ny, nx]:
+                            seen[ny, nx] = True
+                            stack.append((ny, nx))
+            if len(component) <= max_pixels:
+                for cy, cx in component:
+                    fixed[cy, cx] = before[cy, cx]
+        out.append(fixed)
+    return out
+
+
+def foot_drift(frames: list[np.ndarray]) -> float:
+    """How far the fox's lowest pixels wander over the clip, in output pixels.
+
+    The bottom edge and the left and right ends of the bottom three rows, frame by frame;
+    the drift is the largest spread of any of the three. For a clip where the feet are
+    planted ("planted": true in the manifest) anything over a pixel is a fault: it's the
+    fox sliding on the spot.
+    """
+    bottoms, lefts, rights = [], [], []
+    for frame in frames:
+        opaque = frame[:, :, 3] >= ALPHA_CUTOFF
+        rows = np.nonzero(opaque.any(axis=1))[0]
+        if len(rows) == 0:
+            continue
+        bottom = rows[-1]
+        cols = np.nonzero(opaque[max(0, bottom - 2) : bottom + 1].any(axis=0))[0]
+        bottoms.append(bottom)
+        lefts.append(cols[0])
+        rights.append(cols[-1])
+    if not bottoms:
+        return 0.0
+    return float(max(np.ptp(bottoms), np.ptp(lefts), np.ptp(rights)))
+
+
 def process_clip(spec: dict, root: Path, src_root: Path | None = None, dry_run: bool = False) -> dict:
     name = spec["name"]
     source = Path(spec["src"])
     if not source.is_absolute():
         # Clip sources are relative to the manifest's src_root — the folder the artist's
         # delivery was unpacked into. Keeping it in one place means a delivery that lands
-        # somewhere else only changes that one line.
-        source = ((src_root or root) / source).resolve()
+        # somewhere else only changes that one line. "src_in_repo" is for a delivery the
+        # artist pushed to the repo instead; that path is relative to the repo root.
+        base = root if spec.get("src_in_repo") else (src_root or root)
+        source = (base / source).resolve()
     if not source.is_dir():
         raise SystemExit(
             f"[{name}] source folder not found:\n  {source}\n"
@@ -324,6 +494,9 @@ def process_clip(spec: dict, root: Path, src_root: Path | None = None, dry_run: 
         for image in images:
             keep = largest_blob(image[:, :, 3] >= ALPHA_CUTOFF)
             image[~keep] = 0
+
+    if spec.get("palette_map"):
+        apply_palette_map(images, spec["palette_map"])
 
     # One rectangle for the whole clip: the union of every frame's drawn area. This is
     # what keeps the motion — crop each frame to its own content and the fox would be
@@ -372,11 +545,24 @@ def process_clip(spec: dict, root: Path, src_root: Path | None = None, dry_run: 
     for existing in out_dir.glob("*.png"):
         existing.unlink()
 
+    stabilise = bool(spec.get("stabilise")) and scale < 1.0
+    if stabilise:
+        # The whole clip at once, because both despeckle passes look at a frame's
+        # neighbours. "loops" says whether the last frame neighbours the first.
+        cyclic = bool(spec.get("loops", False))
+        indexed = [to_indexed(image[y0:y1, x0:x1], palette) for image in images]
+        indexed = temporal_despeckle(indexed, cyclic)
+        small = [mode_downsample(ix, out_w, out_h, len(palette)) for ix in indexed]
+        small = despeckle_specks(small, cyclic)
+        stabilised = [from_indexed(ix, palette) for ix in small]
+
     written = []
     for index, image in enumerate(images, start=1):
         cropped = image[y0:y1, x0:x1]
 
-        if scale >= 1.0:
+        if stabilise:
+            frame = Image.fromarray(stabilised[index - 1], "RGBA")
+        elif scale >= 1.0:
             # Growing (or unchanged): nearest, and nothing else. It is already exactly
             # the palette and exactly binary alpha, so there is nothing to fix up —
             # anything smoother would only introduce colours that have to be undone.
@@ -418,6 +604,15 @@ def process_clip(spec: dict, root: Path, src_root: Path | None = None, dry_run: 
     ay1 = max(b[3] for b in out_drawn)
     report["anchor"] = (round((ax0 + ax1) / 2.0, 1), float(ay1))
     report["area"] = float(np.mean([np.sqrt(drawn_area(im)) for im in written]))
+    if spec.get("planted"):
+        # Only for clips whose feet should stay put: in a walk the lowest pixels are
+        # meant to travel, so the number would just be noise.
+        report["foot_drift"] = foot_drift(written)
+    if report.get("foot_drift", 0.0) > 1.0:
+        print(
+            f"[{name}] WARNING: marked planted, but its lowest pixels wander "
+            f"{report['foot_drift']:.0f}px across the clip -- the fox slides on the spot."
+        )
 
     # Deliberately not next to the frames: anything under assets/ gets imported by Godot
     # as a game texture and shipped in the export. build/ is gitignored scratch.
@@ -474,7 +669,7 @@ def write_pack(reports: list[dict], manifest: dict, clips: list[dict], dest: Pat
         "",
     ]
 
-    order = {"reference": 0, "resized": 1, "cut": 2}
+    order = {"reference": 0, "resized": 1, "shrunk": 2, "cut": 3}
     grouped = sorted(reports, key=lambda r: order.get(by_name[r["name"]].get("pack_group", "cut"), 3))
 
     headings = {
@@ -483,6 +678,10 @@ def write_pack(reports: list[dict], manifest: dict, clips: list[dict], dest: Pat
         "resized": ("RESIZED -- worth a look, probably fine",
                     "These were drawn smaller than the rest, so they've been scaled up to match.\n"
                     "The scaling was exact (no blurring, no new colours), so they should be clean."),
+        "shrunk": ("SHRUNK FROM YOUR FULL-SIZE FRAMES -- new, worth a look",
+                   "Sent at full size and shrunk here, the way we'd like everything to arrive.\n"
+                   "The shrink also cleans up pixels that flicker for a single frame, which is\n"
+                   "what made the small version look like TV static."),
         "cut": ("CUT FROM 'FOX PLAY 02' -- these are the ones that need you",
                 "Your ball animation turned out to contain several poses the game was missing,\n"
                 "so it's been cut into separate clips. The cuts were made by measurement, not\n"
@@ -610,7 +809,12 @@ def main() -> None:
             f"{report['src_canvas'][0]}x{report['src_canvas'][1]} "
             f"crop{report['crop']} x{report['scale']} {arrow} "
             f"{report['out_canvas'][0]}x{report['out_canvas'][1]}"
-            + (f"  anchor {report['anchor']}  size {report['area']:.1f}" if "anchor" in report else "")
+            + (
+                f"  anchor {report['anchor']}  size {report['area']:.1f}"
+                + (f"  foot drift {report['foot_drift']:.0f}px" if "foot_drift" in report else "")
+                if "anchor" in report
+                else ""
+            )
         )
 
     if args.dry_run or not reports:

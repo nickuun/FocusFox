@@ -88,26 +88,33 @@ const CLIPS := {
 		"frames": 20, "fps": 18.0, "art_scale": 1.0,
 		"playback": Playback.LOOP, "anchor": Vector2(123.0, 191.0),
 	},
+	# The standing idle, drawn for the purpose: a head tilt, a blink, a tail swish. The
+	# pose the desktop pet holds most of the time. The head comes back to where it started
+	# but the tail doesn't quite (the wrap is 2.4x the average step, almost all of it
+	# tail), so it ping-pongs until the artist adds a bridge frame or two; then it should
+	# become LOOP, with "loops" flipped in the manifest to match.
+	#
+	# A blink every couple of seconds reads as nervous on a pet that idles for hours, so
+	# it rests on frame 1 for a while between swings ("rest", seconds, min and max).
+	"idle": {
+		"frames": 23, "fps": 12.0, "art_scale": 1.0,
+		"playback": Playback.PINGPONG, "anchor": Vector2(105.0, 187.0),
+		"rest": Vector2(2.0, 6.0),
+	},
 
 	# --- Cut out of the delivered "Fox Play 02" ------------------------------------
 	#
 	# Not separate deliveries: slices of one 151-frame animation of the fox playing with
-	# a ball, which happens to contain a standing fox, a creep, a leap and a roll — three
-	# of the poses the set was otherwise missing.
+	# a ball, which happens to contain a creep, a leap and a roll — poses the set was
+	# otherwise missing. (It contained a standing fox too, which stood in as the idle
+	# until a proper one was drawn.)
 	#
 	# What makes them placeholders is timing, not size. Being slices of one continuous
 	# performance, none of them close into a loop: measured against the average
-	# frame-to-frame change, the wrap from last frame to first is a 6.3x jump for idle,
-	# 2.5x for stalk and 5.1x for play, where walk manages 0.89x. Ping-pong hides it for
-	# the two that can take it. The real fix is clips animated as cycles.
+	# frame-to-frame change, the wrap from last frame to first is a 2.5x jump for stalk
+	# and 5.1x for play, where walk manages 0.89x. Ping-pong hides it for play. The real
+	# fix is clips animated as cycles.
 
-	# The nearest thing to a standing idle in the whole delivery, and the pose the desktop
-	# pet holds most of the time. Cut short of where the fox lifts a front paw and starts
-	# to step toward the ball — that reads as walking off, not as standing still.
-	"idle": {
-		"frames": 13, "fps": 12.0, "art_scale": 1.0,
-		"playback": Playback.PINGPONG, "anchor": Vector2(115.0, 181.0),
-	},
 	# A low creeping walk. Ping-pong is not an option — a gait played backwards is a
 	# moonwalk — so it loops with its hitch showing, and is not wired to any behaviour.
 	"stalk": {
@@ -158,6 +165,8 @@ const DESIGN_TO_PHYSICAL := 2.0
 
 var _clip := ""
 var _pingpong_reversing := false
+## Bumped on every clip change, so a rest timer that outlives its clip knows to do nothing.
+var _cycle := 0
 
 
 func _ready() -> void:
@@ -185,6 +194,7 @@ func play_clip(clip: String) -> void:
 	_ensure_frames()
 	_clip = clip
 	_pingpong_reversing = false
+	_cycle += 1
 	_apply_clip_transform(clip)
 	animation = clip
 	frame = 0
@@ -277,6 +287,13 @@ func _on_animation_finished() -> void:
 	_pingpong_reversing = not _pingpong_reversing
 	if _pingpong_reversing:
 		play_backwards(_clip)
+	elif CLIPS[_clip].has("rest") and is_inside_tree():
+		# Back on frame 1 with the swing done: hold there a while before the next one.
+		var rest: Vector2 = CLIPS[_clip]["rest"]
+		var cycle := _cycle
+		await get_tree().create_timer(randf_range(rest.x, rest.y)).timeout
+		if cycle == _cycle:
+			play(_clip)
 	else:
 		play(_clip)
 

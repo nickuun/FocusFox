@@ -17,10 +17,18 @@
     "'isolate' keeps only the largest connected shape, which drops the grey ball the artist's",
     "  fox layer carries -- but only in frames where the fox is not touching it.",
     "",
-    "The last four clips are all cut out of ONE delivered animation, 'Fox Play 02', which",
-    "contains a standing fox, a creep, a leap and a roll. Those cover three poses the set",
-    "was otherwise missing. They are placeholders in timing, not in size: being slices of a",
-    "continuous performance, none of them close into a loop."
+    "'stabilise' (shrinking only) swaps the smooth resample for one that doesn't shimmer:",
+    "  one-frame blips are removed at full size, each output pixel takes the commonest colour",
+    "  under it, and leftover specks are cleaned. 'loops' tells it the last frame is next to",
+    "  the first. 'planted' warns if the fox's lowest pixels wander, i.e. it slides.",
+    "'palette_map' folds stray source colours onto palette ones, e.g. a shade the",
+    "  colour-options shader can't recolour.",
+    "'src_in_repo' resolves 'src' against the repo root instead of src_root.",
+    "",
+    "stalk, pounce and play are cut out of ONE delivered animation, 'Fox Play 02', which",
+    "contains a standing fox, a creep, a leap and a roll. They are placeholders in timing,",
+    "not in size: being slices of a continuous performance, none of them close into a loop.",
+    "(idle used to be cut from it too, until a proper one was drawn.)"
   ],
   "src_root": "C:/Users/Nicholas/Downloads/New Animations",
   "clips": [
@@ -74,19 +82,21 @@
     },
     {
       "name": "idle",
-      "_note": "Fox standing, facing left, watching the ball roll in. The nearest thing to a standing idle in the whole delivery, and the pose the desktop pet holds most of the time. Stops at 17: past that the fox lifts a front paw and starts to step toward the ball, which is a different action, not idling.",
-      "src": "Fox Play 02-20260907T173739Z-1-001/Fox Play 02/Fox",
-      "start": 4,
-      "end": 17,
-      "step": 1,
-      "scale": 0.217,
+      "_note": "The standing idle drawn for the purpose (Idle V2, delivered 2026-10-08): head tilt, a blink, a tail swish. Replaces the slice of Fox Play 02 that stood in for it. Sourced from the full-size 'Big' export, not her hand-resized 'Small' one: shrinking here measured 2-4x less twitch in the eyes and ears and keeps the feet still, where Small slid them about 1.5px. 'stabilise' because the full-size source boils (fur pixels flip for one frame and back), which reads as static once shrunk. The light orange #ea9c74 speckled through the fur is not one the colour-options shader knows, so it is folded into the main body orange. Scale matches her Small export, which matches walk. The source sits in the repo because that is where she pushed it; the .gdignore beside it keeps Godot from importing 23 full-HD frames into the build.",
+      "src": "assets/fox/animations/v2/idle/Idle V2/Idle V2 Big",
+      "src_in_repo": true,
+      "scale": 0.222,
       "out": "assets/fox/animations/v2/idle",
-      "isolate": true,
-      "pack_group": "cut",
+      "stabilise": true,
+      "loops": false,
+      "_loops_note": "false while the game ping-pongs it (the tail doesn't close yet). Set true once the artist adds the bridge frames and fox_v2.gd plays it as a LOOP.",
+      "planted": true,
+      "palette_map": {"#ea9c74": "#d67941"},
+      "pack_group": "shrunk",
       "cleanup": [
-        "The fox standing, blinking, tail moving -- cut from where the ball rolls in.",
-        "THIS IS THE MOST VALUABLE ONE TO REDRAW PROPERLY. It's the pose the desktop pet holds most of the time, and right now it isn't a loop -- it's a slice of a longer performance, so it jumps when it repeats. The game currently hides that by playing it forwards then backwards.",
-        "A proper version would be the fox standing still, facing left, with something small and continuous: breathing, an ear flick, the tail. No stepping or paw-lifting -- we had to cut the end of this one off because the fox starts to walk."
+        "Your new idle -- the head tilt, the blink and the tail. Shrunk from the full-size frames you sent (the 'Big' folder) rather than your resized ones.",
+        "THE TAIL DOESN'T QUITE CLOSE THE LOOP: from the last frame back to the first, the tail jumps from low and swept right back up, about twice a normal step. One or two in-between tail frames after frame 23 would let it loop. Until then the game plays it forwards then backwards.",
+        "The pale orange (#ea9c74) in the fur has been changed to the main orange, because the fox colour options can't recolour it. If you want a highlight shade, tell us and we'll teach the colour options about it."
       ]
     },
     {
