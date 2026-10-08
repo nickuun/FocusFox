@@ -67,7 +67,7 @@ from PIL import Image
 
 # Only reductions that land a whole number of source pixels on one destination pixel.
 # See the header, and den_import.py's, for why an arbitrary scale is refused.
-CLEAN_SCALES = {1.0: "1", 0.5: "1/2", 1.0 / 3.0: "1/3", 0.25: "1/4"}
+CLEAN_SCALES = {1.0: "1", 0.5: "1/2", 1.0 / 3.0: "1/3", 0.25: "1/4", 0.1: "1/10"}
 SCALE_TOLERANCE = 1e-6
 
 # The wall band a hung find has to live in, from Den.WALL_TOP to Den.WALL_BOTTOM. Only

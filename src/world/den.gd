@@ -174,6 +174,7 @@ var _stack_next := 1
 ## floor band and saved with the layout, so a room arranged in depth stays arranged.
 ## Absent means the find has never been placed deliberately and uses FLOOR_Y.
 var _depth := {}
+var _contents := {}     # composite find id -> saved parts
 var _banner: Label
 
 
@@ -236,6 +237,7 @@ func reset_layout() -> void:
 	_stack.clear()
 	_stack_next = 1
 	_depth.clear()
+	_contents.clear()
 	if FileAccess.file_exists(PATH):
 		DirAccess.remove_absolute(PATH)
 	placement_changed.emit()
@@ -334,6 +336,8 @@ func restore_defaults() -> void:
 		var spot := Vector2(float(item["default_x"]), default_y)
 		_positions[id] = spot
 		(_items[id] as Node2D).call("drop_at", spot)
+		if _items[id] is WoolBasket:
+			(_items[id] as WoolBasket).tidy_contents()
 	_save()
 	placement_changed.emit()
 
@@ -347,6 +351,9 @@ func place(id: String, at: Vector2) -> void:
 	if item.is_empty():
 		return
 	var spot := _clamp_to_room(item, at)
+	# Taking the basket out of storage always starts with its wool neatly packed.
+	if bool(item.get("wool_basket", false)) and not _items.has(id):
+		_contents.erase(id)
 	_positions[id] = spot
 	_placed[id] = true
 	# Straight to the front of its band. Taking a picture out of the drawer and having it
@@ -370,10 +377,14 @@ func store(id: String) -> void:
 	if not _items.has(id):
 		return
 	var spr := _items[id] as Node2D
+	if spr is WoolBasket:
+		_contents[id] = (spr as WoolBasket).save_contents()
+		(spr as WoolBasket).stop_contents()
 	_placed[id] = false
 	_items.erase(id)
 	_interacting.erase(id)
 	_held.erase(id)
+	_held.erase(id + "/wool")
 	# The shadow goes at once rather than shrinking with the find: it belongs to the
 	# floor, and a shadow left under a departing item reads as a hole in it.
 	_free_shadow(id)
@@ -408,7 +419,7 @@ func _texture_for(item: Dictionary) -> Texture2D:
 		elif DenCatalog.is_animated(item):
 			_textures[id] = load(DenCatalog.first_frame(item))
 		else:
-			_textures[id] = load(item["texture"])
+			_textures[id] = load(item.get("icon", item["texture"]))
 	return _textures[id]
 
 
@@ -578,9 +589,15 @@ func _create_item(item: Dictionary, reveal: bool) -> void:
 	else:
 		var still := Sprite2D.new()
 		var tex := _texture_for(item)
+		if bool(item.get("wool_basket", false)):
+			tex = load(item["texture"])
 		size = tex.get_size() if tex != null else Vector2(48, 48)
 		still.texture = tex
-		still.set_script(THROWABLE)
+		if bool(item.get("wool_basket", false)):
+			still.set_script(preload("res://src/world/wool_basket.gd"))
+			(still as WoolBasket).restore_contents(_contents.get(id, {}))
+		else:
+			still.set_script(THROWABLE)
 		still.wall_mounted = wall
 		# Anchor at the base, so `position` is the bottom edge. Everything downstream —
 		# the floor line, the wall band, the saved spot — is then one comparable number
@@ -632,6 +649,13 @@ func _create_item(item: Dictionary, reveal: bool) -> void:
 	spr.grabbed.connect(_on_item_grabbed.bind(id))
 	spr.released.connect(_on_item_released.bind(id))
 	spr.settled.connect(_on_item_settled.bind(id))
+	if spr is WoolBasket:
+		var basket := spr as WoolBasket
+		basket.contents_grabbed.connect(func() -> void:
+			_held[id + "/wool"] = true
+			_raise(id))
+		basket.contents_released.connect(func() -> void: _held.erase(id + "/wool"))
+		basket.contents_changed.connect(_save)
 
 	if reveal:
 		_reveal(spr, item)
@@ -758,7 +782,12 @@ func _record_depth(id: String, at: Vector2) -> void:
 
 
 func _save() -> void:
+	for id in _items:
+		if _items[id] is WoolBasket:
+			_contents[id] = (_items[id] as WoolBasket).save_contents()
 	var cfg := ConfigFile.new()
+	for id in _contents:
+		cfg.set_value("contents", id, _contents[id])
 	cfg.set_value("meta", "layout_version", LAYOUT_VERSION)
 	# Only a find that has come to rest knows where it lives. A save can land in the
 	# middle of a fall — every settle triggers one, and finds dropped together don't land
@@ -785,6 +814,11 @@ func _load() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(PATH) != OK:
 		return
+	if cfg.has_section("contents"):
+		for id in cfg.get_section_keys("contents"):
+			var data = cfg.get_value("contents", id, {})
+			if data is Dictionary:
+				_contents[id] = data
 	# Version 1 recorded a find's *centre*, where 2 records its base. Version 2's
 	# numbers were measured against a floor line 61px lower than this room's, so
 	# keeping them would scatter everything into the wall.
