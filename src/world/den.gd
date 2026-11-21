@@ -100,9 +100,10 @@ const WALL_MARGIN_RIGHT := 240.0
 const WALL_BOTTOM := 340.0
 const WALL_TOP := 26.0
 
-## The two shelves painted into wide-background.png. They're room furniture rather
-## than finds, so nothing at runtime can derive them — these are the plank tops,
-## measured off the art.
+## The two shelves painted into the wallpaper. They're room furniture rather than
+## finds, so nothing at runtime can derive them — these are the plank tops, measured
+## off the art. Every wallpaper paints them in the same place (that's the room
+## template, tools/room_styles.json), so these hold whichever one is up.
 ##
 ## The upper one sits behind the menu's stats panel (y 9-81), so whatever you stand on
 ## it is only visible from inside the den. That's a composition call to make with the
@@ -153,6 +154,14 @@ var room_width := 960.0
 
 ## Fires whenever what's out in the room changes, so the drawer can restate itself.
 signal placement_changed
+
+## Fires when the wallpaper or floor changes. world.gd draws them, so it listens.
+signal room_style_changed
+
+## The room's wallpaper and floor, as RoomCatalog ids. Saved with the layout: they're
+## the player's arrangement of the den as much as where the finds stand.
+var wall_id := RoomCatalog.DEFAULT_WALL
+var floor_id := RoomCatalog.DEFAULT_FLOOR
 
 ## Hit test for the drawer, handed over by world.gd. A find let go over the open
 ## drawer goes back into it.
@@ -238,9 +247,26 @@ func reset_layout() -> void:
 	_stack_next = 1
 	_depth.clear()
 	_contents.clear()
+	wall_id = RoomCatalog.DEFAULT_WALL
+	floor_id = RoomCatalog.DEFAULT_FLOOR
 	if FileAccess.file_exists(PATH):
 		DirAccess.remove_absolute(PATH)
 	placement_changed.emit()
+	room_style_changed.emit()
+
+
+## Change the wallpaper and floor. An id the catalog doesn't know is replaced by the
+## default rather than kept, so what's saved is always something that can be drawn.
+## Tidy Up leaves these alone: it straightens the finds, it doesn't redecorate.
+func set_room_style(wall: String, floor_style: String) -> void:
+	var w: String = RoomCatalog.wall(wall).get("id", RoomCatalog.DEFAULT_WALL)
+	var f: String = RoomCatalog.floor(floor_style).get("id", RoomCatalog.DEFAULT_FLOOR)
+	if w == wall_id and f == floor_id:
+		return
+	wall_id = w
+	floor_id = f
+	_save()
+	room_style_changed.emit()
 
 
 # --- Drawer API ------------------------------------------------------------
@@ -789,6 +815,8 @@ func _save() -> void:
 	for id in _contents:
 		cfg.set_value("contents", id, _contents[id])
 	cfg.set_value("meta", "layout_version", LAYOUT_VERSION)
+	cfg.set_value("room", "wall", wall_id)
+	cfg.set_value("room", "floor", floor_id)
 	# Only a find that has come to rest knows where it lives. A save can land in the
 	# middle of a fall — every settle triggers one, and finds dropped together don't land
 	# together — so syncing unconditionally wrote whatever mid-air y a find happened to
@@ -814,6 +842,10 @@ func _load() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(PATH) != OK:
 		return
+	# Outside the layout-version gate: a wallpaper means the same thing whatever the
+	# floor line was. Run through the catalog so a dropped wallpaper falls back cleanly.
+	wall_id = RoomCatalog.wall(str(cfg.get_value("room", "wall", wall_id))).get("id", RoomCatalog.DEFAULT_WALL)
+	floor_id = RoomCatalog.floor(str(cfg.get_value("room", "floor", floor_id))).get("id", RoomCatalog.DEFAULT_FLOOR)
 	if cfg.has_section("contents"):
 		for id in cfg.get_section_keys("contents"):
 			var data = cfg.get_value("contents", id, {})

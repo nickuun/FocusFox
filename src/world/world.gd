@@ -78,6 +78,8 @@ const CLOCK_DIAL_INTRO_START_SCALE := 0.08
 ## the stats panel and the button row stay pinned where they were composed.
 @onready var _room: Node2D = $MenuLayer/MainMenu/Room
 @onready var _background: Sprite2D = $MenuLayer/MainMenu/Room/Background
+## The floor, drawn over the wallpaper and cut to the floor outline. Made in _setup_den.
+var _floor: Sprite2D
 @onready var _title: Sprite2D = $MenuLayer/MainMenu/Title
 @onready var _stats_today_value: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/TodayValue
 @onready var _stats_week_value: Label = $MenuLayer/MainMenu/MainmenuStatsPanel/WeekValue
@@ -550,9 +552,20 @@ func _setup_dialogs() -> void:
 
 
 func _setup_den() -> void:
+	# The wallpaper is the Background sprite; the floor goes straight on top of it, with
+	# the same placement, so the two read as one picture.
+	_floor = Sprite2D.new()
+	_floor.name = "Floor"
+	_floor.position = _background.position
+	_floor.scale = _background.scale
+	_room.add_child(_floor)
+	_room.move_child(_floor, _background.get_index() + 1)
+
 	_den = Den.new()
 	_den.name = "Den"
 	_room.add_child(_den)
+	_apply_room_style()
+	_den.room_style_changed.connect(_apply_room_style)
 	# The drawer is where finds come from and where they go back to, so the two
 	# only ever talk through these three wires.
 	_den.room_width = _room_width()
@@ -692,6 +705,16 @@ func _apply_den_dim(full: bool) -> void:
 # with no fox in it. Deliberate — the fox has a place in its den rather than tracking the
 # camera. The pinned chrome (stats panel, buttons, labels) lands where it was drawn
 # regardless, so only the backdrop changes.
+
+## Puts the den's chosen wallpaper and floor up.
+func _apply_room_style() -> void:
+	var wall := RoomCatalog.wall(_den.wall_id)
+	var floor_style := RoomCatalog.floor(_den.floor_id)
+	if not wall.is_empty():
+		_background.texture = load(wall["texture"])
+	if not floor_style.is_empty():
+		_floor.texture = load(floor_style["texture"])
+
 
 func _room_width() -> float:
 	return _background.texture.get_width() * _background.scale.x
@@ -1510,11 +1533,11 @@ func _play_intro() -> void:
 		if child == _title or child == _room:
 			continue
 		fade_targets.append(child)
-	# The room is skipped as a whole and unpacked instead, because the background is
-	# inside it now and is the one thing that must not fade — fading the room would take
+	# The room is skipped as a whole and unpacked instead, because the background (wall
+	# and floor) is inside it now and is the one thing that must not fade — fading the room would take
 	# the backdrop with it and the intro would open on nothing.
 	for child in _room.get_children():
-		if child != _background:
+		if child != _background and child != _floor:
 			fade_targets.append(child)
 	fade_targets.append(_journal_icon)
 	fade_targets.append(_den_inventory)

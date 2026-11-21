@@ -206,9 +206,10 @@ var _den_detail_art: TextureRect
 var _den_detail_name: Label
 var _den_detail_when: Label
 var _den_detail_where: Label
-var _den_room_text: Label
 var _den_tidy_button: Panel
 var _den_tidy_hint: Label
+var _den_wall_name: Label
+var _den_floor_name: Label
 
 # Achievements page widgets
 var _ach_order: Array = []      # flat list of ids, grid order
@@ -1415,19 +1416,66 @@ func _build_den_room_panel(page: Control) -> void:
 	var panel := _panel(page, Vector2(RIGHT_PAGE.position.x + 4, RIGHT_PAGE.position.y + 320),
 		PANEL_MEDIUM.get_size(), PANEL_MEDIUM, PANEL_MEDIUM_MARGINS)
 	_lbl(panel, "The Room", 16, 5, 160, 22, 15, INK)
-	_den_room_text = _lbl(panel, "", 16, 34, PANEL_MEDIUM.get_width() - 32, 20, 13, INK_SOFT)
+	_den_tidy_hint = _lbl(panel, "", 92, 8, 92, 20, 12, INK_FAINT)
 
 	_den_tidy_button = Panel.new()
-	_den_tidy_button.position = Vector2(16, 58)
-	_den_tidy_button.size = Vector2(110, 24)
+	_den_tidy_button.position = Vector2(197, 6)
+	_den_tidy_button.size = Vector2(100, 22)
 	_den_tidy_button.add_theme_stylebox_override("panel", _flat(PAW, 6))
 	_den_tidy_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_den_tidy_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_den_tidy_button.gui_input.connect(_on_tidy_input)
 	panel.add_child(_den_tidy_button)
-	_lbl(_den_tidy_button, "Tidy up", 0, 2, 110, 20, 14, Color(1, 0.97, 0.92),
+	_lbl(_den_tidy_button, "Tidy up", 0, 1, 100, 20, 14, Color(1, 0.97, 0.92),
 		HORIZONTAL_ALIGNMENT_CENTER)
-	_den_tidy_hint = _lbl(panel, "", 134, 60, PANEL_MEDIUM.get_width() - 150, 20, 12, INK_FAINT)
+
+	# Wallpaper and floor, each a ‹ name › cycler: the whole catalog is a couple of dozen
+	# entries, few enough to step through, and it needs no art of its own to work.
+	_den_wall_name = _room_cycler(panel, "Wall", 36, _step_den_wall)
+	_den_floor_name = _room_cycler(panel, "Floor", 60, _step_den_floor)
+
+
+## One "Label  ‹ name ›" row. Returns the name label for _refresh_den to fill.
+func _room_cycler(panel: Control, title: String, y: float, handler: Callable) -> Label:
+	_lbl(panel, title, 16, y, 56, 20, 13, INK_SOFT)
+	var name_label := _lbl(panel, "", 96, y, 178, 20, 14, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	for side in [[-1, 74, "‹"], [1, 274, "›"]]:
+		var btn := Control.new()
+		btn.position = Vector2(side[1], y - 2)
+		btn.size = Vector2(24, 24)
+		btn.mouse_filter = Control.MOUSE_FILTER_STOP
+		btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		var step: int = side[0]
+		btn.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT 					and event.pressed:
+				handler.call(step))
+		panel.add_child(btn)
+		_lbl(btn, side[2], 0, 0, 24, 22, 20, PAW, HORIZONTAL_ALIGNMENT_CENTER)
+	return name_label
+
+
+func _step_den_wall(step: int) -> void:
+	if _den == null:
+		return
+	_den.set_room_style(_cycle_room_id(RoomCatalog.WALLS, _den.wall_id, step), _den.floor_id)
+	Audio.play("open", 1.25)
+	_refresh_den()
+
+
+func _step_den_floor(step: int) -> void:
+	if _den == null:
+		return
+	_den.set_room_style(_den.wall_id, _cycle_room_id(RoomCatalog.FLOORS, _den.floor_id, step))
+	Audio.play("open", 1.25)
+	_refresh_den()
+
+
+func _cycle_room_id(list: Array, current: String, step: int) -> String:
+	var index := 0
+	for i in list.size():
+		if list[i]["id"] == current:
+			index = i
+	return list[wrapi(index + step, 0, list.size())]["id"]
 
 
 ## Which slice of the ladder is on screen — the page holding the selection, so
@@ -1464,7 +1512,7 @@ func _on_tidy_input(event: InputEvent) -> void:
 		return
 	_den.restore_defaults()
 	Audio.play("drop")
-	_den_tidy_hint.text = "Everything's back where it started."
+	_den_tidy_hint.text = "All tidied!"
 
 
 ## Pixel art shrunk by an arbitrary factor drops rows unevenly, so the detail art picks
@@ -1489,10 +1537,11 @@ func _refresh_den() -> void:
 	var entries: Array = _den.ladder(_stats.total_focus())
 	_den_selected = clampi(_den_selected, 0, maxi(0, entries.size() - 1))
 
-	# Just the count here — how it splits between room and drawer is the Room panel's
-	# line, and saying it twice on one spread reads as a mistake.
+	# Found, and how many of those are out: the Room panel's space went to the
+	# wallpaper and floor, so the split between room and drawer lives here now.
 	var found := _den.found_count()
-	_den_subtitle.text = "%d of %d found" % [found, entries.size()]
+	_den_subtitle.text = "%d of %d found · %d out on display" % [
+		found, entries.size(), _den.placed_count()]
 	_den_empty.text = "" if found > 0 else \
 		"Nothing yet. Your fox brings something home for every half hour you focus."
 
@@ -1503,9 +1552,8 @@ func _refresh_den() -> void:
 	_refresh_den_detail(entries)
 	_fill_find_panel(_den_find_widgets, _stats.total_focus())
 
-	var out := _den.placed_count()
-	_den_room_text.text = "%d %s out on display, %d in the drawer." % [
-		out, "find" if out == 1 else "finds", maxi(0, found - out)]
+	_den_wall_name.text = RoomCatalog.wall(_den.wall_id).get("label", "")
+	_den_floor_name.text = RoomCatalog.floor(_den.floor_id).get("label", "")
 
 
 func _paint_den_row(row: Dictionary, entries: Array, index: int) -> void:
