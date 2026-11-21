@@ -98,9 +98,6 @@ var _pounce_start := Vector2.ZERO
 var _pounce_target := Vector2.ZERO
 var _pounce_peak := 0.0
 
-## Which art the fox is drawn in: "classic" (the 32px sheet) or "drawn" (the
-## hand-drawn set). Pushed onto every fox alongside the palette, since both are
-## cosmetic settings the player owns. See planetoid.gd on why the two differ in size.
 ## Physical pixels per design unit inside the launcher window. The overlay windows have
 ## no equivalent, so this is the factor between the two — see _fox_preview_scale().
 const OVERLAY_PIXEL_SCALE := 2.0
@@ -112,7 +109,10 @@ const STYLE_SIZE_STEP := {
 	"drawn": 1.0,
 }
 
-var fox_style := "classic"
+## Which art the fox is drawn in: "drawn" (the hand-drawn set, the default) or
+## "classic" (the 32px sheet). Pushed onto every fox alongside the palette, since both
+## are cosmetic settings the player owns. See planetoid.gd on why the two differ in size.
+var fox_style := "drawn"
 
 var fox_palette := "default"
 var _palettes := {

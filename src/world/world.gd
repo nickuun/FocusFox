@@ -590,7 +590,7 @@ func _configure_desktop_fox() -> void:
 	_desktop_fox.sit_height = 48.0  # feet rest above the screen bottom; clears a taskbar
 	_desktop_fox.body_speed_multiplier = 1.0
 	_desktop_fox.fox_palette = "default"
-	_desktop_fox.fox_style = "classic"
+	_desktop_fox.fox_style = "drawn"
 
 
 # --- The revamped fox in the room -------------------------------------------
@@ -1229,7 +1229,7 @@ func _save_settings() -> void:
 	cfg.set_value("fox", "opacity", _desktop_fox.fox_opacity)
 	cfg.set_value("fox", "liveliness", _desktop_fox.body_speed_multiplier)
 	cfg.set_value("fox", "palette", _desktop_fox.fox_palette)
-	cfg.set_value("fox", "style", _desktop_fox.fox_style)
+	cfg.set_value("fox", "art", _desktop_fox.fox_style)
 	cfg.set_value("behaviour", "sit_height", _desktop_fox.sit_height)
 	cfg.set_value("pomodoro", "focus", _session_minutes["focus"])
 	cfg.set_value("pomodoro", "short", _session_minutes["short"])
@@ -1253,7 +1253,10 @@ func _load_settings() -> void:
 	_desktop_fox.fox_opacity = float(cfg.get_value("fox", "opacity", _desktop_fox.fox_opacity))
 	_desktop_fox.body_speed_multiplier = float(cfg.get_value("fox", "liveliness", _desktop_fox.body_speed_multiplier))
 	_desktop_fox.fox_palette = str(cfg.get_value("fox", "palette", _desktop_fox.fox_palette))
-	_desktop_fox.fox_style = str(cfg.get_value("fox", "style", _desktop_fox.fox_style))
+	# "art", not the old "style" key: the save always wrote the style, so every earlier
+	# install has "classic" stored without anyone having chosen it. A new key moves them
+	# all onto the drawn fox once; a choice made after that sticks.
+	_desktop_fox.fox_style = str(cfg.get_value("fox", "art", _desktop_fox.fox_style))
 	_desktop_fox.sit_height = float(cfg.get_value("behaviour", "sit_height", _desktop_fox.sit_height))
 	for id in _session_minutes:
 		_session_minutes[id] = float(cfg.get_value("pomodoro", id, _session_minutes[id]))
