@@ -111,9 +111,9 @@ If there's a 46-frame full-size version, we'd love it — it would play smoother
 
 ### a2. The tail-swish idle (`idle_02`) — delivered 2026-11-21, in the game
 
-The tail lift and curl. It's a second idle, not a replacement: the fox mostly plays the
-first one, and now and then does the tail swish instead (roughly one rest in three).
-Both start and end on the same standing pose, so they hand over cleanly.
+The tail lift and curl. **This is now the fox's standing idle**: whenever the fox is
+standing still, it plays this on a continuous loop. The first idle (head tilt and blink)
+is still in the repo but isn't on screen at the moment.
 
 - **Sent at full size, exactly as asked**, and the same size as the first idle, so it
   shrank to match with no adjustment. It **loops properly** too: the last frame leads
@@ -122,8 +122,8 @@ Both start and end on the same standing pose, so they hand over cleanly.
   a `.gdignore` that keeps them out of the game build. The game-size frames are
   `idle_02/001.png` … `027.png`.
 - **One question:** the outline and legs here are a lighter grey (`#3b3b39`) than in the
-  first idle (`#2f2f2e`). Since the game switches between the two, the legs change shade
-  when it does. Whichever you prefer is fine — just make the two idles match.
+  first idle (`#2f2f2e`). Not urgent while only this idle is on screen, but worth
+  settling on one grey so the two match if both come back.
 - **For the cleanup:** the back paw's toe tip shifts by a few pixels between frames
   (most visible in frames 2–3). Your full-size feet don't move at all; it's from the
   shrink, and it's quickest to fix at game size.

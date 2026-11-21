@@ -106,7 +106,7 @@
     },
     {
       "name": "idle_02",
-      "_note": "Second standing idle (delivered 2026-11-21): the tail lifts, curls up and settles; head and feet still. Not a replacement for idle but a variant of it -- fox_v2.gd plays it now and then in place of idle's next swing, starting and ending on the shared standing pose. Same full-size export as Idle V2 Big, and the probe suggests 0.2220 against walk, so the same scale as idle. Already the seven-colour palette (no #ea9c74). Its ends meet (the wrap is about 1.35x the mean step, inside the range of its own steps), so 'loops' is true. The source was moved into source/ beside a .gdignore, so Godot doesn't import 27 full-HD frames into the build. NOT hand_finished yet: mark it once the artist starts cleaning the game frames.",
+      "_note": "Second standing idle (delivered 2026-11-21): the tail lifts, curls up and settles; head and feet still. The standing idle on screen: the planetoid maps its idle state to it and fox_v2.gd loops it with no rest. The first idle is kept but unused. Same full-size export as Idle V2 Big, and the probe suggests 0.2220 against walk, so the same scale as idle. Already the seven-colour palette (no #ea9c74). Its ends meet (the wrap is about 1.35x the mean step, inside the range of its own steps), so 'loops' is true. The source was moved into source/ beside a .gdignore, so Godot doesn't import 27 full-HD frames into the build. NOT hand_finished yet: mark it once the artist starts cleaning the game frames.",
       "src": "assets/fox/animations/v2/idle_02/source",
       "src_in_repo": true,
       "scale": 0.222,
