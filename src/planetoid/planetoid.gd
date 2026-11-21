@@ -48,7 +48,7 @@ const ANIMS := {
 ## Which drawn clip stands in for each animation state. An empty string means the drawn
 ## set has nothing for it and the fox should hold whatever it was doing.
 const DRAWN_CLIP := {
-	"idle": "idle_02",  # Kayleigh's tail-swish idle, looping; FoxV2 "idle" is the older one
+	"idle": "idle_02",  # Kayleigh's tail-swish idle, looping
 	"idle_look": "",
 	"trot": "walk",
 	"pounce": "pounce",

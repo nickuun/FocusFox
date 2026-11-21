@@ -88,24 +88,11 @@ const CLIPS := {
 		"frames": 20, "fps": 18.0, "art_scale": 1.0,
 		"playback": Playback.LOOP, "anchor": Vector2(123.0, 191.0),
 	},
-	# The standing idle, drawn for the purpose: a head tilt, a blink, a tail swish. The
-	# pose the desktop pet holds most of the time. The head comes back to where it started
-	# but the tail doesn't quite (the wrap is 2.4x the average step, almost all of it
-	# tail), so it ping-pongs until the artist adds a bridge frame or two; then it should
-	# become LOOP, with "loops" flipped in the manifest to match.
-	#
-	# A blink every couple of seconds reads as nervous on a pet that idles for hours, so
-	# it rests on frame 1 for a while between swings ("rest", seconds, min and max).
-	# Not currently on screen: the planetoid's standing idle plays idle_02 instead.
-	"idle": {
-		"frames": 23, "fps": 12.0, "art_scale": 1.0,
-		"playback": Playback.PINGPONG, "anchor": Vector2(105.0, 187.0),
-		"rest": Vector2(2.0, 6.0),
-	},
-	# The second standing idle (delivered 2026-11-21) and the one the fox stands in: the
-	# tail lifts, curls up and settles, head and feet still. Its ends meet (the wrap is
-	# about 1.35x the mean step, inside the range of its own steps), so it plays as a
-	# straight loop with no rest.
+	# The standing idle (delivered 2026-11-21), the pose the desktop pet holds most of the
+	# time: the tail lifts, curls up and settles, head and feet still. Its ends meet (the
+	# wrap is about 1.35x the mean step, inside the range of its own steps), so it plays as
+	# a straight loop with no rest. It replaced the first drawn idle (head tilt, blink,
+	# tail), whose head tilt is being redone on this body in assets/.../v2/head_tilt.
 	"idle_02": {
 		"frames": 27, "fps": 12.0, "art_scale": 1.0,
 		"playback": Playback.LOOP, "anchor": Vector2(107.0, 184.0),

@@ -885,7 +885,8 @@ def main() -> None:
 
     reports = []
     for spec in clips:
-        if spec.get("hand_finished") and not args.regenerate:
+        # No "src" means hand-made at game size: there is nothing to rebuild it from.
+        if spec.get("hand_finished") and (not args.regenerate or "src" not in spec):
             reports.append(check_hand_finished(spec, root))
             continue
         report = process_clip(spec, root, src_root=src_root, dry_run=args.dry_run)

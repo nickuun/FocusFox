@@ -31,7 +31,10 @@
     "stalk, pounce and play are cut out of ONE delivered animation, 'Fox Play 02', which",
     "contains a standing fox, a creep, a leap and a roll. They are placeholders in timing,",
     "not in size: being slices of a continuous performance, none of them close into a loop.",
-    "(idle used to be cut from it too, until a proper one was drawn.)"
+    "(idle used to be cut from it too, until a proper one was drawn.)",
+    "",
+    "A hand_finished clip with no 'src' (head_tilt) has nothing to regenerate from, so it is",
+    "only ever checked, --regenerate included."
   ],
   "src_root": "C:/Users/Nicholas/Downloads/New Animations",
   "clips": [
@@ -84,29 +87,10 @@
       ]
     },
     {
-      "name": "idle",
-      "_note": "The standing idle drawn for the purpose (Idle V2, delivered 2026-10-08): head tilt, a blink, a tail swish. Replaces the slice of Fox Play 02 that stood in for it. Sourced from the full-size 'Big' export, not her hand-resized 'Small' one: shrinking here measured 2-4x less twitch in the eyes and ears and keeps the feet still, where Small slid them about 1.5px. 'stabilise' because the full-size source boils (fur pixels flip for one frame and back), which reads as static once shrunk. The light orange #ea9c74 speckled through the fur is not one the colour-options shader knows, so it is folded into the main body orange. Scale matches her Small export, which matches walk. The source sits in the repo because that is where she pushed it; the .gdignore beside it keeps Godot from importing 23 full-HD frames into the build.",
-      "src": "assets/fox/animations/v2/idle/Idle V2/Idle V2 Big",
-      "src_in_repo": true,
-      "scale": 0.222,
-      "out": "assets/fox/animations/v2/idle",
-      "stabilise": true,
-      "loops": false,
-      "_loops_note": "false while the game ping-pongs it (the tail doesn't close yet). Set true once the artist adds the bridge frames and fox_v2.gd plays it as a LOOP.",
-      "planted": true,
-      "hand_finished": true,
-      "_hand_finished_note": "Handed to the artist 2026-10-08 to clean up the game frames directly. From here the frames in 'out' are the clip and the import only checks them; --regenerate would overwrite her work.",
-      "palette_map": {"#ea9c74": "#d67941"},
-      "pack_group": "shrunk",
-      "cleanup": [
-        "Your new idle -- the head tilt, the blink and the tail. Shrunk from the full-size frames you sent (the 'Big' folder) rather than your resized ones.",
-        "THE TAIL DOESN'T QUITE CLOSE THE LOOP: from the last frame back to the first, the tail jumps from low and swept right back up, about twice a normal step. One or two in-between tail frames after frame 23 would let it loop. Until then the game plays it forwards then backwards.",
-        "The pale orange (#ea9c74) in the fur has been changed to the main orange, because the fox colour options can't recolour it. If you want a highlight shade, tell us and we'll teach the colour options about it."
-      ]
-    },
-    {
       "name": "idle_02",
-      "_note": "Second standing idle (delivered 2026-11-21): the tail lifts, curls up and settles; head and feet still. The standing idle on screen: the planetoid maps its idle state to it and fox_v2.gd loops it with no rest. The first idle is kept but unused. Same full-size export as Idle V2 Big, and the probe suggests 0.2220 against walk, so the same scale as idle. Already the seven-colour palette (no #ea9c74). Its ends meet (the wrap is about 1.35x the mean step, inside the range of its own steps), so 'loops' is true. The source was moved into source/ beside a .gdignore, so Godot doesn't import 27 full-HD frames into the build. NOT hand_finished yet: mark it once the artist starts cleaning the game frames.",
+      "_note": "The standing idle (delivered 2026-11-21): the tail lifts, curls up and settles; head and feet still. The planetoid maps its idle state to it and fox_v2.gd loops it with no rest. It replaced the first drawn idle (Idle V2, 2026-10-08), which was retired 2026-11-21; that clip's head tilt lives on in head_tilt. Same full-size export as Idle V2 Big, and the probe suggests 0.2220 against walk. Already the seven-colour palette (no #ea9c74). Its ends meet (the wrap is about 1.35x the mean step, inside the range of its own steps), so 'loops' is true. The source was moved into source/ beside a .gdignore, so Godot doesn't import 27 full-HD frames into the build.",
+      "hand_finished": true,
+      "_hand_finished_note": "Handed to the artist 2026-11-21 to clean up at game size. The frames in 'out' are the clip; the import only checks them, and --regenerate would overwrite her work.",
       "src": "assets/fox/animations/v2/idle_02/source",
       "src_in_repo": true,
       "scale": 0.222,
@@ -118,7 +102,21 @@
       "cleanup": [
         "Your tail-swish idle. Shrunk from your full-size frames the same way as the first idle, and it's the same size.",
         "It loops properly -- the last frame leads straight back into the first. Thank you!",
-        "The outline and legs are a slightly lighter grey here (#3b3b39) than in the first idle (#2f2f2e). The game switches between the two idles, so the legs change shade when it does. Was that on purpose?"
+        "The back paw's toe tip shifts by a few pixels between frames (most visible in 2-3): it comes from the shrink, not your drawing, and is quickest to fix here."
+      ]
+    },
+    {
+      "name": "head_tilt",
+      "_note": "STARTER, not finished art (made 2026-11-21). The head tilt and blink from the retired first idle (Idle V2), pasted onto idle_02 frame 1's body and tail, so the tail holds still and the clip starts and ends on the standing pose. Each Idle V2 game frame was placed at idle_02's anchor, the head above a cut along the chin (row 101, rising to row 88 across the back of the neck at x 80-100) taken from it and everything else from idle_02 frame 1, and #2f2f2e recoloured to #3b3b39 to match her new outline grey. The artist works on these game-size frames directly. There is no source to regenerate from (her Idle V2 originals are in source/ for reference), so the import only ever checks it, --regenerate included. Not wired into the game yet: it is meant as the drawn fox's occasional glance, planetoid's idle_look.",
+      "out": "assets/fox/animations/v2/head_tilt",
+      "planted": true,
+      "hand_finished": true,
+      "pack_group": "starter",
+      "cleanup": [
+        "A starting point for the head tilt: your head tilt and blink from the first idle, put onto the new idle's body, with the tail held still. Recoloured to your new outline grey.",
+        "THE NECK SEAM: the head was pasted on along the chin, so under the chin there's a stray orange pixel or two and the chin outline breaks in some frames. A few minutes with the pencil.",
+        "The ear tips: in the new idle you kept a little of the old darker grey (#2f2f2e) at the very tips of the ears; these use the lighter grey throughout. Match whichever you prefer.",
+        "Frame 1 and the last frame should look exactly like the new idle's frame 1, since this plays in from and back out to it. Frame 1 is close but not exact (it's the old head)."
       ]
     },
     {

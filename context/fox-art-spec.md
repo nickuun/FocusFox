@@ -83,25 +83,10 @@ The cut points were chosen by measurement rather than by eye, so they're best gu
 Roughly in order, and **please don't take all of this at once** — the den items come first.
 Everything here is a "would be nice", not a blocker; the game runs on what it has.
 
-### a. The standing idle — delivered 2026-10-08, one small fix left
-The new idle (head tilt, blink, tail swish) is in the game and looks lovely. Three notes:
-
-- **We used your full-size frames, not the resized ones.** Your resize wasn't wrong —
-  the size was spot on — but resizing is where the "TV static" and the twitching eyes
-  and feet come from, and the import script now shrinks in a way that avoids both. The
-  feet don't move by a single pixel in the game version. So: please keep sending full
-  size, and don't spend time resizing.
-- **The tail doesn't quite close the loop.** From frame 23 back to frame 1 the tail
-  jumps from low and swept back up to raised — about twice a normal step. The head is
-  fine. One or two in-between frames after 23, bringing the tail back up, would make it a
-  true loop. Until then the game plays it forwards then backwards, which works.
-- **One colour was swapped.** A pale orange (`#ea9c74`) is speckled through the fur. The
-  fox colour options only know the two body oranges, so on a recoloured fox those specks
-  would stay orange; the import turns them into the main orange. If the highlight is
-  something you want, tell us and we'll teach the colour options about it.
-
-Also: the resized folder had 45 frames where the full-size one has 23, numbered from 02.
-If there's a 46-frame full-size version, we'd love it — it would play smoother.
+### a. The first idle (`Idle V2`, 2026-10-08) — retired 2026-11-21
+Replaced by the tail-swish idle below, so its cleanup is no longer needed. Its head
+tilt and blink live on as the starting point for the head tilt (§a3). Your full-size
+frames for it moved to `assets/fox/animations/v2/head_tilt/source/Idle V2/`.
 
 > **What "a loop" means here, since it comes up a few times:** the game plays these over
 > and over with no gap, so the last frame has to lead straight back into the first. The
@@ -111,43 +96,66 @@ If there's a 46-frame full-size version, we'd love it — it would play smoother
 
 ### a2. The tail-swish idle (`idle_02`) — delivered 2026-11-21, in the game
 
-The tail lift and curl. **This is now the fox's standing idle**: whenever the fox is
-standing still, it plays this on a continuous loop. The first idle (head tilt and blink)
-is still in the repo but isn't on screen at the moment.
+The tail lift and curl. **This is the fox's standing idle**: whenever the fox is
+standing still, it plays this on a continuous loop.
 
-- **Sent at full size, exactly as asked**, and the same size as the first idle, so it
-  shrank to match with no adjustment. It **loops properly** too: the last frame leads
-  straight back into the first. And the pale orange is gone. Thank you!
+- **Sent at full size, exactly as asked**, so it shrank to match the rest of the set
+  with no adjustment. It **loops properly** too: the last frame leads straight back into
+  the first. And the pale orange is gone. Thank you!
 - **Your full-size frames moved** to `assets/fox/animations/v2/idle_02/source/`, next to
   a `.gdignore` that keeps them out of the game build. The game-size frames are
   `idle_02/001.png` … `027.png`.
-- **One question:** the outline and legs here are a lighter grey (`#3b3b39`) than in the
-  first idle (`#2f2f2e`). Not urgent while only this idle is on screen, but worth
-  settling on one grey so the two match if both come back.
 - **For the cleanup:** the back paw's toe tip shifts by a few pixels between frames
   (most visible in frames 2–3). Your full-size feet don't move at all; it's from the
-  shrink, and it's quickest to fix at game size.
+  shrink.
 
-### Cleaning up the game-size frames
+### a3. The head tilt — a starter is ready, at game size
 
-For the idles (and any clip we hand back the same way), please clean up **the frames
-the game uses**: `assets/fox/animations/v2/idle/` (`001.png` … `023.png`) and
-`assets/fox/animations/v2/idle_02/` (`001.png` … `027.png`). They're small enough that
-anything stray is easy to see. Pull first to get them.
+Your head tilt and blink from the first idle, already put onto the new idle's body, in
+`assets/fox/animations/v2/head_tilt/` (`001.png` … `023.png`). The tail and legs hold
+still, so only the head moves, and it's recoloured to your new outline grey. The plan
+is for the game to play it now and then, in between tail swishes: the fox glances, then
+carries on.
 
-Once you've started on these, they're yours: the import script stops regenerating
-that clip and only checks it, so your edits are never overwritten. That also means any
-change to the *pose* (like the tail bridge frames) is easiest to do at full size
-**before** you start the cleanup — or drawn straight in at game size, if you'd rather.
+It was put together by a script, so it needs a tidy:
+
+- **The neck seam.** The head was pasted on along the chin, so under the chin there's a
+  stray orange pixel or two, and the chin outline breaks in a few frames.
+- **The ear tips.** In the tail-swish idle you kept a little of the darker grey
+  (`#2f2f2e`) at the very tips of the ears; these use the lighter one throughout. Match
+  whichever you prefer.
+- **The first and last frames** should look exactly like the tail-swish idle's frame 1,
+  since this plays in from it and back out to it. Frame 1 is close, but it's still the
+  old head.
+
+No need to start from your big canvas for this one; see the next section.
+
+### Cleaning up: work at game size
+
+The frames to clean up are **the frames the game uses**:
+`assets/fox/animations/v2/idle_02/` (`001.png` … `027.png`) and
+`assets/fox/animations/v2/head_tilt/` (`001.png` … `023.png`). Pull first to get them.
+
+**Do the cleanup on these small frames, not on your full-size canvas.** The game
+shrinks the full-size frames to under a quarter of their size (about 2/9), so roughly
+20 of your full-size pixels become one game pixel: cleaning at full size means tending
+20 times more pixels than anyone will see, and the shrink then smudges some of your
+work anyway (the paw-toe wobble above is exactly that). At game size, every pixel you
+place is a pixel that ships. It's also the size Aseprite is built for. Open the PNGs
+directly, or import them as a sequence into one Aseprite file, and turn on a pixel grid
+and the onion skin.
+
+Once you've started on these, they're yours: the import script never regenerates them
+and only checks them, so your edits are never overwritten.
 
 The rules the game relies on (the import script checks all of them):
 
 - **Don't change the canvas size**, and don't crop or move the fox within it. Every
-  frame stays 210 × 188, the feet stay on the same row.
+  frame stays 216 × 185, the feet stay on the same row.
 - **Only the existing seven colours**, exactly. Use the eyedropper rather than picking
   by eye — a near-miss orange silently breaks the fox colour options.
 - **Hard edges only.** Pencil, not brush; no anti-aliasing, no soft eraser.
-- **Keep the filenames.** New frames go on the end (`024.png`, `025.png` …).
+- **Keep the filenames.** New frames go on the end (`028.png`, `029.png` … for the idle).
 - Commit only those files, and tell Nicholas — he'll run the check.
 
 ### b. Close the `run` cycle
