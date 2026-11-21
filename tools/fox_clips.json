@@ -105,6 +105,23 @@
       ]
     },
     {
+      "name": "idle_02",
+      "_note": "Second standing idle (delivered 2026-11-21): the tail lifts, curls up and settles; head and feet still. Not a replacement for idle but a variant of it -- fox_v2.gd plays it now and then in place of idle's next swing, starting and ending on the shared standing pose. Same full-size export as Idle V2 Big, and the probe suggests 0.2220 against walk, so the same scale as idle. Already the seven-colour palette (no #ea9c74). Its ends meet (the wrap is about 1.35x the mean step, inside the range of its own steps), so 'loops' is true. The source was moved into source/ beside a .gdignore, so Godot doesn't import 27 full-HD frames into the build. NOT hand_finished yet: mark it once the artist starts cleaning the game frames.",
+      "src": "assets/fox/animations/v2/idle_02/source",
+      "src_in_repo": true,
+      "scale": 0.222,
+      "out": "assets/fox/animations/v2/idle_02",
+      "stabilise": true,
+      "loops": true,
+      "planted": true,
+      "pack_group": "shrunk",
+      "cleanup": [
+        "Your tail-swish idle. Shrunk from your full-size frames the same way as the first idle, and it's the same size.",
+        "It loops properly -- the last frame leads straight back into the first. Thank you!",
+        "The outline and legs are a slightly lighter grey here (#3b3b39) than in the first idle (#2f2f2e). The game switches between the two idles, so the legs change shade when it does. Was that on purpose?"
+      ]
+    },
+    {
       "name": "stalk",
       "_note": "Low creeping walk. Starts after the fox has left the ball behind, so the ball is a separate shape and 'isolate' drops it. Thinned to every second frame: the creep is slow and 40 frames of it is more than the motion carries. Faces right in the source, so it is flipped.",
       "src": "Fox Play 02-20260907T173739Z-1-001/Fox Play 02/Fox",

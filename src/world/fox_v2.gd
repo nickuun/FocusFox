@@ -96,10 +96,24 @@ const CLIPS := {
 	#
 	# A blink every couple of seconds reads as nervous on a pet that idles for hours, so
 	# it rests on frame 1 for a while between swings ("rest", seconds, min and max).
+	#
+	# "variants": after a rest, the next swing is sometimes one of these instead (clip
+	# name -> chance per rest). A variant plays once through and hands back to this clip's
+	# frame 1 and another rest. Callers never see it: current_clip() still says "idle".
 	"idle": {
 		"frames": 23, "fps": 12.0, "art_scale": 1.0,
 		"playback": Playback.PINGPONG, "anchor": Vector2(105.0, 187.0),
 		"rest": Vector2(2.0, 6.0),
+		"variants": {"idle_02": 0.35},
+	},
+	# The second standing idle (delivered 2026-11-21): the tail lifts, curls up and
+	# settles, head and feet still. Only ever played as a variant of "idle", never
+	# directly. Its ends meet and both ends are the shared standing pose, so it goes
+	# straight back to idle's frame 1 without a hitch. ONESHOT so that animation_finished
+	# fires; the variant path catches it before clip_finished would be emitted.
+	"idle_02": {
+		"frames": 27, "fps": 12.0, "art_scale": 1.0,
+		"playback": Playback.ONESHOT, "anchor": Vector2(107.0, 184.0),
 	},
 
 	# --- Cut out of the delivered "Fox Play 02" ------------------------------------
@@ -277,6 +291,13 @@ func _apply_clip_transform(clip: String) -> void:
 func _on_animation_finished() -> void:
 	if _clip == "":
 		return
+	if animation != _clip:
+		# A variant just finished: back to the clip's own first frame, and rest again.
+		_apply_clip_transform(_clip)
+		animation = _clip
+		frame = 0
+		_rest_then_swing()
+		return
 	if CLIPS[_clip]["playback"] == Playback.ONESHOT:
 		clip_finished.emit(_clip)
 		return
@@ -288,14 +309,33 @@ func _on_animation_finished() -> void:
 	if _pingpong_reversing:
 		play_backwards(_clip)
 	elif CLIPS[_clip].has("rest") and is_inside_tree():
-		# Back on frame 1 with the swing done: hold there a while before the next one.
-		var rest: Vector2 = CLIPS[_clip]["rest"]
-		var cycle := _cycle
-		await get_tree().create_timer(randf_range(rest.x, rest.y)).timeout
-		if cycle == _cycle:
-			play(_clip)
+		_rest_then_swing()
 	else:
 		play(_clip)
+
+
+## Back on frame 1 with the swing done: hold there a while, then swing again — or, now
+## and then, play one of the clip's variants instead.
+func _rest_then_swing() -> void:
+	var spec: Dictionary = CLIPS[_clip]
+	if not spec.has("rest") or not is_inside_tree():
+		play(_clip)
+		return
+	var rest: Vector2 = spec["rest"]
+	var cycle := _cycle
+	await get_tree().create_timer(randf_range(rest.x, rest.y)).timeout
+	if cycle != _cycle:
+		return
+	var variants: Dictionary = spec.get("variants", {})
+	for variant in variants:
+		if randf() < float(variants[variant]) and sprite_frames.has_animation(variant) \
+				and sprite_frames.get_frame_count(variant) > 0:
+			_apply_clip_transform(variant)
+			animation = variant
+			frame = 0
+			play(variant)
+			return
+	play(_clip)
 
 
 func _build_frames() -> SpriteFrames:

@@ -109,11 +109,31 @@ If there's a 46-frame full-size version, we'd love it — it would play smoother
 > jump, it'll look like a jump in the game. `walk` and `sleep` both do this correctly and
 > are good references.
 
+### a2. The tail-swish idle (`idle_02`) — delivered 2026-11-21, in the game
+
+The tail lift and curl. It's a second idle, not a replacement: the fox mostly plays the
+first one, and now and then does the tail swish instead (roughly one rest in three).
+Both start and end on the same standing pose, so they hand over cleanly.
+
+- **Sent at full size, exactly as asked**, and the same size as the first idle, so it
+  shrank to match with no adjustment. It **loops properly** too: the last frame leads
+  straight back into the first. And the pale orange is gone. Thank you!
+- **Your full-size frames moved** to `assets/fox/animations/v2/idle_02/source/`, next to
+  a `.gdignore` that keeps them out of the game build. The game-size frames are
+  `idle_02/001.png` … `027.png`.
+- **One question:** the outline and legs here are a lighter grey (`#3b3b39`) than in the
+  first idle (`#2f2f2e`). Since the game switches between the two, the legs change shade
+  when it does. Whichever you prefer is fine — just make the two idles match.
+- **For the cleanup:** the back paw's toe tip shifts by a few pixels between frames
+  (most visible in frames 2–3). Your full-size feet don't move at all; it's from the
+  shrink, and it's quickest to fix at game size.
+
 ### Cleaning up the game-size frames
 
-For the idle (and any clip we hand back the same way), please clean up **the frames
-the game uses**, in `assets/fox/animations/v2/idle/` (`001.png` … `023.png`). They're
-small enough that anything stray is easy to see. Pull first to get them.
+For the idles (and any clip we hand back the same way), please clean up **the frames
+the game uses**: `assets/fox/animations/v2/idle/` (`001.png` … `023.png`) and
+`assets/fox/animations/v2/idle_02/` (`001.png` … `027.png`). They're small enough that
+anything stray is easy to see. Pull first to get them.
 
 Once you've started on these, they're yours: the import script stops regenerating
 that clip and only checks it, so your edits are never overwritten. That also means any
