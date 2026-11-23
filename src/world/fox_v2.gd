@@ -93,9 +93,32 @@ const CLIPS := {
 	# wrap is about 1.35x the mean step, inside the range of its own steps), so it plays as
 	# a straight loop with no rest. It replaced the first drawn idle (head tilt, blink,
 	# tail), whose head tilt is being redone on this body in assets/.../v2/head_tilt.
+	#
+	# "specials": now and then, at the loop point, one of these plays once instead of the
+	# next loop and hands back to frame 1. "special_every" is how many loops to wait
+	# between them, picked at random in that range each time (a loop is 2.25s, so 4-10
+	# loops is one every 9-22 seconds). Callers never see a special: current_clip() stays
+	# "idle_02" throughout.
 	"idle_02": {
 		"frames": 27, "fps": 12.0, "art_scale": 1.0,
 		"playback": Playback.LOOP, "anchor": Vector2(107.0, 184.0),
+		"specials": ["special_01"],
+		"special_every": Vector2i(4, 10),
+	},
+	# Special_Idle_01 (delivered 2026-11-22): a blink, a tail flick and curl, an ear wiggle
+	# and a turn towards the camera, from the standing pose and back to it. Only ever
+	# played as one of idle_02's specials. ONESHOT so animation_finished fires; the
+	# special path catches it before clip_finished would be emitted.
+	#
+	# The anchor is NOT the import's own (107, 188): that comes from this clip's bounding
+	# box, which the raised tail makes taller and wider than idle_02's, and the fox would
+	# hop 2px sideways at every switch. (109, 187) is found by sliding frame 1's silhouette
+	# over idle_02's until they line up: the cut in is then 510px of change, the same as
+	# one of idle_02's own steps (522 on average). The cut back out is 948, a touch over
+	# idle_02's largest step (827) — the last frame's tail, on the artist's list.
+	"special_01": {
+		"frames": 71, "fps": 12.0, "art_scale": 1.0,
+		"playback": Playback.ONESHOT, "anchor": Vector2(109.0, 187.0),
 	},
 
 	# --- Cut out of the delivered "Fox Play 02" ------------------------------------
@@ -163,6 +186,8 @@ var _clip := ""
 var _pingpong_reversing := false
 ## Bumped on every clip change, so a rest timer that outlives its clip knows to do nothing.
 var _cycle := 0
+## Loops of the current clip still to play before its next special (see "specials").
+var _loops_until_special := 0
 
 
 func _ready() -> void:
@@ -170,6 +195,8 @@ func _ready() -> void:
 	_ensure_frames()
 	if not animation_finished.is_connected(_on_animation_finished):
 		animation_finished.connect(_on_animation_finished)
+	if not animation_looped.is_connected(_on_animation_looped):
+		animation_looped.connect(_on_animation_looped)
 
 
 ## Build the frames if they aren't built yet.
@@ -195,6 +222,7 @@ func play_clip(clip: String) -> void:
 	animation = clip
 	frame = 0
 	play(clip)
+	_arm_special()
 
 
 func current_clip() -> String:
@@ -270,8 +298,44 @@ func _apply_clip_transform(clip: String) -> void:
 	offset = -(spec["anchor"] as Vector2)
 
 
+## Count down to the current clip's next special, if it has any.
+func _arm_special() -> void:
+	var every: Vector2i = CLIPS[_clip].get("special_every", Vector2i.ZERO)
+	_loops_until_special = randi_range(every.x, every.y)
+
+
+## A looping clip just came back round to frame 1. If a special is due, it goes on now,
+## in place of the next loop, so it starts from the same pose the loop would have.
+func _on_animation_looped() -> void:
+	if _clip == "" or animation != _clip or not CLIPS[_clip].has("specials"):
+		return
+	_loops_until_special -= 1
+	if _loops_until_special > 0:
+		return
+	var ready_specials: Array = []
+	for special in CLIPS[_clip]["specials"]:
+		if sprite_frames.has_animation(special) and sprite_frames.get_frame_count(special) > 0:
+			ready_specials.append(special)
+	if ready_specials.is_empty():
+		_arm_special()
+		return
+	var pick: String = ready_specials.pick_random()
+	_apply_clip_transform(pick)
+	animation = pick
+	frame = 0
+	play(pick)
+
+
 func _on_animation_finished() -> void:
 	if _clip == "":
+		return
+	if animation != _clip:
+		# A special just finished: back to the clip's frame 1, and count down again.
+		_apply_clip_transform(_clip)
+		animation = _clip
+		frame = 0
+		play(_clip)
+		_arm_special()
 		return
 	if CLIPS[_clip]["playback"] == Playback.ONESHOT:
 		clip_finished.emit(_clip)

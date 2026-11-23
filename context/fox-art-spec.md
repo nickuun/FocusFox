@@ -105,9 +105,34 @@ standing still, it plays this on a continuous loop.
 - **Your full-size frames moved** to `assets/fox/animations/v2/idle_02/source/`, next to
   a `.gdignore` that keeps them out of the game build. The game-size frames are
   `idle_02/001.png` … `027.png`.
-- **For the cleanup:** the back paw's toe tip shifts by a few pixels between frames
-  (most visible in frames 2–3). Your full-size feet don't move at all; it's from the
-  shrink.
+- **Cleaned up 2026-11-22.** Thank you! One thing is left: **the back paw's toe**.
+  Its tip is about 6 pixels shorter in frames **2 and 3** than in frame 1, and one
+  pixel shorter in frames 7–20, so the toe flickers. Copy the toe from frame 1 into
+  those frames and it's done. (It comes from the shrink, not your drawing: your
+  full-size feet don't move at all.)
+
+### a2b. The ear wiggle (`special_01`) — delivered 2026-11-22, in the game
+
+Your Special_Idle_01: the blink, the tail flick, the ear wiggle and the look. **It's
+in the game.** Every 9–22 seconds (at random), instead of the next tail swish, the fox
+plays this once and then goes straight back to the tail swish. It cuts in at the end
+of a swish, so it starts from the same pose.
+
+- **Shrunk for you**, the same way and the same size as the tail-swish idle. The
+  game-size frames are `assets/fox/animations/v2/special_01/001.png` … `071.png`
+  (219 × 189). Your full-size frames stay where you put them,
+  `Special_Idles/Special_Idle_01/`; that folder now has a `.gdignore` so they stay
+  out of the game build (future specials can go in there too).
+- **The outline grey was swapped.** This one was drawn with the darker grey
+  (`#2f2f2e`), the old idle's. The tail-swish idle uses the lighter one (`#3b3b39`), so
+  switching between them made the legs and outline flash darker. Everything is the
+  lighter grey now; put the darker one back on the ear tips if you want them to match
+  the tail swish exactly.
+- **The start is seamless.** Frame 1 lines up with the tail swish to the pixel.
+- **The end has a small hitch.** Going from frame 71 back to the tail swish's frame 1 is
+  a slightly bigger jump than any step within the swish, mostly the tail. Nudging
+  frame 71 (and maybe 70) towards the tail swish's frame 1 would smooth it out. Use the
+  onion skin with the tail swish's `001.png` underneath.
 
 ### a3. The head tilt — a starter is ready, at game size
 
@@ -133,8 +158,12 @@ No need to start from your big canvas for this one; see the next section.
 ### Cleaning up: work at game size
 
 The frames to clean up are **the frames the game uses**:
-`assets/fox/animations/v2/idle_02/` (`001.png` … `027.png`) and
-`assets/fox/animations/v2/head_tilt/` (`001.png` … `023.png`). Pull first to get them.
+
+- `assets/fox/animations/v2/idle_02/` (`001.png` … `027.png`, 216 × 185)
+- `assets/fox/animations/v2/special_01/` (`001.png` … `071.png`, 219 × 189)
+- `assets/fox/animations/v2/head_tilt/` (`001.png` … `023.png`, 216 × 185)
+
+Pull first to get them.
 
 **Do the cleanup on these small frames, not on your full-size canvas.** The game
 shrinks the full-size frames to under a quarter of their size (about 2/9), so roughly
@@ -150,8 +179,8 @@ and only checks them, so your edits are never overwritten.
 
 The rules the game relies on (the import script checks all of them):
 
-- **Don't change the canvas size**, and don't crop or move the fox within it. Every
-  frame stays 216 × 185, the feet stay on the same row.
+- **Don't change the canvas size**, and don't crop or move the fox within it. Each
+  clip keeps the size it came at (above), and the feet stay on the same row.
 - **Only the existing seven colours**, exactly. Use the eyedropper rather than picking
   by eye — a near-miss orange silently breaks the fox colour options.
 - **Hard edges only.** Pencil, not brush; no anti-aliasing, no soft eraser.
