@@ -106,6 +106,26 @@
       ]
     },
     {
+      "name": "special_01",
+      "_note": "Special_Idle_01 (delivered 2026-11-22): a blink, a tail flick and curl, then an ear wiggle and a turn towards the camera, starting and ending on the standing pose. Played now and then in place of a loop of idle_02 (see fox_v2.gd 'specials'). Built on the old Idle V2 drawing, so its outline is the darker #2f2f2e; mapped to idle_02's #3b3b39 so the legs don't flash at every switch. Same full-size tier as idle_02 (the probe suggests 0.2199). 'loops' false: it's played once and hands back to idle_02, so it's its ends against idle_02's frame 1 that matter, not against each other. The source stays where she pushed it, under Special_Idles/ beside a .gdignore.",
+      "src": "assets/fox/animations/v2/Special_Idles/Special_Idle_01",
+      "src_in_repo": true,
+      "scale": 0.222,
+      "out": "assets/fox/animations/v2/special_01",
+      "stabilise": true,
+      "loops": false,
+      "planted": true,
+      "palette_map": {"#2f2f2e": "#3b3b39"},
+      "hand_finished": true,
+      "_hand_finished_note": "Handed to the artist 2026-11-23 to clean up at game size. --regenerate would overwrite her work.",
+      "pack_group": "shrunk",
+      "cleanup": [
+        "Your ear wiggle and look. Shrunk from your full-size frames, same size as the tail-swish idle.",
+        "The darker outline grey (#2f2f2e) is now the lighter one (#3b3b39) everywhere, to match the tail-swish idle, so the legs don't change shade when the game switches between them. The ear tips in the tail-swish idle keep a little of the darker grey: match those if you like.",
+        "Frame 1 and the last frame should look like the tail-swish idle's frame 1, since this plays in from it and back out to it. The start is spot on; the last frame is a little further off (mostly the tail), so it shows as a small hitch."
+      ]
+    },
+    {
       "name": "head_tilt",
       "_note": "STARTER, not finished art (made 2026-11-21). The head tilt and blink from the retired first idle (Idle V2), pasted onto idle_02 frame 1's body and tail, so the tail holds still and the clip starts and ends on the standing pose. Each Idle V2 game frame was placed at idle_02's anchor, the head above a cut along the chin (row 101, rising to row 88 across the back of the neck at x 80-100) taken from it and everything else from idle_02 frame 1, and #2f2f2e recoloured to #3b3b39 to match her new outline grey. The artist works on these game-size frames directly. There is no source to regenerate from (her Idle V2 originals are in source/ for reference), so the import only ever checks it, --regenerate included. Not wired into the game yet: it is meant as the drawn fox's occasional glance, planetoid's idle_look.",
       "out": "assets/fox/animations/v2/head_tilt",
